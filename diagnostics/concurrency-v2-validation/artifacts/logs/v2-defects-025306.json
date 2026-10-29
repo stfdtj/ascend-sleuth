@@ -1,0 +1,37 @@
+{
+  "name": "v2-defects",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "E11 current build_entry_activity",
+      "rc": 1,
+      "out": "",
+      "err": "Traceback (most recent call last):\n  File \"D:\\working\\asv2\\d2\\scripts\\build_entry_activity.py\", line 117, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"D:\\working\\asv2\\d2\\scripts\\build_entry_activity.py\", line 81, in main\n    text = build_one(root, dep, rows, library_cases, library_refs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\working\\asv2\\d2\\scripts\\build_entry_activity.py\", line 56, in build_one\n    return ea.render(ea.aggregate(rows, dep, library_cases, library_refs))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\working\\asv2\\d2\\scripts\\entry_activity.py\", line 495, in aggregate\n    \"checkouts\": sorted(checkouts),\n                 ^^^^^^^^^^^^^^^^^\nTypeError: '<' not supported between instances of 'str' and 'int'\n"
+    },
+    {
+      "step": "E11 after coerce-to-str fix",
+      "rc": 0,
+      "out": "已重建 D:\\working\\asv2\\d2\\metrics\\entry-activity\\ascend-sleuth.yaml\n已重建 D:\\working\\asv2\\d2\\metrics\\entry-activity\\d2.yaml\n",
+      "err": ""
+    },
+    {
+      "step": "E12 snapshot emit",
+      "rc": 0,
+      "out": "period: 2026-W44-live-1029\nkind: live\ntitle: 本期指标（metrics_snapshot.py 组装，人复核）\nrecorded_at: '2026-10-29'\nsource: metrics_snapshot.py（诊断侧+结构侧+内容流程侧，逐块见 sources）\nsources:\n  diagnose_side: trace_metrics.py（traces/*.yaml ← 主检出（同一克隆共享侧），1 个 session）\n  structural_side: case 文件现算（scripts/index_counts.py：条数/",
+      "err": ""
+    },
+    {
+      "step": "E12 verify_metrics current",
+      "rc": 1,
+      "out": "metrics/timeline.yaml 校验失败（2 处）：\n  - periods[8] [2026-W44-live-1029]: live 字段超出白名单 ['external_record_violations_total']（合法字段: attribution_ratio, by_category_hit, capacity_by_ns, case_total, confidence_distribution, considered_candidates_events, content_flow_runs, evolve_check_no_signal, evolve_check_runs, feedback_capture, misdiagnosis_rate, parallel_group_events, reference, reference_detail, reference_outcomes, reference_purposes, reference_total, routed_accuracy, sessions_total, stop_reason_unrecorded, stop_reasons, tier2_hit, tier3, trace_completeness, trace_record_violations, trace_record_violations_total, triage_miss_classes, triage_miss_sessions, vocab_compliance；字段名漂移=跨期不可比，W28/W35 教训）\n  - 以下指标出现在期文件里，但 metrics/gates.yaml 的 metric_strength 没有声明强度档：['considered_candidates_events', 'external_record_violations_total', 'parallel_group_events', 'stop_reason_unrecorded', 'trace_record_violations_total', 'triage_miss_classes']（强度档决定读者能不能把它与确定性读数同权）\n",
+      "err": ""
+    },
+    {
+      "step": "E12 after whitelist/strength fix",
+      "rc": 0,
+      "out": "metrics 校验通过（9 期，其中 live 4）\n",
+      "err": ""
+    }
+  ]
+}

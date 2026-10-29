@@ -1,0 +1,422 @@
+﻿{
+  "pairs": [
+    {
+      "a": "2026-10-28-diag-004",
+      "b": "2026-10-28-diag-005",
+      "score": 1.0,
+      "reasons": [
+        "same-cell-overlap",
+        "shared-upstream"
+      ],
+      "axes": {
+        "source": "same",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-issue-different-root-cause：同一 issue 根因词重合低，可能含多个问题",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-007",
+      "b": "2026-10-28-diag-008",
+      "score": 0.769,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-007",
+      "b": "2026-10-28-diag-009",
+      "score": 0.769,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-007",
+      "b": "2026-10-28-diag-010",
+      "score": 0.769,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-003",
+      "b": "2026-10-28-diag-006",
+      "score": 0.714,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-003",
+      "b": "2026-10-28-diag-008",
+      "score": 0.714,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-008",
+      "b": "2026-10-28-diag-009",
+      "score": 0.714,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-008",
+      "b": "2026-10-28-diag-010",
+      "score": 0.714,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-009",
+      "b": "2026-10-28-diag-010",
+      "score": 0.714,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-003",
+      "b": "2026-10-28-diag-007",
+      "score": 0.692,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-003",
+      "b": "2026-10-28-diag-010",
+      "score": 0.643,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-006",
+      "b": "2026-10-28-diag-009",
+      "score": 0.643,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-006",
+      "b": "2026-10-28-diag-007",
+      "score": 0.615,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-004",
+      "b": "2026-10-28-diag-010",
+      "score": 0.571,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-005",
+      "b": "2026-10-28-diag-010",
+      "score": 0.571,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-006",
+      "b": "2026-10-28-diag-008",
+      "score": 0.571,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-006",
+      "b": "2026-10-28-diag-010",
+      "score": 0.571,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "disjoint",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-004",
+      "b": "2026-10-28-diag-007",
+      "score": 0.538,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-005",
+      "b": "2026-10-28-diag-007",
+      "score": 0.538,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "same"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-003",
+      "b": "2026-10-28-diag-009",
+      "score": 0.529,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "a": "2026-10-28-diag-004",
+      "b": "2026-10-28-diag-009",
+      "score": 0.529,
+      "reasons": [
+        "same-cell-overlap"
+      ],
+      "axes": {
+        "source": "unknown",
+        "root_cause": "needs-human-read",
+        "discriminator": "same",
+        "fix": "needs-human-read",
+        "conditions": "overlap",
+        "evidence": "different"
+      },
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    }
+  ],
+  "unshown": 23,
+  "library_cases": 0,
+  "inputs": 11
+}

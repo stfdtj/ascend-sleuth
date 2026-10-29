@@ -1,0 +1,155 @@
+{
+  "experiment": "checkpoint-c",
+  "generated_at": "2026-10-28T16:05:31.025236+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [],
+  "rows": [
+    {
+      "step": "baseline",
+      "rc": 0,
+      "stdout_tail": "55c20dc1216590ac3175cb963f59b7cc7fd18296",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C1 recheck same-path branch before any merge",
+      "rc": 0,
+      "stdout_tail": "{\"target_main\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\", \"head\": \"a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1\", \"merge_base\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\", \"same_path_added_both\": [], \"both_changed_cases\": {\"added_both\": [], \"modified_both\": [], \"deleted_by_main_modified_by_head\": [], \"modified_by_main_deleted_by_head\": [], \"added_by_main_renamed_by_head\": []}, \"candidates\": []}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C1 report written",
+      "rc": 0,
+      "stdout_tail": "共同祖先：55c20dc1216590ac3175cb963f59b7cc7fd18296\n双方都改的 case：{\"added_both\": [], \"modified_both\": [], \"deleted_by_main_modified_by_head\": [], \"modified_by_main_deleted_by_head\": [], \"added_by_main_renamed_by_head\": []}\n同路径双方都新增：[]\n同路径双方内容不同：[]\n重命名/删除的 id：[]\n另一侧仍提到已改名的 id：[]\n碰到的生成物：[]\n候选对（0 对，另有 0 对未展示）：\n决定：TODO（人填）\n证据去向：TODO（人填）\n未决项：TODO（人填）\n负责人：TODO（人填）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C2 merge kb/add-92001 (A) into main",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-92001.yaml      | 31 ++++++++++++++++++++++\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "C2 recheck after A merged (same path now on both sides)",
+      "rc": 0,
+      "stdout_tail": "{\"both_changed_cases\": {\"added_both\": [\"VLLM-ASC-92001\"], \"modified_both\": [], \"deleted_by_main_modified_by_head\": [], \"modified_by_main_deleted_by_head\": [], \"added_by_main_renamed_by_head\": []}, \"same_path_added_both\": [\"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml\"], \"stale\": {\"recorded\": {\"main\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\", \"head\": \"a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1\", \"base\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\"}, \"current\": {\"main\": \"20dfde36b40ec402a069a5e58ec267b7f4739d93\", \"head\": \"a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1\", \"base\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\"}, \"matches_current\": false}, \"candidates\": []}",
+      "stderr_tail": "",
+      "stale": {
+        "recorded": {
+          "main": "55c20dc1216590ac3175cb963f59b7cc7fd18296",
+          "head": "a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1",
+          "base": "55c20dc1216590ac3175cb963f59b7cc7fd18296"
+        },
+        "current": {
+          "main": "20dfde36b40ec402a069a5e58ec267b7f4739d93",
+          "head": "a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1",
+          "base": "55c20dc1216590ac3175cb963f59b7cc7fd18296"
+        },
+        "matches_current": false
+      }
+    },
+    {
+      "step": "C3 merge B while holding a stale report",
+      "rc": 1,
+      "stdout_tail": "Auto-merging knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml\nCONFLICT (add/add): Merge conflict in knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml\nAutomatic merge failed; fix conflicts and then commit the result.",
+      "stderr_tail": "",
+      "conflicted": [
+        "knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml"
+      ]
+    },
+    {
+      "step": "C3 merge aborted (the conflict is git's doing, not the report's)",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C4 different IDs, same problem: candidate surfaced?",
+      "rc": 0,
+      "stdout_tail": "{\"pair\": [{\"a\": \"VLLM-ASC-92002\", \"b\": \"VLLM-ASC-92001\", \"score\": 0.522, \"reasons\": [\"same-cell-overlap\"], \"hints\": [\"same-session-two-cases：同一 session 被两处引用，确认是否重复结算\"]}], \"all_candidates\": [{\"a\": \"VLLM-ASC-92002\", \"b\": \"VLLM-ASC-92001\", \"score\": 0.522, \"reasons\": [\"same-cell-overlap\"], \"hints\": [\"same-session-two-cases：同一 session 被两处引用，确认是否重复结算\"]}]}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C5 merge edit-compat into main",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "C5 recheck edit-fix against main that edited the same case",
+      "rc": 0,
+      "stdout_tail": "{\"both_changed_cases\": {\"added_both\": [], \"modified_both\": [\"VLLM-ASC-92001\"], \"deleted_by_main_modified_by_head\": [], \"modified_by_main_deleted_by_head\": [], \"added_by_main_renamed_by_head\": []}, \"same_path_differing\": [\"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml\"], \"candidates\": []}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C5 merge edit-fix (clean auto-merge produces the combined file)",
+      "rc": 0,
+      "stdout_tail": "Auto-merging knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml\nMerge made by the 'ort' strategy.\n knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001.yaml | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "C6 main adds a case whose text references 92001",
+      "rc": 0,
+      "stdout_tail": "[main 632009b] main: add 92003 referencing 92001\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92003.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C6 recheck rename branch against main",
+      "rc": 0,
+      "stdout_tail": "{\"renamed_or_deleted_ids\": [\"VLLM-ASC-92001->VLLM-ASC-92001R\"], \"dangling_mentions\": [{\"id\": \"VLLM-ASC-92001\", \"mentioned_in\": \"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92003.yaml\"}], \"both_changed_cases\": {\"added_both\": [], \"modified_both\": [], \"deleted_by_main_modified_by_head\": [], \"modified_by_main_deleted_by_head\": [], \"added_by_main_renamed_by_head\": []}}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C6 merge rename (clean?)",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../interrupt/{VLLM-ASC-92001.yaml => VLLM-ASC-92001R.yaml}           | 4 ++--\n 1 file changed, 2 insertions(+), 2 deletions(-)\n rename knowledge/inference/vllm-ascend/interrupt/{VLLM-ASC-92001.yaml => VLLM-ASC-92001R.yaml} (90%)",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "C6 build_index --check after rename+new case (text reference not machine-checked)",
+      "rc": 1,
+      "stdout_tail": "索引问题：inference__vllm-ascend__interrupt.list 里缺 VLLM-ASC-92001R（knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92001R.yaml）——跑 `python3 scripts/build_index.py`\n索引问题：inference__vllm-ascend__interrupt.list 里缺 VLLM-ASC-92003（knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92003.yaml）——跑 `python3 scripts/build_index.py`\n索引问题：inference__vllm-ascend.list（ns 兜底视图，category 未定时读它）里缺 VLLM-ASC-92001R——跑 `python3 scripts/build_index.py`\n索引问题：inference__vllm-ascend.list（ns 兜底视图，category 未定时读它）里缺 VLLM-ASC-92003——跑 `python3 scripts/build_index.py`\n索引问题：总表缺条目：VLLM-ASC-92001R——跑 `python3 scripts/build_index.py`\n索引问题：总表缺条目：VLLM-ASC-92003——跑 `python3 scripts/build_index.py`\n6 处。生成物（读侧视图与总表）随 PR 提交，跑一次重建即可：\n  python3 scripts/build_index.py",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C7 recheck branch that edits generated artifacts",
+      "rc": 0,
+      "stdout_tail": "{\"generated_artifacts_touched\": [\"knowledge/_index.yaml\"]}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C7 generated-guard on the same branch",
+      "rc": 1,
+      "stdout_tail": "PR 改了生成物。这些文件由脚本生成，合入后由主干 job 重建：\n  knowledge/_index.yaml\n修法：把生成物还原到基线，只提交源文件。\n  git checkout main -- knowledge/_index.yaml\n然后重新提交；不要跑生成器后把结果一起提交。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C8 recheck the same branch after main advanced and the branch was rebased",
+      "rc": 0,
+      "stdout_tail": "{\"stale\": {\"recorded\": {\"main\": \"ed8e3e2b99c6e40618911a6b5371d720af3c563e\", \"head\": \"4e102b53110b3896cc84a7e2bc33191ddb76f09a\", \"base\": \"55c20dc1216590ac3175cb963f59b7cc7fd18296\"}, \"current\": {\"main\": \"d69c72b814e28ebfced35463f13bcea8bd4737a9\", \"head\": \"94b9f92743c2d2b3be57bc1c84972d7813238f6b\", \"base\": \"d69c72b814e28ebfced35463f13bcea8bd4737a9\"}, \"matches_current\": false}, \"old_head\": \"4e102b53110b3896cc84a7e2bc33191ddb76f09a\", \"new_head\": \"94b9f92743c2d2b3be57bc1c84972d7813238f6b\", \"new_main\": \"d69c72b814e28ebfced35463f13bcea8bd4737a9\", \"old_report_head\": \"4e102b53110b3896cc84a7e2bc33191ddb76f09a\"}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C8 PR body gate on a body quoting the OLD head sha",
+      "rc": 0,
+      "stdout_tail": "识别模板: knowledge_intake，关键区块齐全 ✓；Agent 预核意见 —（可选：非 agent 链路可留空，不拦截）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "C8 merge the rebased branch (clean, no recheck enforcement)",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-92002.yaml      | 31 ++++++++++++++++++++++\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-92002.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "C9 is merge_recheck wired into CI / skills?",
+      "rc": 0,
+      "stdout_tail": "scripts/eval_arena.py:622:            print(f\"  吸收状态未变（指纹 {recheck['rev_now']}）\")\nscripts/eval_arena.py:651:    rechecks = {}\nscripts/eval_arena.py:653:        rc = recheck_from_stats(root, s, idx)\nscripts/eval_arena.py:654:        rechecks[side] = rc\nscripts/eval_arena.py:699:        \"absorption_recheck\": {\"baseline\": rechecks.get(\"baseline\"),\nscripts/eval_arena.py:700:                               \"candidate\": rechecks.get(\"candidate\")},\nscripts/settle_s2_feedback.py:134:    recheck = []  # inconsistent → 复审候选\nscripts/settle_s2_feedback.py:195:            recheck.append({\"case\": hit_case, \"issue\": issue, \"path\": str(case_f)})\nscripts/settle_s2_feedback.py:261:    print(f\"发现 {len(diffs)} 条 S2 结算变更（{len(recheck)} 条复审候选）。\\n\")\nscripts/settle_s2_feedback.py:264:    if recheck:\nscripts/settle_s2_feedback.py:266:        for r in recheck:\nscripts/verify_proposals.py:21:#   10. validation.method ∈ {golden_replay, metrics_compare, issue_replay, scan_review}（2026-09 去 tally_recheck——台账复测已改归因事件复测；scan_review 补\"指引面/文档面改动\"——不跑检索 golden，scan + 人审，见 evolve-check 分级）",
+      "stderr_tail": ""
+    }
+  ]
+}

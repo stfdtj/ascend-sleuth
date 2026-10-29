@@ -1,0 +1,19 @@
+{
+  "name": "v2-s1",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "V1 flat same-name 10 rounds",
+      "rc": 0,
+      "out": "{\"both\": 0, \"one\": 10}",
+      "err": ""
+    },
+    {
+      "step": "V2 UUID 8 concurrent creators",
+      "rc": 0,
+      "out": "{\"dirs\": 8, \"unique\": 8}",
+      "err": ""
+    }
+  ]
+}

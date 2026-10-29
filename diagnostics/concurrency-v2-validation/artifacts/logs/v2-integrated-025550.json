@@ -1,0 +1,67 @@
+{
+  "name": "v2-integrated",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "A/B drafts complete",
+      "rc": 0,
+      "out": "{\"A\": \"D:\\\\working\\\\asv2\\\\i2a\\\\postmortems\\\\inbox\\\\e9d4c0f5-a655-43db-aaa8-058d1b87d835\", \"B\": \"D:\\\\working\\\\asv2\\\\i2b\\\\postmortems\\\\inbox\\\\82423c6d-9589-46a9-8f85-bd0a9d8fc4d4\"}",
+      "err": ""
+    },
+    {
+      "step": "A merge",
+      "rc": 0,
+      "out": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-96001.yaml      | 31 ++++++++++++++++++++++\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-96001.yaml",
+      "err": ""
+    },
+    {
+      "step": "A post-merge rebuild",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "B C before refresh (stale/missing pair)",
+      "rc": 1,
+      "out": "{\"base\": \"43a12a11f60cac1ac6ef610e52ea0863d7d35d5d\", \"head\": \"ff8140b532badf0d3d0c1a63d88441c1e9a5e633\", \"merge_base\": \"43a12a11f60cac1ac6ef610e52ea0863d7d35d5d\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"fe2a32e184a9c86f\", \"a\": \"VLLM-ASC-96002\", \"b\": \"VLLM-ASC-10303\", \"tier\": \"high\", \"score\": 0.286}, {\"pair_id\": \"e2cd0597c34a4e16\", \"a\": \"VLLM-ASC-96002\", \"b\": \"VLLM-ASC-96001\", \"tier\": \"mandatory\", \"score\": 0.357}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": true, \"missing_pairs\": [\"e2cd0597c34a4e16\", \"fe2a32e184a9c86f\"], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"dd3e6b33ff06affe7443fdf29c21d1e1a2edf139\"}}",
+      "err": ""
+    },
+    {
+      "step": "simulated required check before decision",
+      "rc": 1,
+      "out": "merge blocked=True",
+      "err": ""
+    },
+    {
+      "step": "B C after decision refresh",
+      "rc": 0,
+      "out": "{\"base\": \"43a12a11f60cac1ac6ef610e52ea0863d7d35d5d\", \"head\": \"ff8140b532badf0d3d0c1a63d88441c1e9a5e633\", \"merge_base\": \"43a12a11f60cac1ac6ef610e52ea0863d7d35d5d\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"fe2a32e184a9c86f\", \"a\": \"VLLM-ASC-96002\", \"b\": \"VLLM-ASC-10303\", \"tier\": \"high\", \"score\": 0.286}, {\"pair_id\": \"e2cd0597c34a4e16\", \"a\": \"VLLM-ASC-96002\", \"b\": \"VLLM-ASC-96001\", \"tier\": \"mandatory\", \"score\": 0.357}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"43a12a11f60cac1ac6ef610e52ea0863d7d35d5d\"}}",
+      "err": ""
+    },
+    {
+      "step": "simulated required check after decision",
+      "rc": 0,
+      "out": "merge blocked=False",
+      "err": ""
+    },
+    {
+      "step": "B merge after gate",
+      "rc": 0,
+      "out": "Merge made by the 'ort' strategy.\n .../vllm-ascend/precision/VLLM-ASC-96002.yaml      | 32 ++++++++++++++++++++++\n postmortems/decisions/VLLM-ASC-96002.yaml          |  9 ++++++\n 2 files changed, 41 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/precision/VLLM-ASC-96002.yaml\n create mode 100644 postmortems/decisions/VLLM-ASC-96002.yaml",
+      "err": ""
+    },
+    {
+      "step": "post-merge rebuild after B",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "retrieval both cases",
+      "rc": 0,
+      "out": "96001=True 96002=True",
+      "err": ""
+    }
+  ]
+}

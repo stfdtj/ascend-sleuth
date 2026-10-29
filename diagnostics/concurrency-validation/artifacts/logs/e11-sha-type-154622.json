@@ -1,0 +1,32 @@
+{
+  "experiment": "e11-sha-type",
+  "generated_at": "2026-10-28T15:46:22.579251+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [],
+  "rows": [
+    {
+      "step": "build_entry_activity with mixed int/str checkout values",
+      "rc": 1,
+      "stdout_tail": "",
+      "stderr_tail": "    sys.exit(main())\n             ^^^^^^\n  File \"D:\\working\\asv\\e11\\scripts\\build_entry_activity.py\", line 81, in main\n    text = build_one(root, dep, rows, library_cases, library_refs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\working\\asv\\e11\\scripts\\build_entry_activity.py\", line 56, in build_one\n    return ea.render(ea.aggregate(rows, dep, library_cases, library_refs))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\working\\asv\\e11\\scripts\\entry_activity.py\", line 495, in aggregate\n    \"checkouts\": sorted(checkouts),\n                 ^^^^^^^^^^^^^^^^^\nTypeError: '<' not supported between instances of 'str' and 'int'"
+    },
+    {
+      "step": "verify_entry_activity on the same source rows",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：5 行、2 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "build_entry_activity after quoting the numeric-looking SHA",
+      "rc": 0,
+      "stdout_tail": "已重建 D:\\working\\asv\\e11\\metrics\\entry-activity\\ascend-sleuth.yaml\n已重建 D:\\working\\asv\\e11\\metrics\\entry-activity\\e11.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "settle_trace_feedback row construction (writes checkout/kb_rev unquoted)",
+      "rc": 0,
+      "stdout_tail": "286: rows.append({\"run\": run_id, \"deployment\": dep, \"checkout\": ea.checkout_rev(root),",
+      "stderr_tail": ""
+    }
+  ]
+}

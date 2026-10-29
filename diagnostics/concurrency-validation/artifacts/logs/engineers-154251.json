@@ -1,0 +1,678 @@
+{
+  "experiment": "engineers",
+  "generated_at": "2026-10-28T15:42:51.875265+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [
+    "baseline: 28adab0d1db1f00989b5416dfeaf8206df71ca4a",
+    "same-path conflicted files: ['knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml']",
+    "E6 merged file contains both the widened compat range and the 'only 0.22.0' step: semantically contradictory, mechanically green"
+  ],
+  "rows": [
+    {
+      "step": "a1: verify_case_draft draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "a1: promotion gate",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "a1: create branch kb/a1",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/a1'"
+    },
+    {
+      "step": "a1: commit source-only",
+      "rc": 0,
+      "stdout_tail": "[kb/a1 a9053e4] kb: VLLM-ASC-90001 (a1)\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "a1: push",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "b1: verify_case_draft draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "b1: promotion gate",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "b1: create branch kb/b1",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/b1'"
+    },
+    {
+      "step": "b1: commit source-only",
+      "rc": 0,
+      "stdout_tail": "[kb/b1 b3ddb9a] kb: VLLM-ASC-90002 (b1)\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/precision/VLLM-ASC-90002.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "b1: push",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "B pre-triage: read own cell view",
+      "rc": 0,
+      "stdout_tail": "rows=32; contains A id=False; contains A title keyword=True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "B local index does not contain A (B never fetched A's branch)",
+      "rc": 0,
+      "stdout_tail": "contains A id in B's _index.yaml: False",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: merge kb/a1",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-90001.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "order A-first: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "order A-first: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main 3e55a6f] chore: rebuild generated views\n 4 files changed, 20 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: A visible right after A merged",
+      "rc": 0,
+      "stdout_tail": "{\"knowledge/_index.yaml\": true, \"knowledge/_index/inference__vllm-ascend.list\": true, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": true, \"knowledge/_index/inference__vllm-ascend__precision.list\": false}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: merge kb/b1",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/precision/VLLM-ASC-90002.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/precision/VLLM-ASC-90002.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "order A-first: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__precision.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "order A-first: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main f34dbb5] chore: rebuild generated views\n 4 files changed, 19 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: verify_case_draft --all",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（173 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: build_index --check",
+      "rc": 0,
+      "stdout_tail": "索引覆盖完整：173 条 case 的读侧行与总表条目都在（读侧视图 15 个）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: verify_references --check",
+      "rc": 0,
+      "stdout_tail": "references 校验通过（267 个词条，id 全部唯一）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: verify_entry_activity",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: verify_metrics --check",
+      "rc": 0,
+      "stdout_tail": "metrics 校验通过（8 期，其中 live 3）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: holdout --check",
+      "rc": 0,
+      "stdout_tail": "holdout --check: OK（11 条封存夹具内容未被改动）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order A-first: eval_scorecard --check",
+      "rc": 0,
+      "stdout_tail": "  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞\n  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞\n  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞\n  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞\n  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞\n  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞\n  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞\n  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞\n  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞\n  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞\n  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞\nscorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: merge kb/b1",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/precision/VLLM-ASC-90002.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/precision/VLLM-ASC-90002.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "order B-first: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__precision.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "order B-first: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main ef2194c] chore: rebuild generated views\n 4 files changed, 19 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: merge kb/a1",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-90001.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "order B-first: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "order B-first: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main 89d6c40] chore: rebuild generated views\n 4 files changed, 20 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: verify_case_draft --all",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（173 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: build_index --check",
+      "rc": 0,
+      "stdout_tail": "索引覆盖完整：173 条 case 的读侧行与总表条目都在（读侧视图 15 个）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: verify_references --check",
+      "rc": 0,
+      "stdout_tail": "references 校验通过（267 个词条，id 全部唯一）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: verify_entry_activity",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: verify_metrics --check",
+      "rc": 0,
+      "stdout_tail": "metrics 校验通过（8 期，其中 live 3）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: holdout --check",
+      "rc": 0,
+      "stdout_tail": "holdout --check: OK（11 条封存夹具内容未被改动）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "order B-first: eval_scorecard --check",
+      "rc": 0,
+      "stdout_tail": "  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞\n  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞\n  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞\n  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞\n  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞\n  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞\n  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞\n  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞\n  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞\n  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞\n  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞\nscorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "ORDER COMPARISON",
+      "rc": 0,
+      "stdout_tail": "A-first conflicts=[]; B-first conflicts=[]; gates A-first={'verify_case_draft --all': 0, 'build_index --check': 0, 'verify_references --check': 0, 'verify_entry_activity': 0, 'verify_metrics --check': 0, 'holdout --check': 0, 'eval_scorecard --check': 0}; gates B-first={'verify_case_draft --all': 0, 'build_index --check': 0, 'verify_references --check': 0, 'verify_entry_activity': 0, 'verify_metrics --check': 0, 'holdout --check': 0, 'eval_scorecard --check': 0}",
+      "stderr_tail": "",
+      "conflicts_a_first": [],
+      "conflicts_b_first": []
+    },
+    {
+      "step": "A-first: both duplicate cases present in the class views",
+      "rc": 0,
+      "stdout_tail": "{\"VLLM-ASC-90001\": {\"knowledge/_index.yaml\": true, \"knowledge/_index/inference__vllm-ascend.list\": true, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": true, \"knowledge/_index/inference__vllm-ascend__precision.list\": false}, \"VLLM-ASC-90002\": {\"knowledge/_index.yaml\": true, \"knowledge/_index/inference__vllm-ascend.list\": true, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": false, \"knowledge/_index/inference__vllm-ascend__precision.list\": true}}",
+      "stderr_tail": "",
+      "both_present": true
+    },
+    {
+      "step": "B-first: both duplicate cases present in the class views",
+      "rc": 0,
+      "stdout_tail": "{\"VLLM-ASC-90001\": {\"knowledge/_index.yaml\": true, \"knowledge/_index/inference__vllm-ascend.list\": true, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": true, \"knowledge/_index/inference__vllm-ascend__precision.list\": false}, \"VLLM-ASC-90002\": {\"knowledge/_index.yaml\": true, \"knowledge/_index/inference__vllm-ascend.list\": true, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": false, \"knowledge/_index/inference__vllm-ascend__precision.list\": true}}",
+      "stderr_tail": "",
+      "both_present": true
+    },
+    {
+      "step": "repository-wide duplicate-check / merge-recheck implementation present?",
+      "rc": 0,
+      "stdout_tail": "scripts/ev_proposal.py:10:#      查重与冲突检测（orchestration §5.2）\nscripts/verify_references.py:53:# 解析结果按路径记忆：refs 在三处被解析（id 集、id 查重、逐条校验），而一次校验里文件不会变\nskills/evolve-check/SKILL.md:55:| `record-only` | 第 1、2 步照做；第 3 步不产卡、不查重、不跑验证门，只把命中的信号写进台账 `proposals/signals/`（见第 3 步的 record-only 分支）；第 4 步照落记录 |\nskills/evolve-check/SKILL.md:119:> 台账随 PR 提交（`proposals/signals/`，一条信号一个文件）。收尾说明里给出台账条数，并提示拿批的人可以跑 `python3 scripts/evolve_signals.py export` 生成可粘贴的 issue / MR 描述。后续步骤（查重、产骨架、验证门、judgement）整段跳过。\nskills/evolve-check/SKILL.md:129:2. 查重 + **同组件先例咨询**（防重提被拒方案——skill-impact 咨询语义；\nskills/evolve-check/SKILL.md:285:| 查重/产卡骨架 | `scripts/ev_proposal.py --list / --new` |\nskills/self-evolve/SKILL.md:58:1. 查重 + **同组件先例咨询**（规则同 /skill:evolve-check 第 3 步，两 skill 共用产卡链）：\nskills/self-evolve/SKILL.md:152:| 查重/产卡 | `scripts/ev_proposal.py --list / --new` | 产卡时 |",
+      "stderr_tail": ""
+    },
+    {
+      "step": "publish integrated main (A then B) to the lab remote",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "stale-check: B's novelty conclusion was produced against base",
+      "rc": 0,
+      "stdout_tail": "base=28adab0d1db1f00989b5416dfeaf8206df71ca4a; B's merged index already has A: False",
+      "stderr_tail": ""
+    },
+    {
+      "step": "attempt to run the proposal's duplicate finder on the merged repo",
+      "rc": 2,
+      "stdout_tail": "",
+      "stderr_tail": "C:\\Users\\15344\\AppData\\Local\\Programs\\Python\\Python312\\python.exe: can't open file 'D:\\\\working\\\\asv\\\\int_ab\\\\scripts\\\\find_duplicates.py': [Errno 2] No such file or directory"
+    },
+    {
+      "step": "duplicate check at merge time (no recheck step in workflow)",
+      "rc": 0,
+      "stdout_tail": "no script, no workflow step, no PR-template field; see grep above",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-a: verify_case_draft draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-a: promotion gate",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-a: create branch kb/x-a",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/x-a'"
+    },
+    {
+      "step": "x-a: commit source-only",
+      "rc": 0,
+      "stdout_tail": "[kb/x-a 2f7aea8] kb: VLLM-ASC-90003 (x-a)\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-a: push",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-b: verify_case_draft draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-b: promotion gate",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-b: create branch kb/x-b",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/x-b'"
+    },
+    {
+      "step": "x-b: commit source-only",
+      "rc": 0,
+      "stdout_tail": "[kb/x-b 099287e] kb: VLLM-ASC-90003 (x-b)\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "x-b: push",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: merge kb/x-a",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-90003.yaml      | 31 ++++++++++++++++++++++\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "same-path: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "same-path: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main a14cbf3] chore: rebuild generated views\n 4 files changed, 21 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: merge kb/x-b",
+      "rc": 1,
+      "stdout_tail": "Auto-merging knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml\nCONFLICT (add/add): Merge conflict in knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml\nAutomatic merge failed; fix conflicts and then commit the result.",
+      "stderr_tail": "",
+      "conflicted": [
+        "knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90003.yaml"
+      ]
+    },
+    {
+      "step": "same-path: resolve by taking A's whole file",
+      "rc": 0,
+      "stdout_tail": "[main 2cda04e] merge kb/x-b (ours)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "dirty": false
+    },
+    {
+      "step": "same-path: verify_case_draft --all",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（174 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: build_index --check",
+      "rc": 0,
+      "stdout_tail": "索引覆盖完整：174 条 case 的读侧行与总表条目都在（读侧视图 15 个）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: verify_references --check",
+      "rc": 0,
+      "stdout_tail": "references 校验通过（267 个词条，id 全部唯一）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: verify_entry_activity",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: verify_metrics --check",
+      "rc": 0,
+      "stdout_tail": "metrics 校验通过（8 期，其中 live 3）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: holdout --check",
+      "rc": 0,
+      "stdout_tail": "holdout --check: OK（11 条封存夹具内容未被改动）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: eval_scorecard --check",
+      "rc": 0,
+      "stdout_tail": "  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞\n  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞\n  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞\n  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞\n  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞\n  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞\n  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞\n  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞\n  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞\n  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞\n  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞\nscorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "same-path: B's unique content present in merged result?",
+      "rc": 0,
+      "stdout_tail": "B root_cause present=False; B fix present=False; A root_cause present=True",
+      "stderr_tail": "",
+      "b_lost": true
+    },
+    {
+      "step": "E6 patch-a: commit",
+      "rc": 0,
+      "stdout_tail": "[kb/patch-a da9e973] patch-a: disjoint edit of 90001\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6 patch-b: commit",
+      "rc": 0,
+      "stdout_tail": "[kb/patch-b 832f4b8] patch-b: disjoint edit of 90001\n 1 file changed, 2 insertions(+)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: merge kb/patch-a",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "E6: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "E6: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main 4acee22] chore: rebuild generated views\n 3 files changed, 4 insertions(+), 4 deletions(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: merge kb/patch-b",
+      "rc": 0,
+      "stdout_tail": "Auto-merging knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml\nMerge made by the 'ort' strategy.\n knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml | 2 ++\n 1 file changed, 2 insertions(+)",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "E6: merge result (rc=0 and no conflicts means a clean auto-merge)",
+      "rc": 0,
+      "stdout_tail": "conflicted=[]",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: merged file content",
+      "rc": 0,
+      "stdout_tail": "        command_template: \"grep -n 'dtype' qwen3_tts.yaml\"\n      - step: 3\n        check: \"该问题是否只在 0.22.0 出现（0.21.0 没有这条路径）\"\n    severity: service-affecting\n    fix_side_effects: [requires-restart]\n    fix_type: config-change\n    verification:\n      source: investigation\n      detail: \"客户端到端复现；把 dtype 改成 float16 后启动成功\"\n    root_cause: \"310P 硬件不支持 bfloat16；qwen3_tts.yaml 配的是 bfloat16，启动时算子选择失败\"\n    fix: \"把 qwen3_tts.yaml 的 dtype 全部改为 float16 后重启服务\"\n    source_session: 2026-10-28-conc-a01",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: rebuild job --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: rebuild job sees dirty generated artifacts",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml",
+      "stderr_tail": "",
+      "dirty": true
+    },
+    {
+      "step": "E6: rebuild job commits generated views",
+      "rc": 0,
+      "stdout_tail": "[main 326b71f] chore: rebuild generated views\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: verify_case_draft --all",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（173 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: build_index --check",
+      "rc": 0,
+      "stdout_tail": "索引覆盖完整：173 条 case 的读侧行与总表条目都在（读侧视图 15 个）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: verify_references --check",
+      "rc": 0,
+      "stdout_tail": "references 校验通过（267 个词条，id 全部唯一）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: verify_entry_activity",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: verify_metrics --check",
+      "rc": 0,
+      "stdout_tail": "metrics 校验通过（8 期，其中 live 3）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: holdout --check",
+      "rc": 0,
+      "stdout_tail": "holdout --check: OK（11 条封存夹具内容未被改动）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E6: eval_scorecard --check",
+      "rc": 0,
+      "stdout_tail": "  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞\n  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞\n  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞\n  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞\n  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞\n  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞\n  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞\n  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞\n  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞\n  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞\n  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞\nscorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E7: generated-guard on a source-only PR branch (kb/x-a)",
+      "rc": 0,
+      "stdout_tail": "生成物未改动（本次变更 1 个文件）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E7: generated-guard on a PR that carries generated artifacts",
+      "rc": 1,
+      "stdout_tail": "PR 改了生成物。这些文件由脚本生成，合入后由主干 job 重建：\n  knowledge/_index.yaml\n修法：把生成物还原到基线，只提交源文件。\n  git checkout origin/main -- knowledge/_index.yaml\n然后重新提交；不要跑生成器后把结果一起提交。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "y-a: verify_case_draft draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "y-a: promotion gate",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "y-a: create branch kb/y-a",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/y-a'"
+    },
+    {
+      "step": "y-a: commit source-only",
+      "rc": 0,
+      "stdout_tail": "[kb/y-a 977a969] kb: VLLM-ASC-90004 (y-a)\n 1 file changed, 30 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90004.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "y-a: push",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E7-nojob: merge kb/y-a",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-90004.yaml      | 30 ++++++++++++++++++++++\n 1 file changed, 30 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90004.yaml",
+      "stderr_tail": "",
+      "conflicted": []
+    },
+    {
+      "step": "E7-nojob: build_index --check on merged main WITHOUT running the rebuild job",
+      "rc": 1,
+      "stdout_tail": "索引问题：inference__vllm-ascend__interrupt.list 里缺 VLLM-ASC-90004（knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90004.yaml）——跑 `python3 scripts/build_index.py`\n索引问题：inference__vllm-ascend.list（ns 兜底视图，category 未定时读它）里缺 VLLM-ASC-90004——跑 `python3 scripts/build_index.py`\n索引问题：总表缺条目：VLLM-ASC-90004——跑 `python3 scripts/build_index.py`\n3 处。生成物（读侧视图与总表）随 PR 提交，跑一次重建即可：\n  python3 scripts/build_index.py",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E7-nojob: verify_case_draft --all still green",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（174 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "E7-nojob: new case visible in index?",
+      "rc": 0,
+      "stdout_tail": "{\"knowledge/_index.yaml\": false, \"knowledge/_index/inference__vllm-ascend.list\": false, \"knowledge/_index/inference__vllm-ascend__interrupt.list\": false, \"knowledge/_index/inference__vllm-ascend__precision.list\": false}",
+      "stderr_tail": ""
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "v2-b",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "V2 drafts created",
+      "rc": 0,
+      "out": "[[\"3fdf4d51-3c2e-4fca-8d88-e2e384a5d786\", 0], [\"ec0f06c5-5d95-4979-9ce2-392f82dffd2f\", 0], [\"8088d77c-0d3b-49f3-8584-d8074c36456f\", 0], [\"a4ff4f3a-1227-43e4-91a3-ecd0f69d706f\", 0], [\"d1489fee-c4b4-4bf7-ae33-4f3782b57064\", 0], [\"dea6b3fa-f1cb-488d-9a29-1c816957e4cc\", 0], [\"368b67ab-c9f9-4048-98fb-dd98b367c0e3\", 0], [\"8b7657c6-8e6e-48e1-a5e6-05626f532963\", 0], [\"ed1af5bf-7230-4954-9985-827349e7e03c\", 0], [\"7a382b80-1af5-4fa4-b71a-bff870264337\", 0], [\"d64c9930-8fc4-484f-ac30-c46a9820f8b8\", 0]]",
+      "err": ""
+    },
+    {
+      "step": "B JSON",
+      "rc": 0,
+      "out": "{\"drafts\": 11, \"library\": 173, \"generated\": 327, \"mandatory\": 6, \"high\": 36, \"low\": 285, \"displayed\": 46, \"hidden_high\": 6, \"hidden_low\": 275}",
+      "err": ""
+    },
+    {
+      "step": "D1-D11",
+      "rc": 0,
+      "out": "{\n  \"D1\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.429\n  },\n  \"D2\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.138\n  },\n  \"D3\": {\n    \"displayed\": true,\n    \"tier\": \"mandatory\",\n    \"score\": 0.565\n  },\n  \"D4/D5\": {\n    \"displayed\": true,\n    \"tier\": \"mandatory\",\n    \"score\": 1.0\n  },\n  \"D6\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.571\n  },\n  \"D7\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.692\n  },\n  \"D8\": {\n    \"displayed\": true,\n    \"tier\": \"mandatory\",\n    \"score\": 0.714\n  },\n  \"D9\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.529\n  },\n  \"D10\": {\n    \"displayed\": true,\n    \"tier\": \"high\",\n    \"score\": 0.643\n  },\n  \"D11\": {\n    \"displayed\": false,\n    \"tier\": null,\n    \"score\": null\n  }\n}",
+      "err": ""
+    },
+    {
+      "step": "high overflow",
+      "rc": 0,
+      "out": "{\"drafts\": 11, \"library\": 173, \"generated\": 327, \"mandatory\": 6, \"high\": 36, \"low\": 285, \"displayed\": 18, \"hidden_high\": 34, \"hidden_low\": 275}",
+      "err": ""
+    },
+    {
+      "step": "incomplete draft excluded",
+      "rc": 0,
+      "out": "{\"drafts\": 11, \"library\": 173, \"generated\": 327, \"mandatory\": 6, \"high\": 36, \"low\": 285, \"displayed\": 46, \"hidden_high\": 6, \"hidden_low\": 275}",
+      "err": ""
+    }
+  ]
+}

@@ -1,0 +1,6787 @@
+{
+  "targets": {
+    "D1 cross-category": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.42857142857142855"
+      ],
+      "hints": []
+    },
+    "D2 paraphrase": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0"
+      ],
+      "hints": []
+    },
+    "D3 same signature diff root": {
+      "generated": true,
+      "tier": "mandatory",
+      "displayed": true,
+      "reasons": [
+        "same-expected",
+        "lexical=0.5652173913043478"
+      ],
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认"
+      ]
+    },
+    "D4/D5 same upstream": {
+      "generated": false,
+      "tier": null,
+      "displayed": false,
+      "reasons": [],
+      "hints": []
+    },
+    "D6 same fix diff version": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.5714285714285714"
+      ],
+      "hints": [
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    "D7 overlapping conditions": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.6923076923076923"
+      ],
+      "hints": []
+    },
+    "D8 contradictory fix": {
+      "generated": true,
+      "tier": "mandatory",
+      "displayed": true,
+      "reasons": [
+        "same-expected",
+        "root-overlap=1.0",
+        "lexical=0.7142857142857143"
+      ],
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    "D9 shared evidence": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "same-session",
+        "lexical=0.5294117647058824"
+      ],
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    "D10 different sessions": {
+      "generated": true,
+      "tier": "high",
+      "displayed": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.6428571428571429"
+      ],
+      "hints": []
+    },
+    "D11 unrelated": {
+      "generated": false,
+      "tier": null,
+      "displayed": false,
+      "reasons": [],
+      "hints": []
+    },
+    "D4/D5 same upstream (draft-draft)": {
+      "generated": true,
+      "tier": "mandatory",
+      "displayed": true,
+      "reasons": [
+        "shared-upstream",
+        "same-session",
+        "lexical=1.0"
+      ],
+      "hints": [
+        "same-issue-different-root-cause：同一 issue 根因词重合低，可能含多个问题",
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    }
+  },
+  "counts": {
+    "drafts": 11,
+    "library": 173,
+    "generated": 300,
+    "mandatory": 4,
+    "high": 17,
+    "low": 279,
+    "displayed": 31,
+    "hidden_high": 0,
+    "hidden_low": 269
+  },
+  "pairs": [
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.429,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.42857142857142855"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.667,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.833",
+        "lexical=0.6666666666666666"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.138,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.147,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.833"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12983",
+      "tier": "high",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.714,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.714"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.333,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": true,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "same-session",
+        "lexical=0.3333333333333333"
+      ],
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.333,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": true,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "same-session",
+        "lexical=0.3333333333333333"
+      ],
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.571,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.5714285714285714"
+      ],
+      "hints": [
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.429,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.833",
+        "lexical=0.42857142857142855"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.692,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.6923076923076923"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.462,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.833",
+        "lexical=0.46153846153846156"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10303",
+      "tier": "high",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.75,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.75",
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.5,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "root-overlap=1.0",
+        "lexical=0.5"
+      ],
+      "hints": [
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.529,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": true,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "same-session",
+        "lexical=0.5294117647058824"
+      ],
+      "hints": [
+        "same-session-two-cases：同一 session 被两处引用，确认是否重复结算"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.353,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.833",
+        "lexical=0.35294117647058826"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-90001",
+      "tier": "high",
+      "score": 0.643,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 1.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=1.0",
+        "fix-overlap=1.0",
+        "lexical=0.6428571428571429"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-90002",
+      "tier": "high",
+      "score": 0.429,
+      "signals": {
+        "root_overlap": 0.312,
+        "fix_overlap": 0.833,
+        "root_tokens": 16,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.833",
+        "lexical=0.42857142857142855"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.095,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.095,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.19,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91001",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.048,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.088,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.029,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.029,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.088,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.029,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.059,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.029,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.088,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91002",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.029,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "MSLLM-1554",
+      "tier": "low",
+      "score": 0.13,
+      "signals": {
+        "root_overlap": 0.333,
+        "fix_overlap": 0.364,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "MSLLM-1555",
+      "tier": "low",
+      "score": 0.087,
+      "signals": {
+        "root_overlap": 0.2,
+        "fix_overlap": 0.273,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.261,
+      "signals": {
+        "root_overlap": 0.133,
+        "fix_overlap": 0.0,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2608695652173913"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.043,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.091,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-12430",
+      "tier": "low",
+      "score": 0.087,
+      "signals": {
+        "root_overlap": 0.333,
+        "fix_overlap": 0.364,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.261,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.0,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2608695652173913"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.13,
+      "signals": {
+        "root_overlap": 0.267,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-13050",
+      "tier": "low",
+      "score": 0.087,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.273,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-13086",
+      "tier": "low",
+      "score": 0.261,
+      "signals": {
+        "root_overlap": 0.267,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2608695652173913"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-13792",
+      "tier": "low",
+      "score": 0.043,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.273,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-14121",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.267,
+        "fix_overlap": 0.091,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-15086",
+      "tier": "low",
+      "score": 0.217,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21739130434782608"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-1991",
+      "tier": "low",
+      "score": 0.217,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.273,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21739130434782608"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.133,
+        "fix_overlap": 0.091,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-90002",
+      "tier": "low",
+      "score": 0.391,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.0,
+        "root_tokens": 15,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.391304347826087"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-9167",
+      "tier": "low",
+      "score": 0.174,
+      "signals": {
+        "root_overlap": 0.333,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-9186",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.267,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-9593",
+      "tier": "low",
+      "score": 0.304,
+      "signals": {
+        "root_overlap": 0.067,
+        "fix_overlap": 0.182,
+        "root_tokens": 15,
+        "fix_tokens": 11,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.30434782608695654"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "COMMON-OP-COMPILE-LATENCY",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "MSLLM-1459",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "MSLLM-1550",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "MSLLM-1554",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "MSLLM-1555",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.571,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.571"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "MSLLM-1667",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VERL-6608",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-10500",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.429,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-10610",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-10700",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-10834",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-11208",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.429,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-11409",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12461",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.278,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2777777777777778"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12901",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.429,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-13446",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-13508",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-6774",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-6992",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-7635",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-7856",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-8201",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.571,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.571",
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-90002",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.333,
+      "signals": {
+        "root_overlap": 0.429,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3333333333333333"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9167",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9186",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9305",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.429,
+        "fix_overlap": 0.25,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9596",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-HCCL-BIND-IP-PORT",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "MSLLM-1459",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "MSLLM-1550",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "MSLLM-1555",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "MSLLM-1707",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VERL-5074",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VERL-6608",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-10834",
+      "tier": "low",
+      "score": 0.167,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-12241",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.278,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2777777777777778"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-1991",
+      "tier": "low",
+      "score": 0.278,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2777777777777778"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-3308",
+      "tier": "low",
+      "score": 0.111,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.056,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-7856",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-90002",
+      "tier": "low",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.333,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3333333333333333"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-10876",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-11208",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-12901",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-12983",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.235,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-13050",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-15086",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-9593",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91006",
+      "case": "VLLM-ASC-HCCL-BIND-IP-PORT",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.385,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.38461538461538464"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-10876",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-11208",
+      "tier": "low",
+      "score": 0.231,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23076923076923078"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-11312",
+      "tier": "low",
+      "score": 0.308,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3076923076923077"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.385,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.38461538461538464"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.308,
+      "signals": {
+        "root_overlap": 0.235,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3076923076923077"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.077,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.231,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23076923076923078"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-14121",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 26.1.1 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.077,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-14273",
+      "tier": "low",
+      "score": 0.154,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 9.0.1 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-14448",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.26.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-15086",
+      "tier": "low",
+      "score": 0.154,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.231,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23076923076923078"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.154,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-3308",
+      "tier": "low",
+      "score": 0.154,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 2.8.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.077,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.308,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3076923076923077"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.385,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.38461538461538464"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-9593",
+      "tier": "low",
+      "score": 0.308,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3076923076923077"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.308,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.3076923076923077"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91007",
+      "case": "VLLM-ASC-HCCL-BIND-IP-PORT",
+      "tier": "low",
+      "score": 0.154,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "COMMON-EMBEDDING-BWD-EMPTY",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "COMMON-RMSNORM-WEIGHT-SCALE",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1437",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1459",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1525",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1532",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1655",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1667",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "MSLLM-1780",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "SGL-PD-HEAP-001",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VERL-6707",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10097",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10122",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10322",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10500",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10524",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10626",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10784",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10834",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10876",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10892",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10970",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-10998",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11208",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11343",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11409",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11459",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11498",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11824",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11893",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-11924",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12030",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12226",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12241",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12430",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12640",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12723",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12933",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12957",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12983",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13050",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13070",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13086",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13356",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5",
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13710",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13792",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13934",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-13964",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-14273",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-14320",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-14871",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-15086",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-16447",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-17642",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-18178",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-1991",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5",
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-3308",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-5725",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7160",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7659",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7854",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7856",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7871",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-7993",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8201",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8336",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8587",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8646",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8798",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8808",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-8926",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9024",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9167",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9186",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9398",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.5,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "fix-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9482",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9507",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9593",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.5,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "root-overlap=0.5",
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9769",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.25,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-9887",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-ALLREDUCE-NUMERIC-DRIFT",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-HCCL-BIND-IP-PORT",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.25,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.294,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.29411764705882354"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.294,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.29411764705882354"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.235,
+      "signals": {
+        "root_overlap": 0.235,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23529411764705882"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.059,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.176,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.059,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.235,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23529411764705882"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.176,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.059,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.235,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23529411764705882"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.353,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35294117647058826"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91009",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.235,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.23529411764705882"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-10303",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-11127",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-11208",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-12685",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-12989",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.235,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-13329",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.176,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-13639",
+      "tier": "low",
+      "score": 0.214,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.21428571428571427"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-14166",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-16446",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-1767",
+      "tier": "low",
+      "score": 0.143,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-7792",
+      "tier": "low",
+      "score": 0.071,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-8213",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.4,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-8844",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.059,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": true,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-9129",
+      "tier": "low",
+      "score": 0.357,
+      "signals": {
+        "root_overlap": 0.294,
+        "fix_overlap": 0.1,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.35714285714285715"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-9593",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.0,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91010",
+      "case": "VLLM-ASC-9719",
+      "tier": "low",
+      "score": 0.286,
+      "signals": {
+        "root_overlap": 0.118,
+        "fix_overlap": 0.3,
+        "root_tokens": 17,
+        "fix_tokens": 10,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "lexical=0.2857142857142857"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91011",
+      "case": "COMMON-DISPATCH-BATCH-SMALL",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.143,
+        "fix_overlap": 0.333,
+        "root_tokens": 7,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91011",
+      "case": "VLLM-ASC-12211",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.23.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91011",
+      "case": "VLLM-ASC-7310",
+      "tier": "low",
+      "score": 0.0,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 7,
+        "fix_tokens": 6,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [],
+      "hints": [
+        "affected-version-vs-fix-version：fix_on_mismatch 提到的版本 0.17.0 落在受影响区间内"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91003",
+      "case": "VLLM-ASC-90001",
+      "tier": "mandatory",
+      "score": 0.565,
+      "signals": {
+        "root_overlap": 0.333,
+        "fix_overlap": 0.0,
+        "root_tokens": 15,
+        "fix_tokens": 10,
+        "same_expected": true,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "same-expected",
+        "lexical=0.5652173913043478"
+      ],
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91004",
+      "case": "VLLM-ASC-10303",
+      "tier": "mandatory",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.286,
+        "fix_overlap": 1.0,
+        "root_tokens": 7,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": true,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "shared-upstream",
+        "fix-overlap=1.0",
+        "lexical=0.2222222222222222"
+      ],
+      "hints": []
+    },
+    {
+      "draft": "VLLM-ASC-91005",
+      "case": "VLLM-ASC-10303",
+      "tier": "mandatory",
+      "score": 0.222,
+      "signals": {
+        "root_overlap": 0.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": false,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": true,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "shared-upstream",
+        "lexical=0.2222222222222222"
+      ],
+      "hints": [
+        "same-issue-different-root-cause：同一 issue 根因词重合低，可能含多个问题"
+      ]
+    },
+    {
+      "draft": "VLLM-ASC-91008",
+      "case": "VLLM-ASC-90001",
+      "tier": "mandatory",
+      "score": 0.714,
+      "signals": {
+        "root_overlap": 1.0,
+        "fix_overlap": 0.0,
+        "root_tokens": 4,
+        "fix_tokens": 4,
+        "same_expected": true,
+        "same_session": false,
+        "same_event": false,
+        "shared_upstream": false,
+        "same_id": false,
+        "same_path": false
+      },
+      "cross_cat": false,
+      "reasons": [
+        "same-expected",
+        "root-overlap=1.0",
+        "lexical=0.7142857142857143"
+      ],
+      "hints": [
+        "same-check-two-fixes：同一期望值、修复词重合低，需要确认",
+        "same-symptom-disjoint-ranges：同现象、版本区间不相交，确认一条还是两条"
+      ]
+    }
+  ]
+}

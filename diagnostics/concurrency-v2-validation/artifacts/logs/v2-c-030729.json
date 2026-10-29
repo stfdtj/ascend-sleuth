@@ -1,0 +1,85 @@
+{
+  "name": "v2-c",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "C duplicate/no decision",
+      "rc": 2,
+      "out": "{\"base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"head\": \"794d5b69593dd59d04c7883cef01b54e5c0cd78d\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": false, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": null}}",
+      "err": ""
+    },
+    {
+      "step": "C duplicate/with decision",
+      "rc": 0,
+      "out": "{\"base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"head\": \"c5cc66aa8a07f377be7b48615507c87da7b8f9a8\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\"}}",
+      "err": ""
+    },
+    {
+      "step": "C placeholder TODO decision accepted?",
+      "rc": 0,
+      "out": "{\"base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"head\": \"ec03508e1a38e2c25aa0f4efd51ae92f9e07ea7c\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\"}}",
+      "err": ""
+    },
+    {
+      "step": "C head changed after decision (head_sha unchecked)",
+      "rc": 0,
+      "out": "{\"base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"head\": \"1bd7386635482206046d83153a77b98ce91be408\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\"}}",
+      "err": ""
+    },
+    {
+      "step": "C stale decision after main advances",
+      "rc": 1,
+      "out": "{\"base\": \"91fe5b1ddc7ceacf956aa6d17d1f8bd31fe3a114\", \"head\": \"1bd7386635482206046d83153a77b98ce91be408\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}, {\"pair_id\": \"b46d4c0b4db0eb3d\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93003\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": true, \"missing_pairs\": [\"b46d4c0b4db0eb3d\"], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\"}}",
+      "err": ""
+    },
+    {
+      "step": "C refreshed decision",
+      "rc": 0,
+      "out": "{\"base\": \"91fe5b1ddc7ceacf956aa6d17d1f8bd31fe3a114\", \"head\": \"9252f3f9b08277f83234905d6bbb381dd08e5371\", \"merge_base\": \"feef6cd01597d87075ae8fca5734ea58eed798fe\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"134b346934c11170\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 0.522}, {\"pair_id\": \"b46d4c0b4db0eb3d\", \"a\": \"VLLM-ASC-93002\", \"b\": \"VLLM-ASC-93003\", \"tier\": \"mandatory\", \"score\": 0.522}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"91fe5b1ddc7ceacf956aa6d17d1f8bd31fe3a114\"}}",
+      "err": ""
+    },
+    {
+      "step": "C merge after gate",
+      "rc": 0,
+      "out": "merged",
+      "err": ""
+    },
+    {
+      "step": "C same-path add/add",
+      "rc": 3,
+      "out": "{\"base\": \"f792c4e471d72de2cfb6c5a74e63274e6d3c2b7e\", \"head\": \"2aff37aa6c1943d40e72de0195cd5d3acde2985a\", \"merge_base\": \"c9308390aaf1d255bd9c41ed23c5ec22a0538173\", \"same_path_added\": [\"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-93012.yaml\"], \"both_modified\": [], \"field_conflicts\": [{\"path\": \"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-93012.yaml\", \"fields\": [\"fix\", \"root_cause\"]}], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"03bab86985f928b2\", \"a\": \"VLLM-ASC-93012\", \"b\": \"VLLM-ASC-93011\", \"tier\": \"mandatory\", \"score\": 1.0}], \"hidden_high\": 0, \"decision\": {\"present\": false, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": null}}",
+      "err": ""
+    },
+    {
+      "step": "C both modify disjoint fields/no decision",
+      "rc": 2,
+      "out": "{\"base\": \"0219627f4cab5648439717f4176fa37bb431f9c7\", \"head\": \"45dbc206f1fe897161cef6fe4c3f151d407547ed\", \"merge_base\": \"550c912ca10858b2f2d3e69eeb984165d502093b\", \"same_path_added\": [], \"both_modified\": [\"VLLM-ASC-93001\"], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"0cff1837590549b4\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-13050\", \"tier\": \"high\", \"score\": 0.087}, {\"pair_id\": \"276aa4bcb38b0930\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-12030\", \"tier\": \"high\", \"score\": 0.043}], \"hidden_high\": 0, \"decision\": {\"present\": false, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": null}}",
+      "err": ""
+    },
+    {
+      "step": "C both modify/disjoint with decision",
+      "rc": 0,
+      "out": "{\"base\": \"0219627f4cab5648439717f4176fa37bb431f9c7\", \"head\": \"44b02a57a51cebd6196ba474dec48308d2fc18a4\", \"merge_base\": \"550c912ca10858b2f2d3e69eeb984165d502093b\", \"same_path_added\": [], \"both_modified\": [\"VLLM-ASC-93001\"], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"0cff1837590549b4\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-13050\", \"tier\": \"high\", \"score\": 0.087}, {\"pair_id\": \"276aa4bcb38b0930\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-12030\", \"tier\": \"high\", \"score\": 0.043}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"0219627f4cab5648439717f4176fa37bb431f9c7\"}}",
+      "err": ""
+    },
+    {
+      "step": "C same-case TODO accepted?",
+      "rc": 0,
+      "out": "{\"base\": \"0219627f4cab5648439717f4176fa37bb431f9c7\", \"head\": \"4bcdfa54d67f38c59dd94827ab97b836d1942f0b\", \"merge_base\": \"550c912ca10858b2f2d3e69eeb984165d502093b\", \"same_path_added\": [], \"both_modified\": [\"VLLM-ASC-93001\"], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [{\"pair_id\": \"0cff1837590549b4\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-13050\", \"tier\": \"high\", \"score\": 0.087}, {\"pair_id\": \"276aa4bcb38b0930\", \"a\": \"VLLM-ASC-93001\", \"b\": \"VLLM-ASC-12030\", \"tier\": \"high\", \"score\": 0.043}], \"hidden_high\": 0, \"decision\": {\"present\": true, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": \"0219627f4cab5648439717f4176fa37bb431f9c7\"}}",
+      "err": ""
+    },
+    {
+      "step": "C generated artifact",
+      "rc": 4,
+      "out": "{\"base\": \"26b2573e4118e6486a67bd4e802d9cea6822a157\", \"head\": \"d8154659a5485255b6a40d5ba2dc88b67bfc3fb5\", \"merge_base\": \"26b2573e4118e6486a67bd4e802d9cea6822a157\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [\"knowledge/_index.yaml\"], \"deleted\": [], \"renamed\": [], \"dangling\": [], \"pairs\": [], \"hidden_high\": 0, \"decision\": {\"present\": false, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": null}}",
+      "err": ""
+    },
+    {
+      "step": "C rename vs reference",
+      "rc": 3,
+      "out": "{\"base\": \"f988c1d980f76fcf600c294615b8d7a5cca01e41\", \"head\": \"7ebaf9853be9466322c6ddc27e9679c789a052de\", \"merge_base\": \"b1c1ed897a626b46d2b3f930713de6563fdcced3\", \"same_path_added\": [], \"both_modified\": [], \"field_conflicts\": [], \"generated\": [], \"deleted\": [], \"renamed\": [\"VLLM-ASC-93001->VLLM-ASC-93001R\"], \"dangling\": [{\"id\": \"VLLM-ASC-93001\", \"mentioned_in\": \"knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-93002.yaml\"}], \"pairs\": [{\"pair_id\": \"52d2ed0a33eeb06f\", \"a\": \"VLLM-ASC-93001R\", \"b\": \"VLLM-ASC-93001\", \"tier\": \"mandatory\", \"score\": 1.0}, {\"pair_id\": \"2c2943d745ed5ca9\", \"a\": \"VLLM-ASC-93001R\", \"b\": \"VLLM-ASC-93002\", \"tier\": \"mandatory\", \"score\": 1.0}], \"hidden_high\": 0, \"decision\": {\"present\": false, \"stale\": false, \"missing_pairs\": [], \"missing_ack\": false, \"missing_same_case\": [], \"main_sha\": null}}",
+      "err": ""
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+﻿[ 0] E9: settle_trace_feedback --apply (usage record for the case)
+      发现 1 个 session 含待结算 feedback 事件。
+        [diff] 2026-10-28-fb-90001 → D:\working\asv\idlab\knowledge\inference\vllm-ascend\interrupt\VLLM-ASC-90001.yaml: resolved += 1，outcome=resolved
+      共 1 条反馈事件、1 个 case 的计数变更。
+        - {run: 2026-10-28-2346, deployment: idlab, checkout: 55c20dc, kb_rev: 55c20dc, sessions: 1, kind: case, id: VLLM-ASC-90001, selected: 0, loaded: 0, resolved: 1, misdiagnosed: 0, self_resolved: 0, excluded: 0}
+      [settled] 已追加 1 行 → D:\working\asv\idlab\metrics\entry-activity.d\2026-W44.yaml
+      [settled] 结算游标已更新 → D:\working\asv\idlab\.settle-state.json
+      接着跑 python3 scripts/trace_entry_activity.py --apply 汇总本轮诊断，再跑 python3 scripts/build_entry_activity.py 重建生成物。
+[ 0] E9: entry-activity rows after settle
+      {'VLLM-ASC-90001': [{'run': '2026-10-28-2346', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}]}
+[ 0] E9: verify_references with a reference citing the case
+      references 校验通过（268 个词条，id 全部唯一）
+[ 0] E9: eval_scorecard --build (record the new fixture)
+      scorecard：已重建 eval/scorecard.yaml（29 条条目；有观测 27（命中第一 19／前三 22／前三外 0，未命中 5），未记录 2）
+[ 0] E9: eval_scorecard --check before rename
+      scorecard：OK（29 条条目；有观测 27（命中第一 19／前三 22／前三外 0，未命中 5），未记录 2；待复核 0 条）
+[ 0] E9: commit baseline artifacts
+      [main fa30d90] lab: E9 artifacts (usage row, reference, fixture)
+       4 files changed, 134 insertions(+), 40 deletions(-)
+       create mode 100644 eval/golden/VLLM-ASC-90001.fixture.yaml
+       create mode 100644 metrics/entry-activity.d/2026-W44.yaml
+       create mode 100644 references/command-side-effects/val-310p-bf16-fixture.yaml
+[ 0] E9: rename_ref.py dry-run (what the existing helper rewrites)
+      rename_ref: knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml → knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001X.yaml　dry-run（未写任何文件；加 --apply 才写）
+        knowledge/_index.yaml　链接 0 · 路径 1
+        合计：1 个文件、链接 0 处、路径 1 处
+        别名：将登记 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml → knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001X.yaml（proposals\component-aliases.yaml）
+        下一步：确认无误后加 --apply 重跑
+[ 0] E9: rebuild_generated --check after rename
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] E9 after rename: verify_case_draft --all
+      verify_case_draft: 通过（173 个文件；references 索引 268 条）
+[ 0] E9 after rename: build_index --check
+      索引覆盖完整：173 条 case 的读侧行与总表条目都在（读侧视图 15 个）。
+[ 1] E9 after rename: verify_references --check
+      references 校验失败（1 处）：
+        - command-side-effects\val-310p-bf16-fixture.yaml: sources[0].cases 引用的 case 'VLLM-ASC-90001' 不在 knowledge/ —— ref 只能引用已升格的 case（草稿还在 inbox 时别归纳，等 groom R8）
+[ 1] E9 after rename: verify_entry_activity
+      ✗ 行结构 / 引用 / 归周：1 处
+        - 2026-W44.yaml:10: 案例 id VLLM-ASC-90001 在知识库里查不到
+[ 0] E9 after rename: eval_scorecard --check
+        ! VLLM-ASC-90001.fixture.yaml: 目标 case VLLM-ASC-90001 不在 knowledge/ 索引中（夹具指向已退休/未收录的 case）
+      scorecard：OK（29 条条目；有观测 27（命中第一 19／前三 22／前三外 0，未命中 5），未记录 2；待复核 1 条）
+[ 0] E9 after rename: holdout --check
+      holdout --check: OK（11 条封存夹具内容未被改动）
+[ 0] E9 after rename: verify_metrics --check
+      metrics 校验通过（8 期，其中 live 3）
+[ 0] E9 after rename: entry-activity rows (old vs new id)
+      {'VLLM-ASC-90001': [{'run': '2026-10-28-2346', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}]}
+[ 0] E9 after rename: rebuild the generated entry-activity artifact
+      已重建 D:\working\asv\idlab\metrics\entry-activity\ascend-sleuth.yaml
+      已重建 D:\working\asv\idlab\metrics\entry-activity\idlab.yaml
+[ 0] E9 after rename: generated artifact still carries the old id
+      old id in generated cases=False; new id in generated cases=False
+[ 0] E9 after rename: golden fixture still points at the old id
+      top-level case_id old=True; expected.case_id old=True
+[ 0] E9 after rename: reference still cites the old id
+      old id in reference=True
+[ 0] E9 after rename: local trace still records the old id
+      old id in trace=True; traces/ is gitignored=True
+[ 0] E9: settle a second case's feedback
+      [skip] 2026-10-28-fb-90001.yaml: 已结算（1 条事件全部落地）
+      发现 1 个 session 含待结算 feedback 事件。
+        [diff] 2026-10-28-fb-90002 → D:\working\asv\idlab\knowledge\inference\vllm-ascend\precision\VLLM-ASC-90002.yaml: resolved += 1，outcome=resolved
+      共 1 条反馈事件、1 个 case 的计数变更。
+        - {run: 2026-10-28-2347, deployment: idlab, checkout: fa30d90, kb_rev: fa30d90, sessions: 1, kind: case, id: VLLM-ASC-90002, selected: 0, loaded: 0, resolved: 1, misdiagnosed: 0, self_resolved: 0, excluded: 0}
+      [settled] 已追加 1 行 → D:\working\asv\idlab\metrics\entry-activity.d\2026-W44.yaml
+      [settled] 结算游标已更新 → D:\working\asv\idlab\.settle-state.json
+      接着跑 python3 scripts/trace_entry_activity.py --apply 汇总本轮诊断，再跑 python3 scripts/build_entry_activity.py 重建生成物。
+[ 0] E9: delete the duplicate case (merge into 90001) then rebuild
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 1] E9: verify_entry_activity after deleting the case id
+      ✗ 行结构 / 引用 / 归周：2 处
+        - 2026-W44.yaml:10: 案例 id VLLM-ASC-90001 在知识库里查不到
+        - 2026-W44.yaml:11: 案例 id VLLM-ASC-90002 在知识库里查不到
+[ 0] E9: counts before vs after deleting the merged case
+      before={'VLLM-ASC-90001': [{'run': '2026-10-28-2346', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}], 'VLLM-ASC-90002': [{'run': '2026-10-28-2347', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}]}; after={'VLLM-ASC-90001': [{'run': '2026-10-28-2346', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}], 'VLLM-ASC-90002': [{'run': '2026-10-28-2347', 'kind': 'case', 'resolved': 1, 'misdiagnosed': 0, 'self_resolved': 0}]}
+[ 0] E10 snapA: metrics_snapshot --json (period + readings)
+      {"period": "2026-W44-live-1028", "kind": "live", "metrics": {"sessions_total": 2, "tier2_hit": 0, "attribution_ratio": {"case_error": 0, "execution_error": 0}, "confidence_distribution": {"low": 16, "total": 173}, "feedback_capture": {"resolved": 0, "not_resolved": 0, "partial": 0}, "trace_completeness": {"ok": 0, "total": 2}, "vocab_compliance": {"ok": 0, "total": 0}, "tier3": {"used": 0, "saved": 0}, "triage_miss_classes": {"lexical_gap": 0, "semantic_path": 0, "routed_unrecorded": 0, "no_triage_event": 2}, "stop_reason_unrecorded": 2, "parallel_group_events": 0, "considered_candidates_events": 0, "trace_record_violations_total": 0, "external_record_violations_total": 0, "case_total": 173, "reference_total": 267, "capacity_by_ns": {"common": {"performance": {"count": 15, "tok": 2788}, "precision": {"count": 6, "tok": 1228}}, "inference/sglang": {"interrupt": {"count": 1, "tok": 423}}, "inference/vllm-ascend": {"interrupt": {"count": 97, "tok": 17216}, "performance": {"count": 8, "tok": 1697}, "precision": {"count": 24, "tok": 4438}}, "training/mindspeed-llm": {"interrupt": {"count": 11, "tok": 2161}, "precision": {"count": 4, "tok": 1039}}, "training/verl": {"interrupt": {"count": 6, "tok": 1186}, "precision": {"count": 1, "tok": 439}}}, "content_flow_runs": 0, "evolve_check_runs": 0, "evolve_check_no_signal": 0}, "sources": {"diagnose_side": "trace_metrics.py（traces/*.yaml ← 主检出（同一克隆共享侧），2 个 session）", "structural_side": "case 文件现算（scripts/index_counts.py：条数/逐格容量）+ verify_references.py（词条数）", "content_flow_side": "log_skill_exec.py → tail_exec_log.py（shared）"}, "missing": ["内容流程侧：exec-log 当前为空（尚无收尾记录）"]}
+[ 0] E10 snapB: metrics_snapshot --json (period + readings)
+      {"period": "2026-W44-live-1028", "kind": "live", "metrics": {"sessions_total": 1, "tier2_hit": 0, "attribution_ratio": {"case_error": 0, "execution_error": 0}, "confidence_distribution": {"low": 16, "total": 173}, "feedback_capture": {"resolved": 0, "not_resolved": 0, "partial": 0}, "trace_completeness": {"ok": 0, "total": 1}, "vocab_compliance": {"ok": 0, "total": 0}, "tier3": {"used": 0, "saved": 0}, "triage_miss_classes": {"lexical_gap": 0, "semantic_path": 0, "routed_unrecorded": 0, "no_triage_event": 1}, "stop_reason_unrecorded": 1, "parallel_group_events": 0, "considered_candidates_events": 0, "trace_record_violations_total": 0, "external_record_violations_total": 0, "case_total": 173, "reference_total": 267, "capacity_by_ns": {"common": {"performance": {"count": 15, "tok": 2788}, "precision": {"count": 6, "tok": 1228}}, "inference/sglang": {"interrupt": {"count": 1, "tok": 423}}, "inference/vllm-ascend": {"interrupt": {"count": 97, "tok": 17216}, "performance": {"count": 8, "tok": 1697}, "precision": {"count": 24, "tok": 4438}}, "training/mindspeed-llm": {"interrupt": {"count": 11, "tok": 2161}, "precision": {"count": 4, "tok": 1039}}, "training/verl": {"interrupt": {"count": 6, "tok": 1186}, "precision": {"count": 1, "tok": 439}}}, "content_flow_runs": 0, "evolve_check_runs": 0, "evolve_check_no_signal": 0}, "sources": {"diagnose_side": "trace_metrics.py（traces/*.yaml ← 主检出（同一克隆共享侧），1 个 session）", "structural_side": "case 文件现算（scripts/index_counts.py：条数/逐格容量）+ verify_references.py（词条数）", "content_flow_side": "log_skill_exec.py → tail_exec_log.py（shared）"}, "missing": ["内容流程侧：exec-log 当前为空（尚无收尾记录）"]}
+[ 0] E10: both machines chose the same period?
+      A=2026-W44-live-1028 B=2026-W44-live-1028; A sessions=2 B sessions=1
+[ 0] E10 snapA: wrote period file and pushed kb/snapA
+[ 0] E10 snapB: wrote period file and pushed kb/snapB
+[ 0] E10: two period files with the same name, different content
+      {'snapA': ('2026-W44-live-1028.yaml', '0bb708802f63'), 'snapB': ('2026-W44-live-1028.yaml', '4048ddda9b0b')}
+[ 0] E10 snapA: next snapshot on the same day bumps the period
+      {"period": "2026-W44-live-1028-2", "kind": "live", "metrics": {"sessions_total": 2, "tier2_hit": 0, "attribution_ratio": {"case_error": 0, "execution_error": 0}, "confidence_distribution": {"low": 16,
+[ 0] E10 snapB: second snapshot on the same machine (still base)
+      {"period": "2026-W44-live-1028-2", "kind": "live", "metrics": {"sessions_total": 1, "tier2_hit": 0, "attribution_ratio": {"case_error": 0, "execution_error": 0}, "confidence_distribution": {"low": 16,
+[ 0] E10: merge first machine's snapshot
+      Merge made by the 'ort' strategy.
+       metrics/timeline.d/2026-W44-live-1028.yaml | 86 ++++++++++++++++++++++++++++++
+       1 file changed, 86 insertions(+)
+       create mode 100644 metrics/timeline.d/2026-W44-live-1028.yaml
+[ 1] E10: merge second machine's same-period snapshot
+      Auto-merging metrics/timeline.d/2026-W44-live-1028.yaml
+      CONFLICT (add/add): Merge conflict in metrics/timeline.d/2026-W44-live-1028.yaml
+      Automatic merge failed; fix conflicts and then commit the result.
+[ 0] E10: snapshot files before/after resolving by keeping one side
+      before=['2026-W44-live-1028.yaml'] after=['2026-W44-live-1028.yaml']
+[ 1] E10 after dropping one reading (before rebuild): build_timeline --check
+      metrics\timeline.yaml 与源不一致——**不要手工改生成物**，跑一次重建即可：
+        python3 scripts/build_timeline.py
+        生成物期号：['2026-W35', '2026-W35-capacity', '2026-W35-live1', '2026-W36-capacity', '2026-W36-live2', '2026-W36-verl', '2026-W37', '2026-W37-live']
+        源    期号：['2026-W35', '2026-W35-capacity', '2026-W35-live1', '2026-W36-capacity', '2026-W36-live2', '2026-W36-verl', '2026-W37', '2026-W37-live', '2026-W44-live-1028']
+[ 0] E10 after dropping one reading (before rebuild): verify_metrics --check
+      metrics 校验通过（8 期，其中 live 3）
+[ 0] E10 after dropping one reading: post-merge rebuild job
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] E10 after dropping one reading (after rebuild): build_timeline --check
+      timeline 生成物与源一致（9 期 ← metrics\timeline.d/）
+[ 1] E10 after dropping one reading (after rebuild): verify_metrics --check
+      metrics/timeline.yaml 校验失败（2 处）：
+        - periods[8] [2026-W44-live-1028]: live 字段超出白名单 ['external_record_violations_total']（合法字段: attribution_ratio, by_category_hit, capacity_by_ns, case_total, confidence_distribution, considered_candidates_events, content_flow_runs, evolve_check_no_signal, evolve_check_runs, feedback_capture, misdiagnosis_rate, parallel_group_events, reference, reference_detail, reference_outcomes, reference_purposes, reference_total, routed_accuracy, sessions_total, stop_reason_unrecorded, stop_reasons, tier2_hit, tier3, trace_completeness, trace_record_violations, trace_record_violations_total, triage_miss_classes, triage_miss_sessions, vocab_compliance；字段名漂移=跨期不可比，W28/W35 教训）
+        - 以下指标出现在期文件里，但 metrics/gates.yaml 的 metric_strength 没有声明强度档：['considered_candidates_events', 'external_record_violations_total', 'parallel_group_events', 'stop_reason_unrecorded', 'trace_record_violations_total', 'triage_miss_classes']（强度档决定读者能不能把它与确定性读数同权）
+[ 0] E10: periods present in aggregate after resolution
+      - period: 2026-W35
+      - period: 2026-W35-capacity
+      - period: 2026-W35-live1
+      - period: 2026-W36-capacity
+      - period: 2026-W36-live2
+      - period: 2026-W36-verl
+      - period: 2026-W37
+      - period: 2026-W37-live
+      - period: 2026-W44-live-1028
+
+record: D:\working\asv\logs\id-metrics-154910.json

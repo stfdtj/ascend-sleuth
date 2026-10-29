@@ -1,0 +1,103 @@
+{
+  "name": "v2-a",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "8 concurrent UUID drafts",
+      "rc": 0,
+      "out": "dirs=8 unique=8",
+      "err": ""
+    },
+    {
+      "step": "finish complete",
+      "rc": 0,
+      "out": "inbox_v2: complete de625c64-3ac0-4d6d-8473-ba5c96c312c1\n",
+      "err": ""
+    },
+    {
+      "step": "reader complete",
+      "rc": 0,
+      "out": "{\"draft_id\": \"de625c64-3ac0-4d6d-8473-ba5c96c312c1\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\de625c64-3ac0-4d6d-8473-ba5c96c312c1\", \"state\": \"complete\", \"reasons\": [], \"completed_at\": \"2026-10-29T11:08:32+08:00\", \"sources\": {\"draft_id\": \"de625c64-3ac0-4d6d-8473-ba5c96c312c1\", \"created_at\": \"2026-10-29T11:08:32+08:00\", \"source\": {\"kind\": \"diagnosis\", \"deployment_id\": \"unknown\", \"session\": null}, \"sessions\": []}, \"case\": {\"cases\": [{\"id\": \"VLLM-ASC-93001\", \"title\": \"V2 draft x\", \"category\": \"interrupt\", \"tags\": [\"310p\", \"hccl\", \"port\", \"timeout\"], \"platforms\": [\"A2-310P\"], \"compat\": [{\"framework\": \"vllm-ascend\", \"ranges\": [\"==0.22.0\"]}], \"investigation_quality\": \"high\", \"symptoms\": [\"多机启动卡在 HCCL init\", \"日志出现 EADDRINUSE\"], \"quickly_check\": {\"primary\": {\"command_template\": \"grep -c 'EADDRINUSE' {{log_path}}\", \"rank_selector\": \"all_failed\", \"expected\": \"regex:^[1-9]\"}}, \"diagnosis\": [{\"step\": 1, \"check\": \"是否多机同时启动且端口固定\"}], \"severity\": \"service-affecting\", \"fix_side_effects\": [\"requires-restart\"], \"fix_type\": \"env-var\", \"verification\": {\"source\": \"investigation\", \"detail\": \"改 HCCL_IF_BASE_PORT 后启动成功（工程师 A 的现场）\"}, \"root_cause\": \"多机并用固定 HCCL 端口，第二个进程 bind 失败\", \"fix\": \"export HCCL_IF_BASE_PORT=<不同端口> 后重启\", \"source_session\": \"v2-session-vllm-asc-93001\"}]}}",
+      "err": ""
+    },
+    {
+      "step": "repeated finish refused",
+      "rc": 0,
+      "out": "",
+      "err": "inbox_v2: DONE already exists; use reopen\n"
+    },
+    {
+      "step": "reopen",
+      "rc": 0,
+      "out": "D:\\working\\asv2\\a2\\postmortems\\inbox\\c651c9c9-6ccf-4963-8776-6e86707e6aaa\n",
+      "err": ""
+    },
+    {
+      "step": "old superseded",
+      "rc": 0,
+      "out": "{\"draft_id\": \"de625c64-3ac0-4d6d-8473-ba5c96c312c1\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\de625c64-3ac0-4d6d-8473-ba5c96c312c1\", \"state\": \"superseded\", \"reasons\": [\"SUPERSEDED marker\"], \"superseded_by\": \"c651c9c9-6ccf-4963-8776-6e86707e6aaa\"}",
+      "err": ""
+    },
+    {
+      "step": "new complete",
+      "rc": 0,
+      "out": "{\"draft_id\": \"c651c9c9-6ccf-4963-8776-6e86707e6aaa\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\c651c9c9-6ccf-4963-8776-6e86707e6aaa\", \"state\": \"complete\", \"reasons\": [], \"completed_at\": \"2026-10-29T11:08:32+08:00\", \"sources\": {\"draft_id\": \"c651c9c9-6ccf-4963-8776-6e86707e6aaa\", \"created_at\": \"2026-10-29T11:08:32+08:00\", \"source\": {\"kind\": \"diagnosis\", \"deployment_id\": \"unknown\", \"session\": null}, \"sessions\": [], \"supersedes\": \"de625c64-3ac0-4d6d-8473-ba5c96c312c1\"}, \"case\": {\"cases\": [{\"id\": \"VLLM-ASC-93001\", \"title\": \"V2 draft x\", \"category\": \"interrupt\", \"tags\": [\"310p\", \"hccl\", \"port\", \"timeout\"], \"platforms\": [\"A2-310P\"], \"compat\": [{\"framework\": \"vllm-ascend\", \"ranges\": [\"==0.22.0\"]}], \"investigation_quality\": \"high\", \"symptoms\": [\"多机启动卡在 HCCL init\", \"日志出现 EADDRINUSE\"], \"quickly_check\": {\"primary\": {\"command_template\": \"grep -c 'EADDRINUSE' {{log_path}}\", \"rank_selector\": \"all_failed\", \"expected\": \"regex:^[1-9]\"}}, \"diagnosis\": [{\"step\": 1, \"check\": \"是否多机同时启动且端口固定\"}], \"severity\": \"service-affecting\", \"fix_side_effects\": [\"requires-restart\"], \"fix_type\": \"env-var\", \"verification\": {\"source\": \"investigation\", \"detail\": \"改 HCCL_IF_BASE_PORT 后启动成功（工程师 A 的现场）\"}, \"root_cause\": \"多机并用固定 HCCL 端口，第二个进程 bind 失败\", \"fix\": \"export HCCL_IF_BASE_PORT=<不同端口> 后重启\", \"source_session\": \"v2-session-vllm-asc-93001\"}]}}",
+      "err": ""
+    },
+    {
+      "step": "reopen crash window: both complete",
+      "rc": 0,
+      "out": "{\"old\": \"complete\", \"new\": \"complete\"}",
+      "err": ""
+    },
+    {
+      "step": "reader after edit",
+      "rc": 0,
+      "out": "{\"draft_id\": \"456024e6-438c-4290-aeeb-b7ddf6597fbc\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\456024e6-438c-4290-aeeb-b7ddf6597fbc\", \"state\": \"corrupt\", \"reasons\": [\"case.yaml hash mismatch\"]}",
+      "err": ""
+    },
+    {
+      "step": "crash after mkdir",
+      "rc": 0,
+      "out": "{\"draft_id\": \"a0d4677a-66ec-494d-9e91-5214bc1fff55\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\a0d4677a-66ec-494d-9e91-5214bc1fff55\", \"state\": \"incomplete\", \"reasons\": []}",
+      "err": ""
+    },
+    {
+      "step": "partial file",
+      "rc": 0,
+      "out": "{\"draft_id\": \"5be5a56c-8b6d-4eab-9e1d-e598cb16f2eb\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\5be5a56c-8b6d-4eab-9e1d-e598cb16f2eb\", \"state\": \"incomplete\", \"reasons\": []}",
+      "err": ""
+    },
+    {
+      "step": "truncated DONE",
+      "rc": 0,
+      "out": "{\"draft_id\": \"e680afb6-19ba-4e33-8f5c-70fdf43e3015\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\e680afb6-19ba-4e33-8f5c-70fdf43e3015\", \"state\": \"corrupt\", \"reasons\": [\"DONE.files invalid: None\"]}",
+      "err": ""
+    },
+    {
+      "step": "same deployment id, distinct draft UUIDs",
+      "rc": 0,
+      "out": "bb0d4f89-1c7c-41d7-9a82-288acfb03917 vs d21be09a-1bd2-4df7-9b78-c18ba5aec9e2",
+      "err": ""
+    },
+    {
+      "step": "copied draft with renamed dir",
+      "rc": 0,
+      "out": "{\"draft_id\": \"d21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy\", \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\d21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy\", \"state\": \"corrupt\", \"reasons\": [\"sources.draft_id='d21be09a-1bd2-4df7-9b78-c18ba5aec9e2' != dir 'd21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy'\"]}",
+      "err": ""
+    },
+    {
+      "step": "legacy flat listed",
+      "rc": 0,
+      "out": "tle\": \"V2 draft x\",\n            \"category\": \"interrupt\",\n            \"tags\": [\n              \"310p\",\n              \"hccl\",\n              \"port\",\n              \"timeout\"\n            ],\n            \"platforms\": [\n              \"A2-310P\"\n            ],\n            \"compat\": [\n              {\n                \"framework\": \"vllm-ascend\",\n                \"ranges\": [\n                  \"==0.22.0\"\n                ]\n              }\n            ],\n            \"investigation_quality\": \"high\",\n            \"symptoms\": [\n              \"多机启动卡在 HCCL init\",\n              \"日志出现 EADDRINUSE\"\n            ],\n            \"quickly_check\": {\n              \"primary\": {\n                \"command_template\": \"grep -c 'EADDRINUSE' {{log_path}}\",\n                \"rank_selector\": \"all_failed\",\n                \"expected\": \"regex:^[1-9]\"\n              }\n            },\n            \"diagnosis\": [\n              {\n                \"step\": 1,\n                \"check\": \"是否多机同时启动且端口固定\"\n              }\n            ],\n            \"severity\": \"service-affecting\",\n            \"fix_side_effects\": [\n              \"requires-restart\"\n            ],\n            \"fix_type\": \"env-var\",\n            \"verification\": {\n              \"source\": \"investigation\",\n              \"detail\": \"改 HCCL_IF_BASE_PORT 后启动成功（工程师 A 的现场）\"\n            },\n            \"root_cause\": \"多机并用固定 HCCL 端口，第二个进程 bind 失败\",\n            \"fix\": \"export HCCL_IF_BASE_PORT=<不同端口> 后重启\",\n            \"source_session\": \"v2-session-vllm-asc-93001\"\n          }\n        ]\n      }\n    },\n    {\n      \"draft_id\": \"d0d771b0-0b03-479f-9176-1791754b34eb\",\n      \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\d0d771b0-0b03-479f-9176-1791754b34eb\",\n      \"state\": \"incomplete\",\n      \"reasons\": []\n    },\n    {\n      \"draft_id\": \"d21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy\",\n      \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\d21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy\",\n      \"state\": \"corrupt\",\n      \"reasons\": [\n        \"sources.draft_id='d21be09a-1bd2-4df7-9b78-c18ba5aec9e2' != dir 'd21be09a-1bd2-4df7-9b78-c18ba5aec9e2-copy'\"\n      ]\n    },\n    {\n      \"draft_id\": \"de625c64-3ac0-4d6d-8473-ba5c96c312c1\",\n      \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\de625c64-3ac0-4d6d-8473-ba5c96c312c1\",\n      \"state\": \"superseded\",\n      \"reasons\": [\n        \"SUPERSEDED marker\"\n      ],\n      \"superseded_by\": \"c651c9c9-6ccf-4963-8776-6e86707e6aaa\"\n    },\n    {\n      \"draft_id\": \"e680afb6-19ba-4e33-8f5c-70fdf43e3015\",\n      \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\e680afb6-19ba-4e33-8f5c-70fdf43e3015\",\n      \"state\": \"corrupt\",\n      \"reasons\": [\n        \"DONE.files invalid: None\"\n      ]\n    },\n    {\n      \"draft_id\": \"f576d83a-b598-4af2-9d18-b8455de97289\",\n      \"path\": \"D:\\\\working\\\\asv2\\\\a2\\\\postmortems\\\\inbox\\\\f576d83a-b598-4af2-9d18-b8455de97289\",\n      \"state\": \"incomplete\",\n      \"reasons\": []\n    }\n  ],\n  \"legacy_flat_files\": [\n    \"VLLM-ASC-LEGACY.case.yaml\"\n  ],\n  \"complete\": 1,\n  \"incomplete\": 11,\n  \"corrupt\": 3,\n  \"superseded\": 1\n}\n",
+      "err": ""
+    },
+    {
+      "step": "verify_case_draft on draft case",
+      "rc": 0,
+      "out": "verify_case_draft: 通过（1 个文件；references 索引 267 条）\n",
+      "err": ""
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# 合入前复核报告（原型）
+目标 main：ed8e3e2b99c6e40618911a6b5371d720af3c563e
+待合入提交：4e102b53110b3896cc84a7e2bc33191ddb76f09a
+共同祖先：55c20dc1216590ac3175cb963f59b7cc7fd18296
+双方都改的 case：{"added_both": [], "modified_both": [], "deleted_by_main_modified_by_head": [], "modified_by_main_deleted_by_head": [], "added_by_main_renamed_by_head": []}
+同路径双方都新增：[]
+同路径双方内容不同：[]
+重命名/删除的 id：[]
+另一侧仍提到已改名的 id：[]
+碰到的生成物：[]
+候选对（2 对，另有 0 对未展示）：
+  - VLLM-ASC-92002 ↔ VLLM-ASC-92001R（0.522；same-cell-overlap）
+    矛盾提示：same-check-two-fixes：同一期望值、修复词重合低，需要确认；same-session-two-cases：同一 session 被两处引用，确认是否重复结算
+  - VLLM-ASC-92002 ↔ VLLM-ASC-92003（0.474；same-cell-overlap）
+    矛盾提示：same-check-two-fixes：同一期望值、修复词重合低，需要确认；same-session-two-cases：同一 session 被两处引用，确认是否重复结算
+决定：TODO（人填）
+证据去向：TODO（人填）
+未决项：TODO（人填）
+负责人：TODO（人填）

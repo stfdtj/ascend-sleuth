@@ -1,0 +1,248 @@
+{
+  "experiment": "e2e-baseline",
+  "generated_at": "2026-10-28T15:38:03.693717+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [
+    "baseline commit: 28adab0d1db1f00989b5416dfeaf8206df71ca4a",
+    "inbox resolved by scripts/shared_dir.py: D:\\working\\asv\\e2e\\postmortems\\inbox",
+    "generated artifacts changed by rebuild: ['nowledge/_index.yaml', 'knowledge/_index/inference__vllm-ascend.list', 'knowledge/_index/inference__vllm-ascend__interrupt.list', 'metrics/entry-activity/ascend-sleuth.yaml', 'knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml']"
+  ],
+  "rows": [
+    {
+      "step": "sediment_batch --json (workflow entry point for 'what to sediment')",
+      "rc": 0,
+      "stdout_tail": "        }\n      ],\n      \"updated\": \"2026-10-28T11:30:00+08:00\",\n      \"actionable\": true,\n      \"why\": \"已收尾（resolved）、有报告、1 条候选\"\n    }\n  ],\n  \"unreadable\": [],\n  \"actionable\": [\n    \"session:2026-10-28-conc-a01\"\n  ]\n}",
+      "stderr_tail": "",
+      "groups": [
+        "session:2026-10-28-conc-a01"
+      ]
+    },
+    {
+      "step": "draft files created",
+      "rc": 0,
+      "stdout_tail": "D:\\working\\asv\\e2e\\postmortems\\inbox\\VLLM-ASC-90001.case.yaml\nD:\\working\\asv\\e2e\\postmortems\\inbox\\VLLM-ASC-90001.md",
+      "stderr_tail": "",
+      "draft": "D:\\working\\asv\\e2e\\postmortems\\inbox\\VLLM-ASC-90001.case.yaml",
+      "postmortem": "D:\\working\\asv\\e2e\\postmortems\\inbox\\VLLM-ASC-90001.md"
+    },
+    {
+      "step": "verify_case_draft <draft>",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "read cell view (documented candidate source for pre-triage)",
+      "rc": 0,
+      "stdout_tail": "id: VLLM-ASC-9305 | category: interrupt | title: 启动报 ModuleNotFoundError: No module named 'vllm.v1.attention.backends.mla.prefill'：vllm 与 vllm-ascend 版本错配（乱配 commit），按 vllm-main-verified.commit / vllm-release-… | symptoms: vllm-ascend（dev 构建或官方镜像）与 vllm 版本未对齐时启动报 ModuleNotFoundError: No module named 'vllm.v1.attention.backends.mla.prefill' | tok: 0.19.1rc2; 0.20.2; v0.20.2rc1 | tags: version-mismatch; module-not-found; mla; startup-failure | score: 0.5\nid: VLLM-ASC-9398 | category: interrupt | title: CANN 9.0 镜像 + Mooncake KV pool 跨机 put key error：HCCP RDMA MR 注册 30GiB 缓冲失败 + GE 503900 channel init 失败 + ascend_direct 建链失败 → backend Failed to put key res[-800… | symptoms: CANN 9.0（+HDK 25.2.1）镜像下 GLM5.1-w8a8 PD 分离 kv pool 服务，mooncake_backend.py 反复报 'Failed to put key [...] res:[-800, -800, … | sig: rs_drv_exp_mr_reg addr is NULL | tok: 0.3.10; 0.3.9; 25.2.1; 503900; 9.0; 9.0.0; REDACTED; ascend_direct_transport.cpp; mooncake_backend.py | compat: vllm-ascend 0.19.1rc2; mooncake =0.3.9 (cann:=9.0.0) | tags: mooncake; kv-pool; kv-transfer; put-key-error; roce; rdma | score: 0.7\nid: VLLM-ASC-9418 | category: interrupt | title: A3 双机混部（TP16+DP2+EP，DeepSeek-V4-Pro w4a8）拉起失败：call aclnnHcPreInvRms failed——未用灵衢背板仍按机内 AIV/HCCS 配置跑跨机通信；跨机改走 ROCE（HCCL_BUFFSIZE=200、HCCL_INTER_HCCS_DISABLE=TRUE… | symptoms: A3 双机混部部署 DeepSeek-V4-Pro-w4a8（TP16 + DP2 跨 2 节点 + expert parallel + --quantization ascend），vllm serve 拉起失败，报 'call acln… | sig: call aclnnHcPreInvRms failed; aclnnHcPreInvRms; failed to start; cannot start | tok: ALLGATHER; HCCL_BUFFSIZE; HCCL_INTER_HCCS_DISABLE; HCCL_OP_EXPANSION_MODE; aclnnHcPreInvRms | compat: vllm-ascend 0.18.0 | tags: deepseek-v4; a3; multi-node; mixed-parallelism; roce; hccl | score: 0.5\nid: VLLM-ASC-9482 | category: interrupt | title: --async-scheduling + MTP（spec decode）崩溃：model runner 的 _copy_valid_sampled_token_count（PR #8766 重写）把 current_stream 声明进 with torch.npu.stream() 内、多流未同步 → valid_… | symptoms: vllm-ascend 0.19.0/main：Qwen3.5-APC + MTP（spec decode）开启 --async-scheduling 后服务崩溃（issue 内 trace 为截图） | sig: num_accepted; num_computed_tokens; _copy_valid_sampled_token_count; valid_sampled | tok: 0.19.0; stream() | compat: vllm-ascend 0.19.0 | tags: async-scheduling; mtp; spec-decode; model-runner; stream-sync; token-count | score: 0.75\nid: VLLM-ASC-9507 | category: interrupt | title: minimax2.7 TP4 + --prefill-context-parallel-size 2 开启 PCP 时 curl 报 AttributeError: 'NoneType' object has no attribute 'num_computed_tokens_of_pcp_dcp'；FULL 图模式不… | symptoms: minimax2.7-w8a8 TP4 + --prefill-context-parallel-size 2（PCP=2）启动后 curl 调用报错，Worker 抛 AttributeError: 'NoneType' object h… | tok: FULL_DECODE_ONLY; acl_graph.py; attention_cp.py | compat: vllm-ascend <=0.19.1 | tags: pcp; context-parallel; aclgraph; full-graph; workaround-only | score: 0.5\nid: VLLM-ASC-9593 | category: interrupt | title: 310P（300I Duo / 310P3）vllm serve 启动 pooling 模型（如 bge-m3 --runner pooling）报 NotImplementedError: \"310P does not support runner_type='pooling'\"：310P 分支 attention … | symptoms: 310P（310P3/300I Duo）vllm serve 启动 pooling 模型（命令：vllm serve bge-m3 --runner pooling --dtype float16 --enforce-eager）直接报 N… | sig: --runner pooling | tok: attention_mask.py | compat: vllm-ascend 0.18.0rc0+htrunk1.gts.gtsllm.310p.r4 | tags: 310p; pooling; embedding; runner-type; notimplemented; feature-gap | score: 0.75\nid: VLLM-ASC-9596 | category: interrupt | title: Qwen3-4B TP=8 默认 PIECEWISE（mixed prefill-decode）graph capture 失败：rtStreamWaitEvent resource alloc fail（207005/507903），昇腾 NPU stream/SQ-CQ 资源预算不足 | symptoms: Qwen3-4B TP=8 默认 vllm serve 在 PIECEWISE graph capture 12/15 左右失败，报 rtStreamWaitEvent execution failed, reason=driver err… | sig: error code is 507903; Alloc sq cq fail | tok: 0x7020023; 207005; 507903; ERR00100; FULL_DECODE_ONLY; PIECEWISE | compat: vllm-ascend <=0.19.1 | tags: aclgraph; piecewise; graph-capture; stream-budget; tp8 | score: 0.75\nid: VLLM-ASC-9719 | category: interrupt | title: Minimax W8A8（minimax-m2.5-w8a8-quarot）启动 OOM、权重显存翻倍（~27GB→~54GB/shard）：config.json 含 quantization_config 顶层键导致 modelslim_config.py maybe_update_config 卫语句 if se… | symptoms: Minimax m2.5-w8a8-quarot（W8A8）启动失败：加载权重显存约为预期的 2 倍（~27GB→~54GB/shard），触发 OOM | sig: out of memory | tok: 0.20.2; modelslim_config.py | compat: vllm-ascend 0.20.2 | tags: minimax; w8a8; modelslim; quantization; oom; double-memory | score: 0.65\nid: VLLM-ASC-9769 | category: interrupt | title: 310P 图模式（vllm-ascend 0.19.1）W8A8 量化模型推理请求崩溃：QuantBatchmatmulV3 收 FRACTAL_NZ 期望 ND（NZ/ND 格式期望错位）→ ACL stream synchronize failed 507015 / EngineDeadError 500；--en… | symptoms: 310P（npu-smi 310P3）上 vllm-ascend 0.19.1 服务 W8A8 量化模型（默认图模式），推理请求触发 EngineCore 崩溃：RuntimeError: ACL stream synchronize fa… | sig: FRACTAL_NZ; EngineDeadError | tok: 0.19.1; 507015; FRACTAL_NZ; block_table.py; error code:507015 | compat: vllm-ascend 0.19.1 | tags: 310p; w8a8; quantization; quantbatchmatmulv3; graph-mode; cudagraph | score: 0.6\nid: VLLM-ASC-9887 | category: interrupt | title: GLM-5.1-w8a8 PD 分离 decode（多 DP+EP+MTP+FusedMC2）运行期崩溃 error code 507034：num_batch_tokens(272) 超 MC2 容量(~104) 致不同 DP 走不同 MoE 分发分支——规避 num_batch_tokens=max_num_seq… | symptoms: GLM-5.1-w8a8 PD 分离双机 A3 decode 节点（多 DP + EP + MTP/deepseek_mtp + FusedMC2 + MLAPO + Mooncake）上线后运行期崩溃 | sig: error code 507034; 507034; repeat_interleave | tok: 5.1; 507034; EAGLE; MLAPO; error code 507034 | compat: vllm-ascend 0.18.0; hdk 25.2.1 | tags: glm5; pd-separation; mtp; mc2; moe-dispatch; crash | score: 0.3\nid: VLLM-ASC-HCCL-BIND-IP-PORT | category: interrupt | title: 多 P 节点独立启动（无 Ray）的 MoE 专家并行长稳运行后 P 节点崩溃：plog 报 Communication_Error_Bind_IP_Port（HCCL 建链 bind IP:Port 失败，src_port 越界）——与 kv_port/Mooncake 端口无关 | symptoms: PD 分离多机部署（如 4 机 A3 3×1P + 1×1D），各 P 节点**独立启动、不使用 Ray**，服务长稳运行（数小时~两天半）后某 P 节点崩溃退出 | sig: Communication_Error_Bind_IP_Port; hccl_socket_manager; aclnnMoeDistributeDispatchV4; hccl_ret; src_port | tok: 65535 | compat: vllm-ascend 0.22.1rc1 | tags: hccl; moe-dispatch; pd-separation; bind-ip-port; port-overflow; multi-node | score: 0.3\nid: VLLM-ASC-ZMQ-HANDSHAKE-PORT-OVERFLOW | category: interrupt | title: PD 分离 + Mooncake KV 传输：握手端口按 rank 偏移累加越界（kv_port 基址 + dp_rank×tp×pp×pcp + device_index ≥ 65536）→ ZMQ bind 到非法端口，报 port 65536 have already been bound | symptoms: PD 分离部署 + Mooncake KV 传输（`kv_transfer_config.kv_port` 已配）时，某节点服务拉起失败或运行中退出，报 `port 65536 have already been bound`（或其它 >6… | sig: already been bound | tok: 65535; 65536 | compat: vllm-ascend 0.22.1rc1,0.23.0rc1 | tags: mooncake; kv-transfer; pd-separation; zmq; port-overflow; handshake-port | score: 0.6",
+      "stderr_tail": "",
+      "view": "knowledge\\_index\\inference__vllm-ascend__interrupt.list",
+      "lines": 106
+    },
+    {
+      "step": "verify_case_draft --gate (promotion gate)",
+      "rc": 0,
+      "stdout_tail": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "promote draft -> knowledge/...",
+      "rc": 0,
+      "stdout_tail": "knowledge\\inference\\vllm-ascend\\interrupt\\VLLM-ASC-90001.yaml",
+      "stderr_tail": "",
+      "dest": "knowledge\\inference\\vllm-ascend\\interrupt\\VLLM-ASC-90001.yaml"
+    },
+    {
+      "step": "rebuild_generated --check (groom step 8, regenerates in worktree)",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "git status after rebuild (generated artifacts touched, not committed)",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list\n M metrics/entry-activity/ascend-sleuth.yaml\n?? knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "restore generated artifacts before committing the PR (source-only PR)",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "verify_case_draft --all",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（172 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "verify_references --check",
+      "rc": 0,
+      "stdout_tail": "references 校验通过（267 个词条，id 全部唯一）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "verify_entry_activity",
+      "rc": 0,
+      "stdout_tail": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "holdout --check",
+      "rc": 0,
+      "stdout_tail": "holdout --check: OK（11 条封存夹具内容未被改动）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "eval_scorecard --check",
+      "rc": 0,
+      "stdout_tail": "  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞\n  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞\n  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞\n  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞\n  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞\n  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞\n  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞\n  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞\n  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞\n  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞\n  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞\nscorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "build_triage_tree --check-sources",
+      "rc": 0,
+      "stdout_tail": "路由源文件合法（3 个性质 × 2 个负载类型 ← triage-tree.d/）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "build_triage_tree --check-coverage",
+      "rc": 0,
+      "stdout_tail": "路由覆盖完整：3 个性质 / 2 个负载类型 / 54 组症状都在聚合 triage-tree.yaml 里。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "check_generated_untouched --base origin/main",
+      "rc": 0,
+      "stdout_tail": "生成物未改动（本次变更 0 个文件）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "index-freshness emulation: rebuild_generated --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "index-freshness emulation: build_index --check",
+      "rc": 0,
+      "stdout_tail": "索引覆盖完整：172 条 case 的读侧行与总表条目都在（读侧视图 15 个）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "restore generated artifacts again",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "verify_pr_body (CI pr-template job)",
+      "rc": 0,
+      "stdout_tail": "识别模板: knowledge_intake，关键区块齐全 ✓；Agent 预核意见 —（可选：非 agent 链路可留空，不拦截）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "create branch kb/e2e-90001",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Switched to a new branch 'kb/e2e-90001'"
+    },
+    {
+      "step": "git add (source only)",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "warning: in the working copy of 'knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml', CRLF will be replaced by LF the next time Git touches it"
+    },
+    {
+      "step": "staged tree",
+      "rc": 0,
+      "stdout_tail": "A  knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "commit",
+      "rc": 0,
+      "stdout_tail": "[kb/e2e-90001 0290312] kb: add VLLM-ASC-90001 (synthetic)\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "push branch to origin",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": ""
+    },
+    {
+      "step": "integration clone: merge PR",
+      "rc": 0,
+      "stdout_tail": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-90001.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-90001.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "post-merge job: rebuild_generated --check",
+      "rc": 0,
+      "stdout_tail": "生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check",
+      "stderr_tail": ""
+    },
+    {
+      "step": "post-merge job: git status",
+      "rc": 0,
+      "stdout_tail": "M knowledge/_index.yaml\n M knowledge/_index/inference__vllm-ascend.list\n M knowledge/_index/inference__vllm-ascend__interrupt.list\n M metrics/entry-activity/ascend-sleuth.yaml",
+      "stderr_tail": ""
+    },
+    {
+      "step": "post-merge job: commit generated views",
+      "rc": 0,
+      "stdout_tail": "[main 21033d6] chore: rebuild generated views\n 4 files changed, 20 insertions(+), 1 deletion(-)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "post-merge job: push main",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "To D:\\working\\asv\\origin.git\n   28adab0..21033d6  main -> main"
+    },
+    {
+      "step": "retrieval: VLLM-ASC-90001 present in knowledge/_index/inference__vllm-ascend__interrupt.list",
+      "rc": 0,
+      "stdout_tail": "present=True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "retrieval: VLLM-ASC-90001 present in knowledge/_index/inference__vllm-ascend.list",
+      "rc": 0,
+      "stdout_tail": "present=True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "retrieval: VLLM-ASC-90001 present in knowledge/_index.yaml",
+      "rc": 0,
+      "stdout_tail": "present=True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "quickly_check.primary keyword scan against a synthetic log (grep is not present on this Windows host; Python re is equivalent here)",
+      "rc": 0,
+      "stdout_tail": "primary regex match: True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "expected regex matches the log",
+      "rc": 0,
+      "stdout_tail": "regex match: True",
+      "stderr_tail": ""
+    },
+    {
+      "step": "integration main log",
+      "rc": 0,
+      "stdout_tail": "21033d6 chore: rebuild generated views\n2254102 merge PR kb/e2e-90001\n28adab0 Merge pull request #377 from pillumina/kb/ev-mark-merged-182\n32efe3a chore(evolve): 回写 EV-2026-182 的合入指针\nf9d72f3 Merge pull request #372 from pillumina/kb/evolve-signal-ledger\n0290312 kb: add VLLM-ASC-90001 (synthetic)",
+      "stderr_tail": ""
+    },
+    {
+      "step": "merge commit stat",
+      "rc": 0,
+      "stdout_tail": "2254102 merge PR kb/e2e-90001\n .../vllm-ascend/interrupt/VLLM-ASC-90001.yaml      | 34 ++++++++++++++++++++++\n 1 file changed, 34 insertions(+)",
+      "stderr_tail": ""
+    }
+  ]
+}

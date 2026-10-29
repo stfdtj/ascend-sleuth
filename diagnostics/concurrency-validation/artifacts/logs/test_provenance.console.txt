@@ -1,0 +1,118 @@
+﻿[ 0] provenance sidecar added: rebuild_generated --check
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] with provenance sidecar: verify_references --check
+      references 校验通过（267 个词条，id 全部唯一）
+[ 0] with provenance sidecar: verify_entry_activity
+      ✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。
+[ 0] with provenance sidecar: verify_case_draft --all
+      verify_case_draft: 通过（173 个文件；references 索引 267 条）
+[ 1] does any script / CI read the proposed provenance sidecar?
+[ 0] after the merged edit: rebuild_generated --check
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] field → contributing drafts from provenance
+      {"symptoms": ["2026-10-28-diag-001", "2026-10-28-diag-002"], "fix": ["2026-10-28-diag-001"], "compat": ["2026-10-28-diag-001"], "verification": ["2026-10-28-diag-002"]}
+[ 0] rename case, rebuild
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] provenance filename after the rename
+      {"provenance_file": "VLLM-ASC-90001.provenance.yaml", "case_file": "VLLM-ASC-90001R.yaml", "still_references_old_id": true, "orphan": true}
+[ 0] after rename: verify_references --check
+      references 校验通过（267 个词条，id 全部唯一）
+[ 0] after rename: verify_case_draft --all
+      verify_case_draft: 通过（173 个文件；references 索引 267 条）
+[ 0] settle two usage rows (NEW and 90002)
+      发现 2 个 session 含待结算 feedback 事件。
+        [diff] 2026-10-28-fb-1 → D:\working\asv\prov\knowledge\inference\vllm-ascend\interrupt\VLLM-ASC-90001R.yaml: resolved += 1，outcome=resolved
+        [diff] 2026-10-28-fb-2 → D:\working\asv\prov\knowledge\inference\vllm-ascend\precision\VLLM-ASC-90002.yaml: resolved += 1，outcome=resolved
+      共 2 条反馈事件、2 个 case 的计数变更。
+        - {run: 2026-10-29-0013, deployment: prov, checkout: 55c20dc, kb_rev: 55c20dc, sessions: 2, kind: case, id: VLLM-ASC-90001R, selected: 0, loaded: 0, resolved: 1, misdiagnosed: 0, self_resolved: 0, excluded: 0}
+        - {run: 2026-10-29-0013, deployment: prov, checkout: 55c20dc, kb_rev: 55c20dc, sessions: 2, kind: case, id: VLLM-ASC-90002, selected: 0, loaded: 0, resolved: 1, misdiagnosed: 0, self_resolved: 0, excluded: 0}
+      [settled] 已追加 2 行 → D:\working\asv\prov\metrics\entry-activity.d\2026-W44.yaml
+      [settled] 结算游标已更新 → D:\working\asv\prov\.settle-state.json
+      接着跑 python3 scripts/trace_entry_activity.py --apply 汇总本轮诊断，再跑 python3 scripts/build_entry_activity.py 重建生成物。
+[ 0] rebuild the generated entry-activity artifact
+      已重建 D:\working\asv\prov\metrics\entry-activity\ascend-sleuth.yaml
+      已重建 D:\working\asv\prov\metrics\entry-activity\prov.yaml
+[ 0] usage rows before merge
+      [{"id": "VLLM-ASC-90001R", "resolved": 1}, {"id": "VLLM-ASC-90002", "resolved": 1}]
+[ 0] merge 90002 into 90001 by archiving the duplicate, rebuild
+      生成 scripts/build_triage_tree.py
+      生成 scripts/build_timeline.py
+      生成 scripts/build_entry_activity.py
+      检查 scripts/build_index.py --check
+      检查 scripts/build_ref_summary_index.py --check
+      检查 scripts/build_procedure_index.py --check
+      检查 scripts/build_error_gap_index.py --check
+      检查 scripts/build_triage_tree.py --check-sources
+      检查 scripts/build_triage_tree.py --check-coverage
+      检查 scripts/build_triage_tree.py --check
+      检查 scripts/build_timeline.py --check
+      检查 scripts/build_entry_activity.py --check
+[ 0] verify_entry_activity after archiving the duplicate
+      ✓ 条目使用记录通过：5 行、2 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。
+[ 0] score_entries after archive (counts do not transfer)
+      算分：172 条案例；锚点周 2026-W44；分数来源 records+prior（有记录 4 / 退回先验 168 / 人工覆盖 0）
+      参数：先验等效观测 4.0、自证权重 0.5、衰减半衰期 12.0 周
+[ 0] generated entry-activity keys after archive
+      {"VLLM-ASC-90001R": {"totals": {"selected": 0, "loaded": 0, "resolved": 1, "misdiagnosed": 0, "self_resolved": 0, "excluded": 0}, "last_hit": "2026-W44", "by_week": {"2026-W44": {"selected": 0, "loaded": 0, "resolved": 1, "misdiagnosed": 0, "self_resolved": 0, "excluded": 0}}, "recent": [{"run": "2026-10-29-0013", "week": "2026-W44", "selected": 0, "loaded": 0, "resolved": 1, "misdiagnosed": 0, "self_resolved": 0, "excluded": 0}]}, "VLLM-ASC-90002": {"totals": {"selected": 0, "loaded": 0, "resolved": 1, "misdiagnosed": 0, "self_resolved": 0, "excluded": 0}, "last_hit": "2026-W44", "by_week": {"2026-W44": {"selected": 0, "loaded": 0, "resolved": 1, "misdiagnosed": 0, "self_resolved": 0, "excluded": 0}}, "recent": [{"run": "2026-10-29-0013", "week": "2026-W44", "selected": 0, "loaded": 0, "r
+[ 0] two cases claiming the same incident, each with its own feedback event
+      [skip] 2026-10-28-fb-1.yaml: 已结算（1 条事件全部落地）
+      [skip] 2026-10-28-fb-2.yaml: 已结算（1 条事件全部落地）
+      发现 1 个 session 含待结算 feedback 事件。
+        [diff] 2026-10-28-fb-3 → D:\working\asv\prov\knowledge\inference\vllm-ascend\precision\VLLM-ASC-90005.yaml: resolved += 1，outcome=resolved
+      共 1 条反馈事件、1 个 case 的计数变更。
+        - {run: 2026-10-29-0013, deployment: prov, checkout: 55c20dc, kb_rev: 55c20dc, sessions: 1, kind: case, id: VLLM-ASC-90005, selected: 0, loaded: 0, resolved: 1, misdiagnosed: 0, self_resolved: 0, excluded: 0}
+      [settled] 已追加 1 行 → D:\working\asv\prov\metrics\entry-activity.d\2026-W44.yaml
+      [settled] 结算游标已更新 → D:\working\asv\prov\.settle-state.json
+      接着跑 python3 scripts/trace_entry_activity.py --apply 汇总本轮诊断，再跑 python3 scripts/build_entry_activity.py 重建生成物。
+[ 0] usage rows after the second case
+      [{"id": "VLLM-ASC-90001R", "resolved": 1, "self_resolved": 0}, {"id": "VLLM-ASC-90002", "resolved": 1, "self_resolved": 0}, {"id": "VLLM-ASC-90005", "resolved": 1, "self_resolved": 0}]
+[ 0] provenance independence is a human assertion, not a check
+      {"independent_field": false, "checked_by": "nothing"}
+[ 0] monthly observability: data availability
+          "computable": false
+        },
+        "reviewer_decision_auditable": {
+          "needs": [
+            "structured decision record"
+          ],
+          "have": [
+            "PR body free text; verify_pr_body checks headings only"
+          ],
+          "computable": false
+        }
+      }
+
+record: D:\working\asv\logs\provenance-161356.json

@@ -1,0 +1,85 @@
+{
+  "experiment": "inbox-race",
+  "generated_at": "2026-10-28T15:32:15.889169+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [],
+  "rows": [
+    {
+      "step": "create a second worktree of the same clone",
+      "rc": 0,
+      "stdout_tail": "",
+      "stderr_tail": "",
+      "worktree": "D:\\working\\asv\\inboxlab-wt"
+    },
+    {
+      "step": "shared_dir inbox from main-checkout",
+      "rc": 0,
+      "stdout_tail": "D:\\working\\asv\\inboxlab\\postmortems\\inbox（同一克隆共享：主检出 postmortems\\inbox/，所有 worktree 共读共写）\nD:\\working\\asv\\inboxlab\\postmortems\\inbox",
+      "stderr_tail": ""
+    },
+    {
+      "step": "shared_dir inbox from worktree",
+      "rc": 0,
+      "stdout_tail": "D:\\working\\asv\\inboxlab\\postmortems\\inbox（同一克隆共享：主检出 postmortems\\inbox/，所有 worktree 共读共写）\nD:\\working\\asv\\inboxlab\\postmortems\\inbox",
+      "stderr_tail": ""
+    },
+    {
+      "step": "shared inbox identical across worktrees?",
+      "rc": 0,
+      "stdout_tail": "{\"main-checkout\": \"D:\\\\working\\\\asv\\\\inboxlab\\\\postmortems\\\\inbox\", \"worktree\": \"D:\\\\working\\\\asv\\\\inboxlab\\\\postmortems\\\\inbox\"}",
+      "stderr_tail": "",
+      "identical": true
+    },
+    {
+      "step": "same-file concurrent small writes (10 rounds)",
+      "rc": 0,
+      "stdout_tail": " },\n {\n  \"size\": 1245,\n  \"markers\": {\n   \"ALPHA-9\": false,\n   \"BETA-9\": true\n  },\n  \"mixed\": false,\n  \"parses\": true,\n  \"head\": \"# VLLM-ASC-90001 —— synthetic concurrency-validation fixture (invented content)\\\\n\"\n }\n]",
+      "stderr_tail": "",
+      "rounds": 10,
+      "both_present": 0,
+      "one_present": 10,
+      "valid_yaml": 10
+    },
+    {
+      "step": "same-file chunked large writes (3 rounds)",
+      "rc": 0,
+      "stdout_tail": " },\n {\n  \"size\": 3145793,\n  \"markers\": {\n   \"ALPHA\": true,\n   \"BETA\": true\n  },\n  \"mixed\": true,\n  \"parses\": true,\n  \"head\": \"# draft marker=BETA\\\\ncases:\\\\n  - id: VLLM-ASC-90099\\\\n    title: \\\"BETABETABETABETABE\"\n }\n]",
+      "stderr_tail": "",
+      "mixed": 3,
+      "parse_failures": 0
+    },
+    {
+      "step": "writer killed mid-write: file left behind",
+      "rc": 0,
+      "stdout_tail": "{\"size\": 35380, \"markers\": {}, \"mixed\": false, \"parses\": \"ScannerError: while scanning a quoted scalar\\n  in \\\"<unicode string>\\\", line 4, column 12:\\n        title: \\\"xxxxxxxxxxxxxxx\", \"head\": \"# partial\\\\ncases:\\\\n  - id: VLLM-ASC-90096\\\\n    title: \\\"xxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+      "stderr_tail": "",
+      "parses": false,
+      "size": 35380
+    },
+    {
+      "step": "verify_case_draft on the killed-writer file",
+      "rc": 1,
+      "stdout_tail": "  ✗ D:\\working\\asv\\inboxlab\\postmortems\\inbox\\VLLM-ASC-90096.case.yaml: YAML 解析失败 —— while scanning a quoted scalar\n  in \"<unicode string>\", line 4, column 12\nfound unexpected end of stream\n  in \"<unicode string>\", line 4, column 35341\nverify_case_draft: 1 个问题（1 个文件）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "half set (case.yaml present, .md missing): verify_case_draft",
+      "rc": 0,
+      "stdout_tail": "verify_case_draft: 通过（1 个文件；references 索引 267 条）",
+      "stderr_tail": ""
+    },
+    {
+      "step": "who reads the draft's .md half? (grep for .md in the intake path)",
+      "rc": 0,
+      "stdout_tail": "postmortems/inbox/README.md:3:`/skill:to-postmortem` 的新产出落这里（`<case-id>.md` + `<case-id>.case.yaml` 草稿）。\npostmortems/inbox/README.md:8:- **本目录是队列，不是档案**：每周 `/skill:knowledge-groom` 批处理清空（三分类 new_pattern / variant_of / covered_by，见其 SKILL.md）\npostmortems/inbox/README.md:17:设计论证见 [docs/adr/0002](../../docs/adr/0002-retrieval-no-rag-lightweight-index.md)。\nscripts/verify_case_draft.py:147:            # 允许任一种；两者都没有才是空步。schema 见 CLAUDE.md 的 case schema 节。\nskills/knowledge-groom/SKILL.md:47:     只读它们的输出摘要；步骤 4 是全库一次算完，不做逐条判断（公式住在脚本里，见 docs/mechanism/diagnosis-observability.md 3.4）；\nskills/knowledge-groom/SKILL.md:92:4. **算分（脚本，全库一次）**：跑 `python3 scripts/score_entries.py`。分数**不再由 agent 判断重算、也不住在 case 文件里**——它是「条目使用记录的计数」与「冷启动先验」的派生值，只落在索引生成物里（口径与公式见 docs/mechanism/diagnosis-observability.md 3.4）。你做的是**读它的输出并核对**，不是逐条拍分：\nskills/knowledge-groom/SKILL.md:106:   **语义（分层，防误读）**：verification 提升的是\"内容正确性\"先验——fix PR 合入的 case 根因/修复被外部验证过，**内容可默认高置信**，故即使调查质量=low 也有 0.5 起点（内容对但调查表述简略，仍可信）；`engineer-report` 同时证明现场有效，故最高。**先验不等于现场校准**——fix 在你环境是否适用仍要现场回报确认；没有记录时分数就停在先验值，报数时标明「内容已验证、现场待确认」。算分参数（先验等效观测 4、自证权重 0.5、衰减半衰期 12 周）是执行值，改它们要连带改 `score_entries.py` 与本文；理论推导见 docs/spec/design-theory.md §4.1（可选论证层）。\nskills/knowledge-groom/SKILL.md:181:高风险变更要求两个 owner 签字（领域 owner + 体系维护人）。变更在 session 内**随机排序**审，对抗疲劳——一个 session 审 30 条变更，第 30 条得到的 scrutiny 远少于第 1 条，随机化缓解这个偏差。git 落地：变更走 PR 并打 `kb/high-risk` 标签，`CODEOWNERS` 双组路径强制对应 owner 审批（owner 未定前用 `CODEOWNERS.example` 占位，机制先跑；流程细节见 docs/guide/git-workflow.md——可选论证层）。\nskills/knowledge-groom/SKILL.md:198:| Tier 2 未命中率 > 60% 持续两周 | **先看路由准确率**（见 docs/guide/metrics.md）：路由准确率低→改 triage-tree；路由准但未命中→加 case |\nskills/knowledge-groom/SKILL.md:219:批审产出、出变更摘要前，执行一次伴随演进评估（`read skills/evolve-check/SKILL.md`\nskills/knowledge-groom/SKILL.md:228:> 也没有收尾协议，`docs/mechanism/run.md` 的\"已落地含 groom\"曾是纸面承诺）。",
+      "stderr_tail": ""
+    },
+    {
+      "step": "control: different ids written to the same inbox",
+      "rc": 0,
+      "stdout_tail": "{\"0\": true, \"1\": true, \"2\": true, \"3\": true}",
+      "stderr_tail": "",
+      "all_present": true
+    }
+  ]
+}

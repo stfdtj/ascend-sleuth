@@ -1,0 +1,51 @@
+{
+  "experiment": "checkpoint-b",
+  "generated_at": "2026-10-28T15:59:19.728183+00:00",
+  "lab_root": "D:\\working\\asv",
+  "notes": [],
+  "rows": [
+    {
+      "step": "find_duplicates --json (11 synthetic drafts vs real 173-case library)",
+      "rc": 0,
+      "stdout_tail": "{\n  \"pairs\": [\n    {\n      \"a\": \"2026-10-28-diag-004\",\n      \"b\": \"2026-10-28-diag-005\",\n      \"a_case_id\": \"VLLM-ASC-91004\",\n      \"b_case_id\": \"VLLM-ASC-91005\",\n      \"score\": 1.0,\n      \"reasons\": ",
+      "stderr_tail": ""
+    },
+    {
+      "step": "find_duplicates --json --limit 0 (no display cap)",
+      "rc": 0,
+      "stdout_tail": "{\n  \"pairs\": [\n    {\n      \"a\": \"2026-10-28-diag-004\",\n      \"b\": \"2026-10-28-diag-005\",\n      \"a_case_id\": \"VLLM-ASC-91004\",\n      \"b_case_id\": \"VLLM-ASC-91005\",\n      \"score\": 1.0,\n      \"reasons\": ",
+      "stderr_tail": ""
+    },
+    {
+      "step": "must-surface results (generated vs displayed)",
+      "rc": 0,
+      "stdout_tail": "      \"evidence\": \"different\"\n    },\n    \"hints\": []\n  },\n  \"D11 unrelated control vs 90001\": {\n    \"generated\": false,\n    \"displayed\": false,\n    \"reasons\": [],\n    \"axes\": {},\n    \"hints\": []\n  }\n}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "nomination volume and runtime",
+      "rc": 0,
+      "stdout_tail": "displayed=23; generated=101; unshown=78; library=173; inputs=11; seconds=2.3",
+      "stderr_tail": ""
+    },
+    {
+      "step": "incomplete draft (no DONE) consumed by Checkpoint B?",
+      "rc": 0,
+      "stdout_tail": "{\"inputs\": 12, \"appears_in_candidates\": true, \"note\": \"the proposed finder does not read DONE; groom does\"}",
+      "stderr_tail": "",
+      "consumed": true
+    },
+    {
+      "step": "six-axis data coverage in the real library",
+      "rc": 0,
+      "stdout_tail": "{\"cases\": 173, \"upstream\": 120, \"source_session\": 3, \"validation_record\": 109, \"compat\": 166, \"platforms\": 99, \"fix_on_mismatch_step\": 57, \"verification_event_ids\": 3}",
+      "stderr_tail": ""
+    },
+    {
+      "step": "legacy flat draft (no sources.yaml): axes available?",
+      "rc": 0,
+      "stdout_tail": "{\"nominated\": true, \"axes\": {\"source\": \"unknown\", \"root_cause\": \"needs-human-read\", \"discriminator\": \"different\", \"fix\": \"needs-human-read\", \"conditions\": \"overlap\", \"evidence\": \"same\"}}",
+      "stderr_tail": ""
+    }
+  ]
+}

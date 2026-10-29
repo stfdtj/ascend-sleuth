@@ -1,0 +1,15 @@
+# 合入前复核报告（原型）
+目标 main：55c20dc1216590ac3175cb963f59b7cc7fd18296
+待合入提交：a37eb8ac308e512fc06ac5ae45d9c0d880a3e3b1
+共同祖先：55c20dc1216590ac3175cb963f59b7cc7fd18296
+双方都改的 case：{"added_both": [], "modified_both": [], "deleted_by_main_modified_by_head": [], "modified_by_main_deleted_by_head": [], "added_by_main_renamed_by_head": []}
+同路径双方都新增：[]
+同路径双方内容不同：[]
+重命名/删除的 id：[]
+另一侧仍提到已改名的 id：[]
+碰到的生成物：[]
+候选对（0 对，另有 0 对未展示）：
+决定：TODO（人填）
+证据去向：TODO（人填）
+未决项：TODO（人填）
+负责人：TODO（人填）

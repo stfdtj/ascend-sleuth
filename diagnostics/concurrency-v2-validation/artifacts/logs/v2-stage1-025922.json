@@ -1,0 +1,91 @@
+{
+  "name": "v2-stage1",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "sediment_batch",
+      "rc": 0,
+      "out": "{\n  \"traces_dir\": \"D:\\\\working\\\\asv2\\\\s1\\\\traces\",\n  \"groups\": [\n    {\n      \"key\": \"session:v2-20261029-95001\",\n      \"sessions\": [\n        \"v2-20261029-95001\"\n      ],\n      \"statuses\": [\n        \"resolved\"\n      ],\n      \"sedimented\": [\n        \"none\"\n      ],\n      \"reports\": [\n        {\n          \"session\": \"v2-20261029-95001\",\n          \"file\": \"traces/evidence/v2-20261029-95001/report.md\"\n        }\n      ],\n      \"candidates\": [\n        {\n          \"kind\": \"case\",\n          \"summary\": \"new case\",\n          \"status\": \"proposed\"\n        }\n      ],\n      \"docs\": [\n        {\n          \"session\": \"v2-20261029-95001\",\n          \"status\": \"resolved\",\n          \"report_file\": \"traces/evidence/v2-20261029-95001/report.md\",\n          \"active_case\": null,\n          \"sediment_candidates\": [\n            {\n              \"kind\": \"case\",\n              \"summary\": \"new case\",\n              \"status\": \"proposed\"\n            }\n          ],\n          \"why\": \"已收尾（resolved）、有报告、1 条候选\"\n        }\n      ],\n      \"updated\": \"2026-10-28T11:30:00+08:00\",\n      \"actionable\": true,\n      \"why\": \"已收尾（resolved）、有报告、1 条候选\"\n    }\n  ],\n  \"unreadable\": [],\n  \"actionable\": [\n    \"session:v2-20261029-95001\"\n  ]\n}\n",
+      "err": ""
+    },
+    {
+      "step": "draft verify",
+      "rc": 0,
+      "out": "verify_case_draft: 通过（1 个文件；references 索引 267 条）\n",
+      "err": ""
+    },
+    {
+      "step": "gate",
+      "rc": 0,
+      "out": "  升格闸门：通过 1 · 需双签 0 · 拦下 0 · 跳过（管道 case）0\nverify_case_draft: 通过（1 个文件；references 索引 267 条）\n",
+      "err": ""
+    },
+    {
+      "step": "rebuild",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "CI emulation: rebuild before index check",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "gate index (after CI rebuild action)",
+      "rc": 0,
+      "out": "索引覆盖完整：172 条 case 的读侧行与总表条目都在（读侧视图 15 个）。\n",
+      "err": ""
+    },
+    {
+      "step": "gate case structure",
+      "rc": 0,
+      "out": "verify_case_draft: 通过（172 个文件；references 索引 267 条）\n",
+      "err": ""
+    },
+    {
+      "step": "gate references",
+      "rc": 0,
+      "out": "references 校验通过（267 个词条，id 全部唯一）\n",
+      "err": ""
+    },
+    {
+      "step": "gate entry",
+      "rc": 0,
+      "out": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。\n",
+      "err": ""
+    },
+    {
+      "step": "gate metrics",
+      "rc": 0,
+      "out": "metrics 校验通过（8 期，其中 live 3）\n",
+      "err": ""
+    },
+    {
+      "step": "gate holdout",
+      "rc": 0,
+      "out": "holdout --check: OK（11 条封存夹具内容未被改动）\n",
+      "err": ""
+    },
+    {
+      "step": "merge",
+      "rc": 0,
+      "out": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-95001.yaml      | 30 ++++++++++++++++++++++\n 1 file changed, 30 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-95001.yaml",
+      "err": ""
+    },
+    {
+      "step": "post-merge rebuild",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "retrieval",
+      "rc": 0,
+      "out": "present=True",
+      "err": ""
+    }
+  ]
+}

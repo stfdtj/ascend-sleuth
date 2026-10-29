@@ -1,0 +1,67 @@
+{
+  "name": "v2-provenance",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "valid committed manifest",
+      "rc": 0,
+      "out": "{\"manifests\": 1, \"errors\": [], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "altered committed material",
+      "rc": 1,
+      "out": "{\"manifests\": 1, \"errors\": [\"VLLM-ASC-93001.yaml: committed material hash mismatch: postmortems/materials/VLLM-ASC-93001/draft-1/case.yaml\"], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "local-only missing material",
+      "rc": 0,
+      "out": "{\"manifests\": 1, \"errors\": [], \"warnings\": [\"VLLM-ASC-93001.yaml: local-only material: postmortems/materials/nonexistent.yaml (None)\"]}",
+      "err": ""
+    },
+    {
+      "step": "dropped verified missing",
+      "rc": 1,
+      "out": "{\"manifests\": 1, \"errors\": [\"VLLM-ASC-93001.yaml: dropped destination missing: missing.yaml\"], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "dropped declared",
+      "rc": 0,
+      "out": "{\"manifests\": 1, \"errors\": [], \"warnings\": [\"VLLM-ASC-93001.yaml: dropped content not verifiable: diagnosis (declared)\"]}",
+      "err": ""
+    },
+    {
+      "step": "multi-source without merged",
+      "rc": 1,
+      "out": "{\"manifests\": 1, \"errors\": [\"VLLM-ASC-93001.yaml: field symptoms cites unknown draft draft-2\", \"VLLM-ASC-93001.yaml: field symptoms has multiple sources but no merged flag\"], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "same event independently claimed",
+      "rc": 0,
+      "out": "{\"manifests\": 2, \"errors\": [], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "valid merged_into",
+      "rc": 0,
+      "out": "{\"manifests\": 2, \"errors\": [], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "same event independently claimed",
+      "rc": 1,
+      "out": "{\"manifests\": 2, \"errors\": [\"event feedback:s1:1 independently claimed by [('VLLM-ASC-93001.yaml', 'VLLM-ASC-93001'), ('VLLM-ASC-93002.yaml', 'VLLM-ASC-93002')]\"], \"warnings\": []}",
+      "err": ""
+    },
+    {
+      "step": "redirect old->new",
+      "rc": 0,
+      "out": "{\"manifests\": 2, \"errors\": [], \"warnings\": []}",
+      "err": ""
+    }
+  ]
+}

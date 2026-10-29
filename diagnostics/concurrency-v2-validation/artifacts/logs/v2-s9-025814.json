@@ -1,0 +1,25 @@
+{
+  "name": "v2-s9",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "heartbeat before rebuild",
+      "rc": 1,
+      "out": "STALE: generated knowledge index does not match sources on this checkout\n索引问题：inference__vllm-ascend__interrupt.list 里缺 VLLM-ASC-98001（knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-98001.yaml）——跑 `python3 scripts/build_index.py`\n索引问题：inference__vllm-ascend.list（ns 兜底视图，category 未定时读它）里缺 VLLM-ASC-98001——跑 `python3 scripts/build_index.py`\n索引问题：总表缺条目：VLLM-ASC-98001——跑 `python3 scripts/build_index.py`\n\n3 处。生成物（读侧视图与总表）随 PR 提交，跑一次重建即可：\n  python3 scripts/build_index.py\n\n",
+      "err": ""
+    },
+    {
+      "step": "rebuild",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "heartbeat after rebuild",
+      "rc": 0,
+      "out": "FRESH: generated knowledge index matches sources\n",
+      "err": ""
+    }
+  ]
+}

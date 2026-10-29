@@ -1,0 +1,61 @@
+{
+  "name": "v2-baseline-duplicate",
+  "base": "dd3e6b33ff06affe7443fdf29c21d1e1a2edf139",
+  "notes": [],
+  "rows": [
+    {
+      "step": "merge A",
+      "rc": 0,
+      "out": "Merge made by the 'ort' strategy.\n .../vllm-ascend/interrupt/VLLM-ASC-97001.yaml      | 31 ++++++++++++++++++++++\n 1 file changed, 31 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/interrupt/VLLM-ASC-97001.yaml",
+      "err": ""
+    },
+    {
+      "step": "rebuild A",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "merge B",
+      "rc": 0,
+      "out": "Merge made by the 'ort' strategy.\n .../vllm-ascend/precision/VLLM-ASC-97002.yaml      | 32 ++++++++++++++++++++++\n 1 file changed, 32 insertions(+)\n create mode 100644 knowledge/inference/vllm-ascend/precision/VLLM-ASC-97002.yaml",
+      "err": ""
+    },
+    {
+      "step": "rebuild B",
+      "rc": 0,
+      "out": "生成 scripts/build_index.py\n生成 scripts/build_ref_summary_index.py\n生成 scripts/build_procedure_index.py\n生成 scripts/build_error_gap_index.py\n生成 scripts/build_triage_tree.py\n生成 scripts/build_timeline.py\n生成 scripts/build_entry_activity.py\n检查 scripts/build_index.py --check\n检查 scripts/build_ref_summary_index.py --check\n检查 scripts/build_procedure_index.py --check\n检查 scripts/build_error_gap_index.py --check\n检查 scripts/build_triage_tree.py --check-sources\n检查 scripts/build_triage_tree.py --check-coverage\n检查 scripts/build_triage_tree.py --check\n检查 scripts/build_timeline.py --check\n检查 scripts/build_entry_activity.py --check\n",
+      "err": ""
+    },
+    {
+      "step": "gate case structure",
+      "rc": 0,
+      "out": "verify_case_draft: 通过（173 个文件；references 索引 267 条）\n",
+      "err": ""
+    },
+    {
+      "step": "gate index",
+      "rc": 0,
+      "out": "索引覆盖完整：173 条 case 的读侧行与总表条目都在（读侧视图 15 个）。\n",
+      "err": ""
+    },
+    {
+      "step": "gate references",
+      "rc": 0,
+      "out": "references 校验通过（267 个词条，id 全部唯一）\n",
+      "err": ""
+    },
+    {
+      "step": "gate entry",
+      "rc": 0,
+      "out": "✓ 条目使用记录通过：3 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。\n",
+      "err": ""
+    },
+    {
+      "step": "both duplicates present",
+      "rc": 0,
+      "out": "97001=True 97002=True",
+      "err": ""
+    }
+  ]
+}
