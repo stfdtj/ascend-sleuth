@@ -1,0 +1,30 @@
+# E6 两人改同一 case 的不同字段，干净合并但语义矛盾
+
+## 合并 A
+$ rc=0
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                             | 13 +++++++++++++
+ knowledge/_index/training__verl.list              |  1 +
+ knowledge/_index/training__verl__interrupt.list   |  1 +
+ knowledge/training/verl/interrupt/TEST-MERGE.yaml |  2 +-
+ 4 files changed, 16 insertions(+), 1 deletion(-)
+
+
+## 合并 B
+$ rc=1
+Auto-merging knowledge/_index.yaml
+CONFLICT (content): Merge conflict in knowledge/_index.yaml
+Auto-merging knowledge/_index/training__verl.list
+CONFLICT (content): Merge conflict in knowledge/_index/training__verl.list
+Auto-merging knowledge/_index/training__verl__interrupt.list
+CONFLICT (content): Merge conflict in knowledge/_index/training__verl__interrupt.list
+Auto-merging knowledge/training/verl/interrupt/TEST-MERGE.yaml
+Automatic merge failed; fix conflicts and then commit the result.
+
+
+- **冲突文件**: ['knowledge/_index.yaml', 'knowledge/_index/training__verl.list', 'knowledge/_index/training__verl__interrupt.list']
+- **case 文件是否在冲突里**: False
+- **合并后 compat.ranges**: ['0.21.0', '0.24.0']
+- **合并后 fix_on_mismatch**: 升级到 0.24.0
+- **各门退出码**: {'build_index': 0, 'verify_case_draft': 0, 'verify_references': 0, 'verify_entry_activity': 0, 'verify_metrics': 0}
+- **同一个版本是否既是受影响版本又是修复版本**: True

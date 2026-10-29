@@ -1,0 +1,45 @@
+# E8 B 的“新增”判断在 A 合入之后过期，rebase 不重新判断
+
+## B 分支：写完后跑门
+$ rc=0
+verify_case_draft: 通过（169 个文件；references 索引 267 条）
+
+
+## B 分支：索引检查
+$ rc=1
+索引问题：training__verl__interrupt.list 里缺 TEST-STALE-B（knowledge/training/verl/interrupt/TEST-STALE-B.yaml）——跑 `python3 scripts/build_index.py`
+索引问题：training__verl.list（ns 兜底视图，category 未定时读它）里缺 TEST-STALE-B——跑 `python3 scripts/build_index.py`
+索引问题：总表缺条目：TEST-STALE-B——跑 `python3 scripts/build_index.py`
+
+3 处。生成物（读侧视图与总表）随 PR 提交，跑一次重建即可：
+  python3 scripts/build_index.py
+
+
+## 先合入 A
+$ rc=0
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                               | 13 +++++++++++++
+ knowledge/_index/training__verl.list                |  1 +
+ knowledge/_index/training__verl__interrupt.list     |  1 +
+ knowledge/training/verl/interrupt/TEST-STALE-A.yaml | 21 +++++++++++++++++++++
+ 4 files changed, 36 insertions(+)
+ create mode 100644 knowledge/training/verl/interrupt/TEST-STALE-A.yaml
+
+
+## B 合并最新主干
+$ rc=0
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                               | 13 +++++++++++++
+ knowledge/_index/training__verl.list                |  1 +
+ knowledge/_index/training__verl__interrupt.list     |  1 +
+ knowledge/training/verl/interrupt/TEST-STALE-A.yaml | 21 +++++++++++++++++++++
+ 4 files changed, 36 insertions(+)
+ create mode 100644 knowledge/training/verl/interrupt/TEST-STALE-A.yaml
+
+
+- **合并是否产生冲突**: False
+- **冲突文件**: []
+- **B 的文件是否仍标着 new_pattern**: True
+- **B 是否重新判断过与 A 的关系**: 否（没有重新分诊的步骤，检查也不比对两条内容）
+- **A 与 B 是否都在库里**: True
+- **各门退出码**: {'build_index': 0, 'verify_case_draft': 0, 'verify_references': 0, 'verify_entry_activity': 0, 'verify_metrics': 0}

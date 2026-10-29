@@ -1,0 +1,27 @@
+# E1 同一克隆多个工作区共用 inbox，同名草稿互相覆盖
+
+## git worktree add wt-a (exp/a)
+$ rc=0
+
+
+## git worktree add wt-b (exp/b)
+$ rc=0
+
+
+- **工作区 A 解析到的 inbox**: D:\working\ascend-sleuth\research\experiments\work\e1\repo\postmortems\inbox
+- **工作区 B 解析到的 inbox**: D:\working\ascend-sleuth\research\experiments\work\e1\repo\postmortems\inbox
+- **两个工作区是否同一个目录**: True
+- **是否等于主检出的 postmortems/inbox**: True
+- **A 写完后内容**: A 的草稿：根因是 HCCL 建链超时
+- **B 写完后内容**: B 的草稿：根因是驱动版本不匹配
+- **A 的内容是否还在**: False
+- **覆盖时是否报错**: 否
+- **工作区 A 的 git status**: （空）
+- **工作区 B 的 git status**: （空）
+- **id 不同时两个文件是否都在**: True
+## git worktree list
+$ rc=0
+D:/working/ascend-sleuth/research/experiments/work/e1/repo  d5350d1 [main]
+D:/working/ascend-sleuth/research/experiments/work/e1/wt-a  d5350d1 [exp/a]
+D:/working/ascend-sleuth/research/experiments/work/e1/wt-b  d5350d1 [exp/b]
+

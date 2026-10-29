@@ -1,0 +1,25 @@
+# E10 两台机器生成同期号的指标快照，合并时同名冲突
+
+- **两台机器算出的期号**: 2026-W44-live-1028
+## 合并两台机器的快照（预期同名冲突）
+$ rc=1
+Auto-merging metrics/timeline.d/2026-W44-live-1028.yaml
+CONFLICT (add/add): Merge conflict in metrics/timeline.d/2026-W44-live-1028.yaml
+Automatic merge failed; fix conflicts and then commit the result.
+
+
+- **冲突文件**: ['metrics/timeline.d/2026-W44-live-1028.yaml']
+## 留一份后重建时序 + 校验
+$ rc=0
+metrics 校验通过（9 期，其中 live 4）
+
+
+- **留一份后该期 case_total**: 168
+- **另一台的读数 999 是否还在**: False
+## 正确解法：两边都留，第二份改后缀
+## 两边都留后重建 + 校验
+$ rc=0
+metrics 校验通过（10 期，其中 live 5）
+
+
+- **两边都留后两期读数**: {'2026-W44-live-1028': 168, '2026-W44-live-1028-2': 999}

@@ -1,0 +1,110 @@
+{
+  "E1": {
+    "工作区 A 解析到的 inbox": "D:\\working\\ascend-sleuth\\research\\experiments\\work\\e1\\repo\\postmortems\\inbox",
+    "工作区 B 解析到的 inbox": "D:\\working\\ascend-sleuth\\research\\experiments\\work\\e1\\repo\\postmortems\\inbox",
+    "两个工作区是否同一个目录": true,
+    "是否等于主检出的 postmortems/inbox": true,
+    "A 写完后内容": "A 的草稿：根因是 HCCL 建链超时",
+    "B 写完后内容": "B 的草稿：根因是驱动版本不匹配",
+    "A 的内容是否还在": false,
+    "覆盖时是否报错": "否",
+    "工作区 A 的 git status": "（空）",
+    "工作区 B 的 git status": "（空）",
+    "id 不同时两个文件是否都在": true
+  },
+  "E2": {
+    "冲突文件": [
+      "knowledge/_index.yaml",
+      "knowledge/_index/training__verl.list",
+      "knowledge/_index/training__verl__interrupt.list"
+    ],
+    "各门退出码": {
+      "build_index": 0,
+      "verify_case_draft": 0,
+      "verify_references": 0,
+      "verify_entry_activity": 0,
+      "verify_metrics": 0
+    },
+    "两条症状完全相同": true,
+    "两条期望值完全相同": true,
+    "两条是否都在库里": true,
+    "同格读侧视图里的两条": [
+      "TEST-DUP-A",
+      "TEST-DUP-B"
+    ],
+    "任何门是否报重复": "没有（build_index / verify_case_draft 均为 0）"
+  },
+  "E3": {
+    "冲突文件": [],
+    "各门退出码": {
+      "build_index": 0,
+      "verify_case_draft": 0,
+      "verify_references": 0,
+      "verify_entry_activity": 0,
+      "verify_metrics": 0
+    },
+    "interrupt 视图里有哪些": [
+      "TEST-CROSS-A"
+    ],
+    "performance 视图里有哪些": [
+      "TEST-CROSS-B"
+    ],
+    "两条是否在同一读侧视图里": false
+  },
+  "E6": {
+    "冲突文件": [
+      "knowledge/_index.yaml",
+      "knowledge/_index/training__verl.list",
+      "knowledge/_index/training__verl__interrupt.list"
+    ],
+    "case 文件是否在冲突里": false,
+    "合并后 compat.ranges": [
+      "0.21.0",
+      "0.24.0"
+    ],
+    "合并后 fix_on_mismatch": "升级到 0.24.0",
+    "各门退出码": {
+      "build_index": 0,
+      "verify_case_draft": 0,
+      "verify_references": 0,
+      "verify_entry_activity": 0,
+      "verify_metrics": 0
+    },
+    "同一个版本是否既是受影响版本又是修复版本": true
+  },
+  "E8": {
+    "合并是否产生冲突": false,
+    "冲突文件": [],
+    "B 的文件是否仍标着 new_pattern": true,
+    "B 是否重新判断过与 A 的关系": "否（没有重新分诊的步骤，检查也不比对两条内容）",
+    "A 与 B 是否都在库里": true,
+    "各门退出码": {
+      "build_index": 0,
+      "verify_case_draft": 0,
+      "verify_references": 0,
+      "verify_entry_activity": 0,
+      "verify_metrics": 0
+    }
+  },
+  "E9": {
+    "9a 删除前 case 存在": true,
+    "9a 结果": "删前退出码 0；删后 1（使用记录里的 id 在知识库查不到 → 红）",
+    "9b 删除前 case 存在": true,
+    "9b 结果": "退出码 1（reference 的 sources[].cases 指向不存在的 case → 红）",
+    "9c 删除前 case 存在": true,
+    "9c 结果": "退出码 0（只报“目标 case 不在索引中”的提示，不挡合并）",
+    "9d 结果": "verify 退出码 0（行键不同 → 不算重复）；resolved 由 1 变成 3"
+  },
+  "E10": {
+    "两台机器算出的期号": "2026-W44-live-1028",
+    "冲突文件": [
+      "metrics/timeline.d/2026-W44-live-1028.yaml"
+    ],
+    "留一份后该期 case_total": 168,
+    "另一台的读数 999 是否还在": false,
+    "两边都留后两期读数": {
+      "2026-W44-live-1028": 168,
+      "2026-W44-live-1028-2": 999
+    }
+  }
+}

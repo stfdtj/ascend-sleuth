@@ -1,0 +1,74 @@
+# E9 删除或更换 case id 之后：引用、使用记录、夹具、统计各自会怎样
+
+## 9a 使用记录指向被删的 case
+- **9a 删除前 case 存在**: True
+## 9a 先补一条真实使用记录（case 还在）
+$ rc=0
+✓ 条目使用记录通过：4 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。
+
+
+## 9a 删除 case 后跑 verify_entry_activity
+$ rc=1
+✗ 行结构 / 引用 / 归周：1 处
+  - 2026-W42.yaml:17: 案例 id VLLM-ASC-15087 在知识库里查不到
+
+
+- **9a 结果**: 删前退出码 0；删后 1（使用记录里的 id 在知识库查不到 → 红）
+## 9b 先验词条引用被删的 case
+- **9b 删除前 case 存在**: True
+## 9b 删除后跑 verify_references --check
+$ rc=1
+references 校验失败（3 处）：
+  - errors\cann-runtime.yaml: sources[0].cases 引用的 case 'VLLM-ASC-12989' 不在 knowledge/ —— ref 只能引用已升格的 case（草稿还在 inbox 时别归纳，等 groom R8）
+  - errors\cann-runtime.yaml: content.errors[0].source_cases 引用的 case 'VLLM-ASC-12989' 不在 knowledge/ —— ref 只能引用已升格的 case（草稿还在 inbox 时别归纳，等 groom R8）
+  - platform-facts\ascend-310p-known-limits.yaml: sources[0].cases 引用的 case 'VLLM-ASC-12989' 不在 knowledge/ —— ref 只能引用已升格的 case（草稿还在 inbox 时别归纳，等 groom R8）
+
+
+- **9b 结果**: 退出码 1（reference 的 sources[].cases 指向不存在的 case → 红）
+## 9c 回放夹具指向被删的 case
+- **9c 删除前 case 存在**: True
+## 9c 删除并重建索引后跑 eval_scorecard --check
+$ rc=0
+  ! MSLLM-1655.fixture.yaml: 目标 case MSLLM-1655 不在 knowledge/ 索引中（夹具指向已退休/未收录的 case）
+  ! MSLLM-1780.fixture.yaml: 目标 case MSLLM-1780 内容已变（账本 544219f96b15…／当前 d39751b7d84c…）——待复核，不阻塞
+  ! SGL-PD-HEAP-001.fixture.yaml: 目标 case SGL-PD-HEAP-001 内容已变（账本 3576617fec9c…／当前 eee792659dd6…）——待复核，不阻塞
+  ! VLLM-ASC-12461.fixture.yaml: 目标 case VLLM-ASC-12461 内容已变（账本 b9283513da03…／当前 b81f51f6e73c…）——待复核，不阻塞
+  ! VLLM-ASC-12642.fixture.yaml: 目标 case VLLM-ASC-12642 内容已变（账本 f3a58a52d7df…／当前 45422160a1a1…）——待复核，不阻塞
+  ! VLLM-ASC-12685.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞
+  ! VLLM-ASC-12723.fixture.yaml: 目标 case VLLM-ASC-12723 内容已变（账本 da449e293210…／当前 52a9816bc20b…）——待复核，不阻塞
+  ! VLLM-ASC-12901.fixture.yaml: 目标 case VLLM-ASC-12901 内容已变（账本 9cb393fd26da…／当前 e62d526d8688…）——待复核，不阻塞
+  ! VLLM-ASC-12957.fixture.yaml: 目标 case VLLM-ASC-12957 内容已变（账本 606f692ec5b9…／当前 1b226c798dac…）——待复核，不阻塞
+  ! VLLM-ASC-12983.fixture.yaml: 目标 case VLLM-ASC-12983 内容已变（账本 dde1adfdd1fd…／当前 03c0fe3b374b…）——待复核，不阻塞
+  ! VLLM-ASC-12989.fixture.yaml: 目标 case VLLM-ASC-12989 内容已变（账本 b42bfd9fb09f…／当前 b462853c02d3…）——待复核，不阻塞
+  ! VLLM-ASC-13050.fixture.yaml: 目标 case VLLM-ASC-13050 内容已变（账本 7c4784597989…／当前 1ab378672204…）——待复核，不阻塞
+  ! VLLM-ASC-13086.fixture.yaml: 目标 case VLLM-ASC-13086 内容已变（账本 eb19ba996b33…／当前 70939ee09d20…）——待复核，不阻塞
+  ! VLLM-ASC-13329.fixture.yaml: 目标 case VLLM-ASC-13329 内容已变（账本 ab785ed7de9c…／当前 d0ec5846cd37…）——待复核，不阻塞
+  ! VLLM-ASC-13356.fixture.yaml: 目标 case VLLM-ASC-13356 内容已变（账本 2089b748e083…／当前 724266acba9f…）——待复核，不阻塞
+  ! VLLM-ASC-13379.fixture.yaml: 目标 case VLLM-ASC-13329 内容已变（账本 ab785ed7de9c…／当前 d0ec5846cd37…）——待复核，不阻塞
+  ! VLLM-ASC-13446.fixture.yaml: 目标 case VLLM-ASC-13446 内容已变（账本 919ae7f5d4b7…／当前 d57209d69a20…）——待复核，不阻塞
+  ! VLLM-ASC-13508.fixture.yaml: 目标 case VLLM-ASC-13508 内容已变（账本 945222e075d3…／当前 383838b322b9…）——待复核，不阻塞
+  ! VLLM-ASC-13710.fixture.yaml: 目标 case VLLM-ASC-13710 内容已变（账本 931166fa5549…／当前 a1ec57a7856e…）——待复核，不阻塞
+  ! VLLM-ASC-13934.fixture.yaml: 目标 case VLLM-ASC-13934 内容已变（账本 43ee119f1ecd…／当前 f222a170b3c9…）——待复核，不阻塞
+  ! VLLM-ASC-13964.fixture.yaml: 目标 case VLLM-ASC-13964 内容已变（账本 432d03458220…／当前 fa580f0a5f44…）——待复核，不阻塞
+  ! VLLM-ASC-13973.fixture.yaml: 目标 case VLLM-ASC-13973 内容已变（账本 dc4764c15678…／当前 a32c27adb028…）——待复核，不阻塞
+  ! VLLM-ASC-14166.fixture.yaml: 目标 case VLLM-ASC-14166 内容已变（账本 3deee3596648…／当前 561b2884611c…）——待复核，不阻塞
+  ! VLLM-ASC-14320.fixture.yaml: 目标 case VLLM-ASC-14320 内容已变（账本 bbc8e17b53fc…／当前 ee34045ca050…）——待复核，不阻塞
+  ! VLLM-ASC-14467.fixture.yaml: 目标 case VLLM-ASC-12685 内容已变（账本 cd1f2e88d61f…／当前 0167e3f82983…）——待复核，不阻塞
+  ! VLLM-PD-MTE-REPEAT.fixture.yaml: 目标 case VLLM-ASC-9887 内容已变（账本 0549bd476493…／当前 fc5d1ea2d926…）——待复核，不阻塞
+  ! VLLM-PD-PORT-65536.fixture.yaml: 目标 case VLLM-ASC-8938 内容已变（账本 87d37abe7c7d…／当前 692f5e4f2125…）——待复核，不阻塞
+scorecard：OK（28 条条目；有观测 26（命中第一 18／前三 21／前三外 0，未命中 5），未记录 2；待复核 27 条）
+
+
+- **9c 结果**: 退出码 0（只报“目标 case 不在索引中”的提示，不挡合并）
+## 9d 同一效果被两台机器各结算一次
+## 9d 追加两行后 verify_entry_activity
+$ rc=0
+✓ 条目使用记录通过：5 行、1 个部署；(run, kind, id) 唯一、id 都能在知识库里查到、生成物与部署名一致。
+
+
+## 9d 重建使用记录生成物
+$ rc=0
+已重建 D:\working\ascend-sleuth\research\experiments\work\e9d\repo\metrics\entry-activity\ascend-sleuth.yaml
+
+
+- **9d 结果**: verify 退出码 0（行键不同 → 不算重复）；resolved 由 1 变成 3

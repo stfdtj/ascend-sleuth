@@ -1,0 +1,49 @@
+# E2 两人各写一条重复 case（不同 id），两条都能合入且没有检查报重复
+
+## A 分支 build_index
+$ rc=0
+已生成 D:\working\ascend-sleuth\research\experiments\work\e2\repo\knowledge\_index.yaml + 15 个读侧视图（169 条 case）
+读入成本现算：python3 scripts/index_read_cost.py（改上限前先看它）
+
+
+## B 分支 build_index
+$ rc=0
+已生成 D:\working\ascend-sleuth\research\experiments\work\e2\repo\knowledge\_index.yaml + 15 个读侧视图（169 条 case）
+读入成本现算：python3 scripts/index_read_cost.py（改上限前先看它）
+
+
+## 合并 A
+$ rc=0
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                             | 13 +++++++++++++
+ knowledge/_index/training__verl.list              |  1 +
+ knowledge/_index/training__verl__interrupt.list   |  1 +
+ knowledge/training/verl/interrupt/TEST-DUP-A.yaml | 21 +++++++++++++++++++++
+ 4 files changed, 36 insertions(+)
+ create mode 100644 knowledge/training/verl/interrupt/TEST-DUP-A.yaml
+
+
+## 合并 B（预期撞索引）
+$ rc=1
+Auto-merging knowledge/_index.yaml
+CONFLICT (content): Merge conflict in knowledge/_index.yaml
+Auto-merging knowledge/_index/training__verl.list
+CONFLICT (content): Merge conflict in knowledge/_index/training__verl.list
+Auto-merging knowledge/_index/training__verl__interrupt.list
+CONFLICT (content): Merge conflict in knowledge/_index/training__verl__interrupt.list
+Automatic merge failed; fix conflicts and then commit the result.
+
+
+- **冲突文件**: ['knowledge/_index.yaml', 'knowledge/_index/training__verl.list', 'knowledge/_index/training__verl__interrupt.list']
+## 按标准解法解冲突
+$ rc=0
+已生成 D:\working\ascend-sleuth\research\experiments\work\e2\repo\knowledge\_index.yaml + 15 个读侧视图（170 条 case）
+读入成本现算：python3 scripts/index_read_cost.py（改上限前先看它）
+
+
+- **各门退出码**: {'build_index': 0, 'verify_case_draft': 0, 'verify_references': 0, 'verify_entry_activity': 0, 'verify_metrics': 0}
+- **两条症状完全相同**: True
+- **两条期望值完全相同**: True
+- **两条是否都在库里**: True
+- **同格读侧视图里的两条**: ['TEST-DUP-A', 'TEST-DUP-B']
+- **任何门是否报重复**: 没有（build_index / verify_case_draft 均为 0）

@@ -1,0 +1,53 @@
+# E3 同一根因分到不同分类，同类内比对发现不了
+
+## A 分支 build_index
+$ rc=0
+已生成 D:\working\ascend-sleuth\research\experiments\work\e3\repo\knowledge\_index.yaml + 15 个读侧视图（169 条 case）
+读入成本现算：python3 scripts/index_read_cost.py（改上限前先看它）
+
+
+## B 分支 build_index
+$ rc=0
+已生成 D:\working\ascend-sleuth\research\experiments\work\e3\repo\knowledge\_index.yaml + 16 个读侧视图（169 条 case）
+读入成本现算：python3 scripts/index_read_cost.py（改上限前先看它）
+
+
+## 合并 A
+$ rc=0
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                               | 13 +++++++++++++
+ knowledge/_index/training__verl.list                |  1 +
+ knowledge/_index/training__verl__interrupt.list     |  1 +
+ knowledge/training/verl/interrupt/TEST-CROSS-A.yaml | 21 +++++++++++++++++++++
+ 4 files changed, 36 insertions(+)
+ create mode 100644 knowledge/training/verl/interrupt/TEST-CROSS-A.yaml
+
+
+## 合并 B（不同格子，预期无冲突）
+$ rc=0
+Auto-merging knowledge/_index.yaml
+Auto-merging knowledge/_index/training__verl.list
+Merge made by the 'ort' strategy.
+ knowledge/_index.yaml                               | 14 ++++++++++++++
+ knowledge/_index/training__verl.list                |  1 +
+ knowledge/_index/training__verl__performance.list   | 10 ++++++++++
+ .../training/verl/performance/TEST-CROSS-B.yaml     | 21 +++++++++++++++++++++
+ 4 files changed, 46 insertions(+)
+ create mode 100644 knowledge/_index/training__verl__performance.list
+ create mode 100644 knowledge/training/verl/performance/TEST-CROSS-B.yaml
+
+
+- **冲突文件**: []
+- **各门退出码**: {'build_index': 0, 'verify_case_draft': 0, 'verify_references': 0, 'verify_entry_activity': 0, 'verify_metrics': 0}
+## B 的路由预期 vs 实际
+$ rc=1
+case：TEST-CROSS-B（knowledge\training\verl\performance\TEST-CROSS-B.yaml）
+负载类型：training    期望性质：performance
+本条检索面（只含本条负载类型）：training/<detected_framework>/, common/
+命中性质（按聚合顺序）：interrupt←\btimeout\b
+⚠ 首个命中是 interrupt，不是期望的 performance——症状里可能缺该性质独有的签名（错误码/算子名/框架特有措辞），或该补一条更窄的变体；另一种可能是这条词只在某一边的措辞上成立（性质词表训推共用，写进某一边专属的措辞会让另一边的同性质 case 掉出去）
+
+
+- **interrupt 视图里有哪些**: ['TEST-CROSS-A']
+- **performance 视图里有哪些**: ['TEST-CROSS-B']
+- **两条是否在同一读侧视图里**: False
