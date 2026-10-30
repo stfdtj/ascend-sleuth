@@ -204,7 +204,7 @@ def cmd_list(args) -> int:
 
 def _legacy_target(inbox: Path, case_id: str, case_path: Path) -> Path:
     digest = sha256(case_path)[:10]
-    return inbox / LEGACY / f"{case_id}-{digest}"
+    return inbox / LEGACY / f"{case_id}-{digest}-{uuid.uuid4().hex[:8]}"
 
 
 def _migration_entries(inbox: Path) -> list[dict]:
