@@ -56,6 +56,7 @@ LIVE_FIELDS = {
     "stop_reasons", "stop_reason_unrecorded",
     "parallel_group_events", "considered_candidates_events", "trace_record_violations",
     "trace_record_violations_total",
+    "external_record_violations_total",
     # 结构侧（metrics_snapshot.py ← build_index 头注 / verify_references）
     "case_total", "reference_total", "capacity_by_ns",
     # 内容流程侧（metrics_snapshot.py ← tail_exec_log 聚合）

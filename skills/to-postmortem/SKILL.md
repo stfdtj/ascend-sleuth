@@ -122,7 +122,16 @@ python -c "import anydoc,sys; print(anydoc.to_markdown(sys.argv[1]))" <file>
 
 ## 产出落点
 
-**草稿落在哪个 inbox**：先 `python3 scripts/shared_dir.py inbox` 取绝对路径（锚在**主检出**、跨 worktree 共写；写相对 `postmortems/inbox/` 的草稿，转正时在 worktree 里读不到、清 worktree 就丢）。下面是相对仓库根的写法：
+**草稿落在哪个 inbox**：先 `python3 scripts/shared_dir.py inbox` 取绝对路径（锚在**主检出**、跨 worktree 共写；写相对 `postmortems/inbox/` 的草稿，转正时在 worktree 里读不到、清 worktree 就丢）。
+
+**V2 写法（新产出）**：
+
+1. `python3 scripts/inbox_put.py new --source diag --session <sid>`，取输出的绝对目录；
+2. 写 `<dir>/case.yaml` 与 `<dir>/postmortem.md`；`sources.yaml` 已由 writer 建好；
+3. `python3 scripts/inbox_put.py finish <dir>`，看到 `complete` 才算落盘；
+4. 报告目录路径，不写平铺文件。旧平铺草稿仍可读（`legacy_flat`），需要继续用的用 `inbox_put.py migrate` 逐份迁移。
+
+下面是旧格式（兼容读取，不再作为新产出）：
 
 - `postmortems/inbox/<case-id>.md`（postmortem 或指针）
 - `postmortems/inbox/<case-id>.case.yaml`（YAML 草稿）

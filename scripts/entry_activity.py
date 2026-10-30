@@ -255,7 +255,9 @@ def format_row(row: dict) -> str:
             continue
         if isinstance(v, str):
             # 值里含 `: ` 或 ` #` 时必须加引号，否则 YAML 从那里起当新键/注释（值被静默截断）。
-            needs = (": " in v) or (" #" in v) or v == "" or v.startswith(("[", "{", "*", "&", "!", "|", ">", "%", "@", "`"))
+            # 数字样式的短 SHA 必须加引号：否则 YAML 读回成 int，和 str 排序会 TypeError。
+            needs = (": " in v) or (" #" in v) or v == "" or v.startswith(("[", "{", "*", "&", "!", "|", ">", "%", "@", "`")) \
+                or bool(re.fullmatch(r"(?:0[xX][0-9a-fA-F]+|[0-9]+)", v))
             parts.append(f"{k}: '{v}'" if needs else f"{k}: {v}")
         else:
             parts.append(f"{k}: {v}")
@@ -492,7 +494,7 @@ def aggregate(rows: list, dep: str, library_cases: int, library_refs: list):
             "deployment": dep,
             "runs": len(set(runs)),
             "weeks": sorted(weeks),
-            "checkouts": sorted(checkouts),
+            "checkouts": sorted(str(x) for x in checkouts),
         },
         "cases": out_cases,
         "references": out_refs,

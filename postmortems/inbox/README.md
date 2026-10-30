@@ -1,7 +1,6 @@
 # inbox/ —— 待审知识队列（intake）
 
-`/skill:to-postmortem` 的新产出落这里（`<case-id>.md` + `<case-id>.case.yaml` 草稿）。
-不直接进正式季度目录——那是审完后的事。
+`/skill:to-postmortem` 的新产出落这里。V2 使用 `<uuid>/` 目录，内含 `case.yaml`、`postmortem.md`、`sources.yaml` 和 `DONE`；旧平铺草稿仍按 `legacy_flat` 读取，不做批量迁移。两种格式都不直接进正式季度目录——那是审完后的事。
 
 ## 语义
 

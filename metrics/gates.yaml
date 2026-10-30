@@ -121,6 +121,12 @@ metric_strength:
   cross_replay_rank1: 确定性
   case_total: 确定性
   reference_total: 确定性
+  external_record_violations_total: 确定性
+  considered_candidates_events: 确定性
+  parallel_group_events: 确定性
+  stop_reason_unrecorded: 确定性
+  trace_record_violations_total: 确定性
+  triage_miss_classes: 确定性
   capacity_by_ns: 确定性
   pre_triage: 确定性
   semantic_validation_rate: 确定性
