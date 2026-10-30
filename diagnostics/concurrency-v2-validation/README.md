@@ -19,6 +19,7 @@ modified.
 | `09-implementation-design-and-migration.md` | Target layout, component changes, inbox migration, structural cost |
 | `10-platform-enforcement-spike-plan.md` | Plan (not yet run) for verifying GitHub required-check/up-to-date/approval/merge_group behavior in a disposable repo, ahead of N11/E13 |
 | `11-evidence-and-batch-collision-plan.md` | Observation metrics, batch-ingest collision test, red-team and reviewer audit |
+| `12-prior-art.md` | Comparable systems and literature: duplicate bug detection, entity resolution, merge gates, provenance |
 
 ## Evidence
 

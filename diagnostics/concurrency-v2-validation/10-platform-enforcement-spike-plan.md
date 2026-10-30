@@ -111,6 +111,24 @@ ones.
 S12 decides whether the workflow-level `paths:` must be removed. S14 decides whether the
 required check name is stable enough to configure by hand.
 
+### 4.1 What GitHub documents say
+
+GitHub's own troubleshooting page sharpens the problem:
+
+- a required check must pass on the latest commit SHA;
+- successful statuses include `success`, `skipped`, and `neutral`;
+- a workflow skipped by path/branch/message filtering leaves the check pending and
+  blocks the PR;
+- a job skipped by a conditional can report success;
+- a dependent job skipped because its dependency failed may not block;
+- use `always()` with `needs` when a required check depends on other jobs.
+
+Source: [Troubleshooting required status checks](https://docs.github.com/en/enterprise-cloud@latest/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
+
+Implication for the plan: do not require individual business jobs, and do not treat a
+job's own skipped check as a failure signal. Make `kb-required` the only required check;
+it must always run and inspect `needs.*.result`. S6/S7 must verify this exact behavior.
+
 ---
 
 ## 5. Aggregator design to test
