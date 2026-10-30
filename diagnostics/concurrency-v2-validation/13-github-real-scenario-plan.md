@@ -27,7 +27,7 @@
 7. 所有测试用合成 case，ID 用 VLLM-ASC-100xx，不要用真实 case。
 
 输入：
-- 代码来源：git@github.com:stfdtj/ascend-sleuth.git，分支 kb/v2-core，提交 fdb4e45。
+- 代码来源：git@github.com:stfdtj/ascend-sleuth.git，分支 kb/v2-core，提交 04921cc。
 - 测试仓库：由用户提供 owner/name；若没有，先停止并询问。
 - 两个身份：作者 A、非作者评审人 B；若没有 B，approval 场景标记 UNTESTED。
 - 可选：deploy key 或 GitHub App，用于 bot bypass 场景。
