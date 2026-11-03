@@ -154,6 +154,7 @@ reference 由流程里的**缺口**触发（**不是第四检索层**：不参�
 
 > **判读口径**：输出的段数与长度应与**问题复杂度相关**。根因明确、fix 是单个开关时，四段写完即可。
 > **一件事只说一遍**——同一信息在"结论先行"与后续分节各写一次就是冗余（盲评对照里这是最被诟病的一点）。
+> **一段只说一件事**：一段不超过 3 句，同一层级的并列信息用列表列，不串进一句里。现场工程师要在三十秒内决定动手，一堵墙他读不完。
 
 **行文**：对话输出是给人读的，按 `docs/spec/writing-norms.md` 写（可选论证层，不影响本 skill 执行）；本面的定制条款见该文件 §3 的「诊断对话输出」一行。写 trace 的字段时另见 `references/diagnosis-trace.md` 的「行文口径」。
 
@@ -181,13 +182,24 @@ reference 由流程里的**缺口**触发（**不是第四检索层**：不参�
 
 每个 step 后往 `traces/<session_id>.yaml`（每个并发诊断一文件；模板见 `diagnosis_state.yaml.example`）的 `trace` 数组追加一条。**trace 是完整交互轨迹（trajectory）**——统一 `{role, ...}` 结构：
 
+- **建 trace 用脚本起 header，别照模板手打**：派生字段（`harness_session` / `created_at` / `kb_rev` / `session_id`）
+  由机器填，人只管内容。写完路径也一并给：
+  `python3 scripts/trace_begin.py --slug <日期>-<issue 号>-<短名> --framework <…> --platform <…> --category <…>`
+  它同时建 `traces/evidence/<slug>/`。**没有这个脚本的旧克隆**（内网没 sync）才照 `diagnosis_state.yaml.example` 手写，
+  且必须自己写 `harness_session`。`external_evidence`（on|off）仍由你按工具有没有写——脚本推不出来。
+
 - **先解析 trace 目录（一次，之后全程用它）**：`python3 scripts/shared_dir.py traces` 打印的绝对路径就是本次要读写的 `traces/`——它锚在**主检出**（同一克隆的所有 worktree 共读共写），所以从 worktree 干活也不会把记录写进一个主检出看不到、清理 worktree 就消失的地方。**本 skill 里所有 `traces/…` 的读写（含最前面的 trace 相似检测）都以这个路径为准**，别写相对 `traces/`。
 
 - **随手写三样，否则读数恒空**：每条 agent 事件带 `ts`（epoch 毫秒，`python3 -c 'import time;print(round(time.time()*1000))'`；**每一步至少第一条**），步骤 6 写顶层 `ended_at`（ISO 8601），建 session 时写顶层 `harness_session`（DSH 里是 `$DSH_SESSION_ID`）。没有 `ts` 就切不出每步窗口（每步成本那一格空）；单次的总耗时与 token 另有自己的窗口——`created_at` → `ended_at`，没写 `ended_at` 就退到 `updated_at` 并在面板上标明。同一段对话里做过两单时，会话累计会被两单各算一遍，只有这个窗口能把两单分开。
+- **收尾核对顶层 `harness_session`**（脚本兜住 header，这条兜住「漏跑脚本」；漏写不会当场报错，只会一路错到面板上）：跑 `ascend_trace_status` 时，本单那一行后面带 `⚠缺会话号` 就是漏了——当场补，别等人从面板上发现。补的时候要的是 `$DSH_SESSION_ID`，不是本单的 `session_id`（后者是诊断自己起的名字）：
+  `python3 scripts/link_harness_sessions.py --trace <本单文件名> --session-id "$DSH_SESSION_ID" --apply`
+  模板 `diagnosis_state.yaml.example` 顶层已列出该字段；更早的历史漏写单用不带 `--session-id` 的跑法（它去会话日志里认名字，几十秒）。
 - **每条 agent 事件必带 `output`**（哪怕一句）：核验了谁 / 用什么判据 / 结果 pass|fail|conflict。只写 `reason` 的人读视图是空白（`reason` 只在完整轨迹里显示）。
 - **`hit` 的 `case` 只写真 case id**：未命中、上游定案、跨队案例这类说明写进 `output`，不要写成 `case: "上游案在：#19191（…）"`——面板与条目使用记录都会把它当成 case id。
 - **agent 事件**：`{role: agent, step, action: triage|load_index|quickly_check|load_full|run_check|hit|miss|tier3|feedback|reference_lookup|triage_semantic|source_analysis|attribution|resume|procedure_follow|report, output, reason, ...}`。`output` 给用户（可精简）、`reason` 记决策依据（**关键决策必写**）；`triage` 必带 `routed`（未命中写 `[]`）；`source_analysis` 必记 `tool_calls`；`attribution` 执行错可加 `component`；`report` 记 `report_file`（人读报告产出，**全路**步骤 6 必写一条；快路不产报告、也不写这条，但证据落盘与 `reason` 照旧必写）；`reference_lookup` 记 `purpose`（collect / signature / fix / background / procedure）与 **`outcome`（hit / miss / skipped，`skipped` 必写理由）**：三态缺一，"没查"就与"查了没命中"同形；`parallel_group` 记同批并发标记（同一次并行展开的几个动作共用一个值，串行不写）；`load_full` / `load_index` 记 `considered_candidates`（候选全集：筛选时看过的候选 id，含没取全文的）。
 - **user 事件**：`{role: user, step, content, evidence}`——`content` 摘要（短）+ `evidence` 完整证据（`inline` 原文 / `files` 相对路径 / `sources` URL / `missing` 缺口）。
+- **`last_action`（每次提问后更新）**：以提问结束的一轮，顶层 `last_action` 写一句话，说明在等哪份材料、哪个决定或哪条命令输出。下一轮拿到回答后改写或清空。
+- 面板与续接按 `last_action` 判断「等什么」，不按事件顺序推断。`evidence.missing` 只记那一轮缺的材料，历史事件不改写。
 - **证据落盘铁律（必走，无例外）**：短原文 → `inline` 存完整原文；长命令/配置/日志块/附件 → **先写 `traces/evidence/<session_id>/<名>.txt`** 完整原文、`evidence.files` 用相对路径引用、`inline` 只留一行"完整原文见 evidence.files" + 关键指纹。**禁止**只写摘要、或把原文压成指纹塞 `inline`。
 - **写前自检**：问"用户贴的原文现在在哪？"——答不出"已存在文件"的相对路径或完整 `inline` → 证据未落，先落盘再写 trace。
 - **原件引文要核（有原件时）**：工程师交来**原件**（日志文件 / 日志包 / 交接包）时，引用原文另落 `evidence.quotes: [{file, line, quote}]`，并在写报告前跑 `python3 scripts/verify_evidence.py <trace> --root <原件根>`；报不一致 / 找不到 / 行号越界的引文不能支撑结论——对应结论**降级为推测**，或回步骤 4 重新取证（核不过是"这条引文不能用"，不是"结论错"）。对话里**粘贴**的片段没有原件：不填 `quotes`、不因此降级，写一句"无原件可核"即可。字段与判定见 `references/diagnosis-trace.md`。
@@ -223,5 +235,5 @@ reference 由流程里的**缺口**触发（**不是第四检索层**：不参�
 - 不要连续尝试第三个 case——**两次 fix 未解决**即转人工（误诊保护的串联保护；候选被排除不计入）
 - 不要把全量 profiler 灌进 context——裁剪到相关 rank + 栈尾
 - 不要用 interrupt 的 grep 思路建 precision 的 quickly_check（category 形态不同）
-- **不要直接改本 skill / triage / reference 等会进诊断上下文的资产——改进动作必须先产 EV 卡**（`scripts/ev_proposal.py --new`）再涉及。诊断中发现的流程改进（执行错/摩擦）走 `attribution`（执行错归因喂 component_tally）或 EV 卡（主动设计改进），**不混入本诊断 trace**。
+- **不要直接改本 skill / triage / reference 等会进诊断上下文的资产——改进动作必须先记录**：把观察交给 `python3 scripts/evolve_intake.py record …`（按部署声明落卡或落台账，别直接调 `ev_proposal.py --new`）再涉及。诊断中发现的流程改进（执行错/摩擦）走 `attribution`（执行错归因喂 component_tally）或 EV 卡（主动设计改进），**不混入本诊断 trace**。
 - 被打断 → `/skill:resume-diagnosis`

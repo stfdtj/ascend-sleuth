@@ -11,6 +11,166 @@ return {
     // 搜索防抖的待执行句柄：新按键先撤掉上一次，避免"清空后旧的定时器又把词写回来"。
     let queryTimerDispose = null
 
+    // —— 切到一个 DSH 会话（卡片上的「打开会话」与侧栏「诊断记录」共用）——
+    // 服务怎么取：cordis 的服务要声明进 inject 才建键（第一版没声明，拿到的是空）。
+    // 声明后拿到了**对象**，但它不是文档里那个 `{ open }` 面——所以这里不再对方法名做假设：
+    // 接受任何对象，按候选方法名依次试，谁成功用谁；都不成才把对象上的方法名列出来。
+    // 这份"实测优先"的写法是被两轮无效排查逼出来的：先声明、再猜方法名，比继续读文档快。
+    let sessionsRef
+    function noteSessions(v) {
+      if (v && typeof v === 'object' && sessionsRef === undefined) sessionsRef = v
+      return sessionsRef
+    }
+    try { noteSessions(ctx.sessions) } catch (e) { /* 未声明时可能抛，忽略 */ }
+    try { noteSessions(ctx.get('sessions')) } catch (e) { /* 同上 */ }
+    let injectCbFired = '未触发'
+    try {
+      if (typeof ctx.inject === 'function') {
+        ctx.inject(['sessions'], (scope) => {
+          injectCbFired = '已触发'
+          try { noteSessions(scope.get('sessions')) } catch (e) { /* 子 fiber 也没有就继续走探针 */ }
+          try { noteSessions(scope.sessions) } catch (e) { /* 同上 */ }
+        })
+      }
+    } catch (e) { injectCbFired = '注册抛：' + String((e && e.message) || e) }
+
+    // 一个对象上可调用的方法名（含原型链，最多 4 层）——报错时用来替代"再读一遍文档"。
+    function methodNamesOf(o) {
+      const out = []
+      let cur = o
+      let depth = 0
+      while (cur && cur !== Object.prototype && depth < 4) {
+        for (const k of Object.getOwnPropertyNames(cur)) {
+          if (out.indexOf(k) >= 0) continue
+          try { if (typeof o[k] === 'function') out.push(k) } catch (e) { /* getter 抛就算了 */ }
+        }
+        cur = Object.getPrototypeOf(cur)
+        depth += 1
+      }
+      return out
+    }
+
+    // 切会话的方法名候选：文档里叫 `open`，实测的那一版不是；其余是同义常见写法。
+    const OPEN_METHODS = ['open', 'openSession', 'select', 'selectSession', 'show', 'activate', 'focus', 'switchTo']
+    // 状态词表（来自 host 的投影）。面板不自己维护标签：有它就用它，没有才退回旧常量
+    // （旧常量是迁移期的兜底，面板接线完成后删除）。
+    let VOCAB_CACHE = null
+    let CAPS_CACHE = null
+    let STATE_ERROR = null
+    // 最近一次状态改动：成功提示、撤销、以及"被筛掉但先留在原位"都读它。
+    // 卡片重挂载后它仍在，所以撤销按钮不会随刷新消失。
+    let LAST_CHANGE = null
+
+    function sessionsProbe() {
+      const names = ['sessions', 'connection', 'slots', 'workspaces', 'uiWorkspace', 'conversation', 'remote']
+      const seen = []
+      for (const n of names) {
+        try {
+          const v = ctx.get(n)
+          seen.push(n + (v === undefined ? '=空' : '=' + typeof v))
+        } catch (e) {
+          seen.push(n + '=抛')
+        }
+      }
+      const describe = (label, obj) => {
+        if (!obj) return label + '=（空）'
+        const fns = methodNamesOf(obj)
+        if (fns.length) return label + ' 方法：' + fns.slice(0, 16).join('、')
+        let keys = []
+        try { keys = Object.keys(obj).slice(0, 12) } catch (e) { keys = [] }
+        return label + ' 无方法；字段：' + (keys.length ? keys.join('、') : '（连字段都没有）')
+      }
+      let uiWs
+      try { uiWs = ctx.get('uiWorkspace') } catch (e) { uiWs = undefined }
+      // 读 `sessions.open` 本身会不会抛：cordis 对"没声明/未激活"的服务是**抛**而不是返回空，
+      // 这一条能把"方法不存在"和"服务对我们不可见"分开。
+      let openRead = '（没有对象）'
+      if (sessionsRef) {
+        try {
+          openRead = typeof sessionsRef.open === 'function' ? '函数' : '空'
+        } catch (e) {
+          openRead = '抛：' + String((e && e.message) || e)
+        }
+      }
+      return '实测：' + seen.join('、')
+        + '；sessions.open 读取=' + openRead
+        + '；ctx.inject 回调=' + injectCbFired
+        + '；' + describe('sessions', sessionsRef) + '；' + describe('uiWorkspace', uiWs)
+    }
+
+    function sessionsService() {
+      if (sessionsRef !== undefined) return sessionsRef
+      try { noteSessions(ctx.get('sessions')) } catch (e) { /* 未声明 */ }
+      try { noteSessions(ctx.sessions) } catch (e) { /* 同上 */ }
+      return sessionsRef
+    }
+
+    // `sessions.open(id)` 对**不在客户端列表里**的 id 会抛（`sessions.select: unknown session …`）。
+    // traces/ 里有从别的机器接手的单（`import_trace.py` 落位的那批），那些会话在本机不存在，
+    // 所以这里把结果收成对象：调用方按结果给一句人话，不让异常从 React 事件里甩出去变成
+    // "点了没反应"。第二枪先拉一次 Host 权威列表再开——列表是快照，久未活动的会话可能还没进来
+    // （`refresh()` 是客户端服务已有的公开方法，见 sessions 服务面）。
+    async function openSession(id) {
+      const sessions = sessionsService()
+      if (sessions === undefined) {
+        return { ok: false, reason: '插件没拿到会话服务。' + sessionsProbe() }
+      }
+      const target = String(id)
+      // 候选：在两个可能承载"切会话"的服务上，按候选方法名依次试（谁成功用谁）。
+      const hosts = [['sessions', sessions]]
+      try {
+        const uiWs = ctx.get('uiWorkspace')
+        if (uiWs) hosts.push(['uiWorkspace', uiWs])
+      } catch (e) { /* 没有这个服务就只试 sessions */ }
+      const tried = []
+      for (const [hostName, host] of hosts) {
+        for (const name of OPEN_METHODS) {
+          let fn
+          try { fn = host[name] } catch (e) { continue }
+          if (typeof fn !== 'function') continue
+          tried.push(hostName + '.' + name)
+          try {
+            fn.call(host, target)
+            return { ok: true }
+          } catch (first) {
+            const why = String((first && first.message) || first)
+            // "不在列表里"这一类值得刷新后在同一方法上再试一次；其它异常继续试下一个名字。
+            if (!/unknown session|not listed|不存在/i.test(why)) continue
+            try { if (typeof sessions.refresh === 'function') await sessions.refresh() } catch (e) { /* 刷新失败就按原样报 */ }
+            try {
+              fn.call(host, target)
+              return { ok: true }
+            } catch (second) {
+              return { ok: false, reason: '拉过最新列表仍然没有这一条（外来单或已归档）：' + String((second && second.message) || second) }
+            }
+          }
+        }
+      }
+      return { ok: false, reason: '试过 ' + (tried.length ? tried.join(' / ') : '（没有可用的打开方法）') + ' 都没打开。' + sessionsProbe() }
+    }
+
+    // —— 诊断记录浮层：侧栏页脚的入口与全帧浮层是两个独立注册，靠这个小 store 同步开关 ——
+    // 两处落在不同的 React 树里（页脚在侧栏列内，浮层在帧级图层），不能用 props 传开关；
+    // 也不能用全局定时器或全局事件（动态包沙箱没有它们）。订阅者各持一份本地 state。
+    const ledger = { open: false, listeners: new Set() }
+    function setLedgerOpen(next) {
+      const v = !!next
+      if (ledger.open === v) return
+      ledger.open = v
+      ledger.listeners.forEach(fn => { try { fn(v) } catch (e) { /* 单个订阅者出错不拖累其余 */ } })
+    }
+    function useLedgerOpen() {
+      const [open, setOpen] = React.useState(ledger.open)
+      React.useEffect(() => {
+        const fn = v => setOpen(v)
+        ledger.listeners.add(fn)
+        // 订阅建立之前开关可能已经变过（先点入口、后挂浮层），所以补读一次当前值。
+        setOpen(ledger.open)
+        return () => { ledger.listeners.delete(fn) }
+      }, [])
+      return open
+    }
+
     const T = {
       bg: 'var(--dsw-alias-bg-layer-1)', bg2: 'var(--dsw-alias-bg-layer-2)',
       border: 'var(--dsw-alias-border-l1)', text: 'var(--dsw-alias-label-primary)',
@@ -157,7 +317,38 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
 .sleu-fold-compact[open]>summary{border-color:var(--d-blue);background:var(--tint-blue)}
 .sleu-fold-compact .sleu-fold-body{padding:6px 0 0}
 .sleu-fold-body>div:first-child>.sleu-block:first-child,.sleu-fold-body>.sleu{margin-top:0}
+/* 诊断记录浮层：侧栏页脚的入口 + 帧级浮层本体。浮层落在 shell.overlay 那一层（点击穿透），
+   所以根节点自己把 pointer-events 打开；卡片用 fixed 定位，不挤动下方任何列。 */
+.sleu-ledger-backdrop{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px 24px;background:color-mix(in srgb, var(--dsw-alias-label-primary) 22%, transparent);pointer-events:auto}
+.sleu-ledger-card{display:flex;flex-direction:column;width:min(780px,100%);max-height:76vh;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--hair);border-radius:var(--r-lg);box-shadow:0 18px 48px color-mix(in srgb, var(--dsw-alias-label-primary) 24%, transparent);overflow:hidden}
+.sleu-ledger-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.sleu-ledger-body{overflow:auto;padding:4px 0}
+.sleu-ledger-row{display:grid;grid-template-columns:72px minmax(0,1.4fr) minmax(0,1.6fr) auto auto;gap:10px;align-items:center;width:100%;padding:9px 14px;border:none;background:transparent;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;font:inherit;transition:background-color var(--m-fast) var(--e-out)}
+.sleu-ledger-row:hover{background:var(--tint-blue)}
+.sleu-ledger-row:focus-visible{outline:2px solid var(--d-blue);outline-offset:-2px}
+.sleu-ledger-sid{font-family:var(--font-mono);font-size:var(--t-tiny);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sleu-ledger-sum{font-size:var(--t-sm);color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sleu-ledger-empty{padding:26px 16px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:var(--t-md);line-height:var(--lh-prose)}
+.sleu-ledger-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 14px;border-top:1px solid var(--hair);font-size:var(--t-tiny);color:var(--dsw-alias-label-secondary)}
+.sleu-ledger-chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--hair)}
+.sleu-ledger-chip{padding:2px 10px;border-radius:var(--r-pill);border:1px solid var(--hair);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:var(--t-tiny);cursor:pointer;transition:background-color var(--m-fast) var(--e-out),border-color var(--m-fast) var(--e-out)}
+.sleu-ledger-chip:hover{background:var(--tint-blue)}
+.sleu-ledger-chip[aria-pressed='true']{border-color:var(--d-blue);color:var(--d-blue);background:var(--tint-blue);font-weight:600}
+.sleu-ledger-hint{margin-left:auto;color:var(--dsw-alias-label-secondary);font-size:var(--t-tiny);white-space:nowrap}
+.sleu-ledger-row.is-active{background:var(--tint-blue);box-shadow:inset 2px 0 0 var(--d-blue)}
 @media (prefers-reduced-motion: reduce){.sleu,.sleu *{animation-duration:.001ms !important;animation-delay:0ms !important;transition-duration:.001ms !important}}
+/* 会话行的「待回报」标记（L2 行首空心点 + L1 悬停卡一行）。
+   为什么是空心点：侧栏自己的状态点是实心（运行中/完成/未读），空心与它区分开——这是
+   "欠账"，不是"会话在跑"。颜色用 amber（需处理，不是错误）。 */
+/* 行首记号：一格里只画一个形状。形状=记号种类（缺环 vs 菱形），颜色=同一件事的强弱，
+   不靠颜色单独区分（色弱读者要能只凭形状认出来）。8px 是能在侧栏 280px 宽度里不糊的下限。 */
+.sleu-row-dot{display:inline-block;width:8px;height:8px;border-radius:999px;border:1.5px solid var(--acc-amber);border-right-color:transparent;transform:rotate(-45deg);box-sizing:border-box;vertical-align:middle}
+.sleu-row-gem{display:inline-block;width:7px;height:7px;background:var(--acc-purple);border-radius:1px;transform:rotate(45deg);vertical-align:middle}
+/* 悬停卡很窄：标题一行（欠多久）、细节一行（自哪天 + 等什么），超长换行不截字 */
+.sleu-hover-mark{display:flex;flex-direction:column;gap:1px;margin-top:3px;font-size:var(--t-sm);line-height:var(--lh-base)}
+.sleu-hover-title{color:var(--c-amber);font-weight:600}
+.sleu-hover-detail{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
+.sleu-hover-axis{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
 `
     const tokenSheet = styles.insert(PANEL_CSS)
 
@@ -167,13 +358,12 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       // 写「已解决」会让读者把"诊断结束"读成"这个客户已经好了"。
       resolved: { label: '已定位', color: 'var(--c-green)', acc: 'var(--acc-green)' },
       in_progress: { label: '进行中', color: 'var(--c-blue)', acc: 'var(--acc-blue)' },
-      escalated: { label: '已转上游', color: 'var(--c-amber)', acc: 'var(--acc-amber)' },
+      escalated: { label: '已转交他人', color: 'var(--c-gray)', acc: 'var(--acc-gray)' },
       // 「不跟了」写的就是 archived（词表在仓库根 trace-status.yaml）。缺这一项，面板会把它显示成
       // 灰色的「未知」——用户自己标的结局看不出来，等于没记。
       archived: { label: '不再跟进', color: 'var(--c-gray)', acc: 'var(--acc-gray)' },
       unknown: { label: '未知', color: 'var(--c-gray)', acc: 'var(--acc-gray)' },
     }
-    const RESUMEABLE = { in_progress: true, escalated: true }
     // 诊断轨迹的人读语言：内部 action 名（triage / quickly_check / load_full / miss …）是回放与归因
     // 的词表，不是阅读语言——人读视图给中文标签，原词留在 title 里供维护者回查。
     const STEP_LABELS = {
@@ -438,9 +628,9 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
     const HANDOFF_INTENTS = [
       { id: 'continue', label: '继续定位', why: '上家没定完，交给另一台机器接着查（更多材料在那台机器上）' },
       { id: 'verify', label: '复核结论', why: '上家已给结论，交给另一台机器对照更全的现场核对' },
-      { id: 'escalate', label: '转上游', why: '本地无法定位，转上游/技术支持跟进' },
+      { id: 'escalate', label: '转交他人跟进', why: '本地无法定位，转给厂商 / 技术支持 / 同事跟进' },
     ]
-    const HANDOFF_INTENT_LABEL = { continue: '继续定位', verify: '复核结论', escalate: '转上游' }
+    const HANDOFF_INTENT_LABEL = { continue: '继续定位', verify: '复核结论', escalate: '转交他人跟进' }
     // 体量数字取不到时**如实说"未知"，不报 0 B**：0 B 读起来是"空文件"，会让读者以为导出失败
     // （实测踩过：host 给的字段名与这里读的对不上，结果行列印 "zip 0 B + md 0 B"，而文件是好的）。
     function humanKB(n) {
@@ -468,8 +658,8 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
     //   `代理` = 用可计算的量代替真量（例如跨运行的分位用各运行分位的加权均值）
     //   `确定性` / `人工` 不标——满屏标签会让读的人不再看它们，而这两档没有"别同权"的风险。
     function StrengthBadge(strength) {
-      if (strength === '自报') return React.createElement('span', { title: '这个数由 agent 自报，属弱观测：可作趋势与异常信号，不当验收证据', style: tinyBadge('var(--d-purple)') }, '自报')
-      if (strength === '代理') return React.createElement('span', { title: '这个数用可计算的量代替真量（近似），看量级不看小数位', style: tinyBadge('var(--d-amber)') }, '代理')
+      if (strength === '自报') return React.createElement('span', { title: '这个数由 agent 自报，属弱观测：可作趋势与异常信号，不当验收证据', style: tinyBadge('var(--d-gray)') }, '自报')
+      if (strength === '代理') return React.createElement('span', { title: '这个数用可计算的量代替真量（近似），看量级不看小数位', style: tinyBadge('var(--d-gray)') }, '代理')
       // 没有强度档就**不挂徽标**。原先这里给每一行挂一个「未声明强度」，而知识库健康 / 流程闭环
       // 那些计数行（案例数、漏斗）本来就不参与强度体系——满屏的"未声明"只是噪声，
       // 读者会以为面板坏了。真正缺声明的情形在期卡顶部汇总一次（见 metrics tab 的缺口提示）。
@@ -482,9 +672,9 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
             React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' } },
               React.createElement('span', { style: { color: T.text2, fontSize: 'var(--t-sm)' } }, label),
               total !== undefined && total !== null ? React.createElement('span', { style: { fontSize: 'var(--t-xl)', fontWeight: 700, fontFamily: 'var(--font-mono)', color: warn ? T.warn : T.text, letterSpacing: '-.01em' } }, total) : null,
-              small ? React.createElement('span', { title: '样本量 <5', style: tinyBadge('var(--d-amber)') }, '小样本') : null,
-              unreadable ? React.createElement('span', { title: unreadableWhy || '分母为 0：这个数不可解读', style: tinyBadge('var(--d-purple)') }, '不可解读') : null,
-              warn && !unreadable ? React.createElement('span', { style: tinyBadge('var(--d-amber)') }, '超限') : null,
+              small ? React.createElement('span', { title: '样本量 <5', style: tinyBadge('var(--d-gray)') }, '小样本') : null,
+              unreadable ? React.createElement('span', { title: unreadableWhy || '分母为 0：这个数不可解读', style: tinyBadge('var(--d-gray)') }, '不可解读') : null,
+              warn && !unreadable ? React.createElement('span', { style: tinyBadge('var(--d-red)') }, '超限') : null,
               StrengthBadge(strength),
             ),
             sub ? React.createElement('div', { style: { color: T.text2, fontSize: 'var(--t-tiny)', marginTop: 2, lineHeight: 'var(--lh-base)', wordBreak: 'break-word' } }, sub) : null,
@@ -493,8 +683,8 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         : React.createElement(React.Fragment, null,
             React.createElement('span', { style: { color: T.text2, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 } },
               label,
-              small ? React.createElement('span', { title: '样本量 <5', style: tinyBadge('var(--d-amber)') }, '小样本') : null,
-              unreadable ? React.createElement('span', { title: unreadableWhy || '分母为 0：这个数不可解读', style: tinyBadge('var(--d-purple)') }, '不可解读') : null,
+              small ? React.createElement('span', { title: '样本量 <5', style: tinyBadge('var(--d-gray)') }, '小样本') : null,
+              unreadable ? React.createElement('span', { title: unreadableWhy || '分母为 0：这个数不可解读', style: tinyBadge('var(--d-gray)') }, '不可解读') : null,
               StrengthBadge(strength),
             ),
             React.createElement('span', { style: { color: warn ? T.warn : (unreadable ? T.text2 : T.text), fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' } }, value),
@@ -729,6 +919,67 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       return isSubmittedOf(s) && !isClosedOf(s)
     }
 
+    // —— 等上游：已收尾、没给可执行修复、命中案例带上游锚点、且该案例依据上游结论 ——
+    // 判据在 host 的投影里（`scripts/_trace_state.py` 的 derive），因为它要读 case 文件：
+    // 面板不读 knowledge/、也不实现判据。四条同时成立才算：
+    //   收尾轴 `status: resolved`（诊断已有结论）｜`fix_emitted: false`（没给可执行修复）
+    //   ｜案例的 `upstream` 锚点（查得到上游）｜案例的 `verification.source` 属 upstream- 档
+    //   （这条案例的结论依据本来就来自上游）。
+    // 第四条为什么不能省：`fix_emitted: false` 还表示"只定位到根因"，而 `data-loss-risk`
+    // 按 severity gate 本来就不给 fix（先停、保留现场、通知 owner）。只看前三条会把「先停」
+    // 单同时挂上「等上游」，读者把"先停"读成"本机没有待办动作"。
+    // 为什么要它：这类单已经收尾、`resolved` 又不可续接，原本没有与查上游相关的入口，
+    // 读者看不出它其实卡在"等上游动"。
+    function upstreamPendingOf(s) {
+      const d = s && s.state && s.state.derived
+      return !!(d && d.upstreamPending)
+    }
+    function upstreamOf(s) {
+      const d = s && s.state && s.state.derived
+      return (d && d.upstream) || null
+    }
+    // 查上游的指令：prompt，不是裸命令——要的是"读结局、说下一步"，不是脚本输出本身。
+    // 读法（上游确认 / 上游否定且 case 声明已合入 / 未验证 / 不可查证）与"上游确认 ≠ 你的
+    // 部署已有修复"这条界线写在 `/skill:resume-diagnosis` 的「只查上游」一节——指令里点名它，
+    // 判定规则才有出处，而不是每次让 agent 自己现推。`--apply` 不在指令里：写回 knowledge/
+    // 要走 PR，属于周批维护者的活。
+    function upstreamCmdOf(caseId) {
+      return '用 /skill:resume-diagnosis 查 ' + caseId + ' 的上游状态'
+        + '（只查上游，不续接、不写 trace）：python3 scripts/verify_upstream_outcomes.py --case ' + caseId
+    }
+
+    // —— 「价值优先」的唯一一份判据（诊断 tab 的排序与侧栏「诊断记录」共用）——
+    // 只看 trace 已有的字段，不新增口径，每一档都指到本仓已有的一条轴：
+    //   5 已沉淀（`sedimented.state` 有值）——知识库里留下了东西，最值得复用
+    //   4 命中且库里已有（`activeCaseInKb`）——能直接拿来对照
+    //   3 命中但库里还没有（新形态）——先看，可能值得沉淀
+    //   2 有 fix 且回报已生效（`feedback: resolved`）——结论被现场验证过
+    //   1 已定位（`status: resolved`）——有根因，但库里没有对应案例
+    //   0 其余（在查 / 转上游 / 不再跟进 / 空记录）
+    // 同档按最后更新时间倒序：同档之间没有更强的次序理由，别拿拍脑袋的第二判据凑。
+    // 这一句同时出现在三个位置（诊断 tab 的下拉说明、诊断记录的下拉说明、诊断记录的页脚），
+    // 只维护这一份。
+    const VALUE_ORDER_TEXT = '已沉淀 ＞ 库中已有案例 ＞ 新形态 ＞ fix 已生效 ＞ 已定位 ＞ 其余，同档按最后更新时间倒序'
+    function valueRankOf(s) {
+      if (sedStateOf(s) !== 'none') return 5
+      if (caseKindOf(s) === 'case') return s.activeCaseInKb ? 4 : 3
+      if (String(s.feedback || '') === 'resolved') return 2
+      if (s.status === 'resolved') return 1
+      return 0
+    }
+    function updatedTsOf(s) {
+      const raw = s.updatedAt || s.createdAt
+      const t = raw ? new Date(raw).getTime() : NaN
+      return isNaN(t) ? 0 : t
+    }
+    // 开始时间：诊断记录「按时间」排的是**最后更新时间**（行尾那一列就是它，列不降序会被读成
+    // 排序坏了），同刻并列才退到开始时间——与 host 判"何时开始诊断"用的是同一条字段。
+    function createdTsOf(s) {
+      const raw = s.createdAt || s.updatedAt
+      const t = raw ? new Date(raw).getTime() : NaN
+      return isNaN(t) ? 0 : t
+    }
+
     // 解析异常的一句话（host 的 `parseAnomaly`）。卡面只给"结论 + 行号"，成因与怎么办放 README——
     // 面板读者只看界面，卡上多一句解释就把列表读成文档（实测反馈：这类说明性文字被点过两次）。
     function anomalyText(a) {
@@ -910,7 +1161,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
     // 指标带 = 三张图，替代原来的四段文字：
     //   ① 六步耗时柱（缺数据的步画虚线空框，不当天花板）② 检索漏斗 ③ token 堆叠条
     // 为什么要图：四段文字里三段的数字本来就是同一批，读者要在脑子里做对比；图把对比直接画出来。
-    // 问题背景：trace 的 summary 是一段长文本。直接铺开来是一堵墙，折行又不分段更难看。
+    // 本次诊断摘要：trace 的 summary 是一段长文本。直接铺开来是一堵墙，折行又不分段更难看。
     // 这里按句号切段逐段排版，默认只露前 3 行，点开看全文——折叠只影响可见高度，
     // **文字始终是全的**（不是截断）。
     function SummaryText(props) {
@@ -947,9 +1198,19 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       const cost = (rec && Array.isArray(rec.stepCost)) ? rec.stepCost : []
       const byStep = {}
       for (const r of cost) byStep[r.step] = r
-      const maxMs = Math.max(1, ...cost.map(r => r.ms || 0))
-      const total = cost.reduce((a, r) => a + (r.ms || 0), 0)
-      const worst = cost.slice().sort((a, b) => (b.ms || 0) - (a.ms || 0))[0]
+      // 合计与标尺都只算"测得出来、且窗口没被截断"的步：
+      //   · 收尾段截断（没有 ended_at）会把诊断之外的活算进来 → 剔除并标注；
+      //   · 有调用没返回（msComplete=false）时这个数只是下限 → 合计前缀 ≥。
+      const usable = cost.filter(r => !r.windowTruncated && typeof r.ms === 'number')
+      const maxMs = Math.max(1, ...usable.map(r => r.ms))
+      const incomplete = usable.some(r => r.msComplete === false)
+      const truncated = cost.some(r => r.windowTruncated)
+      const total = usable.reduce((a, r) => a + r.ms, 0)
+      const worst = usable.slice().sort((a, b) => (b.ms || 0) - (a.ms || 0))[0]
+      const totalNote = !rec ? '本机明细未生成'
+        : (!cost.length ? '轨迹缺 ts，切不出分步窗口'
+          : ('合计 ' + (incomplete ? '≥ ' : '') + msText(total) + (truncated ? '（不含收尾段）' : '')
+            + (worst && worst.ms ? ' · 最长是 ' + worst.step + ' ' + STEP_SHORT[worst.step] : '')))
       const head = (label, note) => React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8, minWidth: 0 } },
         React.createElement('span', { style: { fontSize: 'var(--t-md2)', color: T.text2, whiteSpace: 'nowrap' } }, label),
         note ? React.createElement('span', { title: note, style: { fontSize: 'var(--t-tiny)', color: T.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, note) : null)
@@ -957,24 +1218,34 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       const bars = React.createElement('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, alignItems: 'end', height: 78 } },
         [1, 2, 3, 4, 5, 6].map(n => {
           const r = byStep[n]
-          // 有这一步但没记耗时 → null（虚线 + 「—」）。**不能 `|| 0`**：那是把"没测到"画成"0 秒"。
-          const ms = (r && typeof r.ms === 'number') ? r.ms : null
-          const h = ms ? Math.max(4, Math.round(ms / maxMs * 100)) : 0
+          // 三态分开：没这一步 / 有窗口但没记耗时 / 测到了（含 0 ms）。
+          // `ms === 0` 是"窗口内确实没有工具调用"，不是"没测到"——两者不能同形。
+          const hasStep = !!r
+          const cut = !!(r && r.windowTruncated)
+          const ms = (hasStep && !cut && typeof r.ms === 'number') ? r.ms : null
+          const h = (ms !== null && ms > 0) ? Math.max(4, Math.round(ms / maxMs * 100)) : 0
           const t = (r && r.tokens) || {}
-          const tok = (t.uncached || 0) + (t.cache_read || 0) + (t.out || 0)
-          const tip = ms === null
-            ? STEP_SHORT[n] + '：这一步在轨迹里没有事件，本次没记'
-            : STEP_SHORT[n] + '\n耗时 ' + msText(ms) + '（窗口内工具调用之和，不含模型思考）'
-              + '\n调用 ' + ((r && r.calls) || 0) + ' 次' + (tok ? '\ntoken ' + thousands(tok) : '')
-              + ((r && r.tools && r.tools.length) ? '\n工具 ' + r.tools.slice(0, 6).join(' / ') : '')
+          const tok = (t.uncached || 0) + (t.cache_read || 0) + (t.cache_write || 0) + (t.out || 0)
+          const tip = !hasStep
+            ? STEP_SHORT[n] + '：轨迹里没有这一步的事件，本次没记'
+            : cut
+              ? STEP_SHORT[n] + '：轨迹没写 ended_at，收尾段混进了诊断之外的活，这一段不计入合计'
+              : (ms === null
+                ? STEP_SHORT[n] + '：有这一步，但本机明细里没有它的耗时'
+                : STEP_SHORT[n] + '\n耗时 ' + msText(ms) + (ms === 0 ? '（窗口内没有工具调用）' : '')
+                  + '（窗口内工具调用之和，不含模型思考）'
+                  + '\n调用 ' + ((r && r.calls) || 0) + ' 次' + (tok ? '\ntoken ' + thousands(tok) + '（四类之和）' : '')
+                  + (r.msComplete === false ? '\n注意：有调用没返回，这个数是下限' : '')
+                  + ((r && r.tools && r.tools.length) ? '\n工具 ' + r.tools.slice(0, 6).join(' / ') : ''))
+          const label = cut ? '未记' : (ms === null ? '—' : (r.msComplete === false ? '≥ ' : '') + msText(ms))
           return React.createElement('div', { key: n, title: tip, style: { display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', gap: 4 } },
             React.createElement('div', { style: { height: '100%', display: 'flex', alignItems: 'flex-end', borderRadius: 'var(--r-xs)', overflow: 'hidden',
-              background: ms === null ? 'transparent' : 'color-mix(in srgb, ' + T.warn + ' 10%, transparent)',
-              border: ms === null ? '1px dashed ' + T.border : 'none' } },
-              ms ? React.createElement('i', { style: { display: 'block', width: '100%', height: h + '%', background: 'var(--acc-amber, ' + T.warn + ')', borderRadius: 'var(--r-xs)' } }) : null),
+              background: cut ? 'transparent' : (ms === null ? 'transparent' : 'color-mix(in srgb, ' + T.warn + ' 10%, transparent)'),
+              border: cut ? '1px dashed ' + T.warn : (ms === null ? '1px dashed ' + T.border : 'none') } },
+              (ms !== null && ms > 0) ? React.createElement('i', { style: { display: 'block', width: '100%', height: h + '%', background: 'var(--acc-amber, ' + T.warn + ')', borderRadius: 'var(--r-xs)' } }) : null),
             React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 3, minWidth: 0 } },
               React.createElement('span', { title: STEP_SHORT[n], style: { fontSize: 'var(--t-md2)', color: T.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, n + ' ' + STEP_SHORT[n]),
-              React.createElement('span', { className: 'sleu-num', style: { marginLeft: 'auto', fontSize: 'var(--t-md2)', color: T.text, whiteSpace: 'nowrap' } }, ms === null ? '—' : msText(ms))))
+              React.createElement('span', { className: 'sleu-num', style: { marginLeft: 'auto', fontSize: 'var(--t-md2)', color: cut ? T.warn : T.text, whiteSpace: 'nowrap' } }, label)))
         }))
 
       // 检索路径：光画三根条读者不知道在比什么（2 → 2 → 0 尤其费解）。计数 + 箭头 + 一句人话结论，缺一不可。
@@ -1007,10 +1278,10 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
 
       return React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1.25fr 1fr .95fr', gap: 24, padding: '2px 0 14px', borderBottom: '1px solid ' + T.border } },
         React.createElement('div', { style: { minWidth: 0 } },
-          head('每步耗时', total ? ('合计 ' + msText(total) + (worst && worst.ms ? ' · 最长是 ' + worst.step + ' ' + STEP_SHORT[worst.step] : '')) : (rec ? '' : '本机明细未生成')),
+          head('每步耗时', totalNote),
           bars,
           React.createElement('div', { style: { marginTop: 8, fontSize: 'var(--t-md2)', color: T.text2, lineHeight: 'var(--lh-base)' } },
-            '窗口内工具调用之和，不含模型思考；悬停看每步的次数、token 与工具'),
+            '各步窗口内工具调用之和，不含模型思考；与卡片「工具耗时」（会话全量）不同源。悬停看次数、token 与工具'),
           // 按工具拆开：只给一个总数，读者判断不出"这几秒该裁哪个动作"。
           // 默认收起——它是"要继续查"时才展开的那一层，不占首屏。
           (function () {
@@ -1026,7 +1297,8 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
                   React.createElement('span', { style: { color: T.text2 } }, '步 ' + step),
                   React.createElement('span', { title: label, style: { color: T.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, label),
                   React.createElement('span', { className: 'sleu-num', style: { color: T.text, whiteSpace: 'nowrap' } },
-                    t ? ((t.ms || 0) + ' ms · ' + t.calls + ' 次' + (t.pending ? ' · ' + t.pending + ' 未返回' : '')) : '')))))
+                    t ? (((typeof t.ms === 'number' && t.ms > 0) ? (t.ms + ' ms')
+                      : (t.pending ? '—' : '0 ms')) + ' · ' + t.calls + ' 次' + (t.pending ? ' · ' + t.pending + ' 未返回' : '')) : '')))))
           })()),
         React.createElement('div', { style: { minWidth: 0 } }, head('检索路径', ''), funnel),
         React.createElement('div', { style: { minWidth: 0 } },
@@ -1063,6 +1335,8 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       const [evOpen, setEvOpen] = React.useState(null)
       const [tcOpen, setTcOpen] = React.useState(null)   // 关联面：展开哪一步的工具调用清单
       const [opening, setOpening] = React.useState(null)
+      // 「打开会话」失败的那句话（成功会切走，不需要回显）
+      const [navErr, setNavErr] = React.useState(null)
       // 打开反馈按**目标**记：谁被点，明细就显示在谁旁边（不再只落在卡头那一行）
       const [openErr, setOpenErr] = React.useState(null)    // {at, msg}
       const [openDone, setOpenDone] = React.useState(null)  // {at, via}
@@ -1083,8 +1357,20 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       // 按钮可手动重试。`rebuildTried` 记「这一单已经自动试过」，防止失败后无限重试。
       const [rebuild, setRebuild] = React.useState(null)       // {state:'running'|'done'|'error', msg}
       const [rebuildTried, setRebuildTried] = React.useState(null)
-      const meta = statusMeta[s.status] || statusMeta.unknown
-      const canResume = RESUMEABLE[s.status]
+      const vocabStatus = (VOCAB_CACHE && Array.isArray(VOCAB_CACHE.statuses))
+        ? VOCAB_CACHE.statuses.filter(x => x.value === s.status)[0] : null
+      const meta = (s.state && s.state.displayTone)
+        ? { label: vocabStatus ? vocabStatus.label : String(s.status || '状态未记录'),
+            color: s.state.displayTone.color, acc: s.state.displayTone.accent }
+        : (statusMeta[s.status] || statusMeta.unknown)
+      const canResume = vocabStatus ? !!vocabStatus.resumable : (s.status === 'in_progress')
+      const st = s.state || null
+      const [stEdit, setStEdit] = React.useState({ action: '', kind: '', handed: '', dup: '', msg: '', riskAck: false })
+      const [rpEdit, setRpEdit] = React.useState({ source: 'field', result: 'from_report', note: '', msg: '' })
+      // 命令兜底的写法（bash / PowerShell）。它必须是真状态：状态编辑器里兜底命令那一块按
+      // `stAct ?` 渲染、渲染期就读它，漏声明时选中任一动作都会抛 ReferenceError，整张卡片
+      // 渲染失败、宿主把那个槽位画成空白（「补记收尾方式」白屏就是这样来的）。
+      const [cmdShell, setCmdShell] = React.useState('bash')
       // 定位结论：host 标 `isConclusion`（显式 `conclusion: true`，或"人读视图可见末条是 hit"这条约定）。
       // 这里算它在**可见列表**里的位置——host 给的是原始下标，人读视图先过滤过记录维护动作，
       // 直接拿原下标会错位（这是"两个索引混用"的经典坑，故用对象身份找而不是比下标）。
@@ -1561,7 +1847,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         else if (steps && steps.list && steps.list.length) {
           body = React.createElement('div', null,
             steps.summary ? React.createElement('div', { style: { marginBottom: 10, padding: 10, background: 'color-mix(in srgb, ' + T.brand + ' 6%, transparent)', border: '1px solid ' + T.border, borderRadius: 'var(--r-md)' } },
-              React.createElement(SectionLabel, { color: T.brand }, '问题背景'),
+              React.createElement(SectionLabel, { color: T.brand }, '本次诊断摘要'),
               React.createElement(SummaryText, { text: steps.summary }),
             ) : null,
             d5Conclusion,
@@ -1851,11 +2137,10 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         // 徽章走统一形态（tinyBadge → --d-* 深档），亮/暗两套主题自动跟
         kbTag = s.activeCaseInKb
           ? React.createElement('span', { title: '该 case 已在 knowledge/ 中', style: tinyBadge('var(--d-green)') }, '库中已有')
-          : React.createElement('span', { title: '该 case 未入库（新形态待沉淀）', style: tinyBadge('var(--d-amber)') }, '新形态')
+          : React.createElement('span', { title: '该 case 未入库（新形态待沉淀）', style: tinyBadge('var(--d-purple)') }, '新形态')
       }
 
       // 状态左条：**扫列表时先看这一列**（进行中/已转上游=要跟；已定位=可放过）
-      const statusAccent = { resolved: 'var(--acc-green)', in_progress: 'var(--acc-blue)', escalated: 'var(--acc-amber)', unknown: 'var(--acc-gray)' }[s.status] || 'var(--acc-gray)'
       // 闭环指令：**4 种结局分开给**（2026-09 阶段一）。
       // 为什么（用户提的"完成最后一公里"）：旧面板只有「继续诊断」与「沉淀」，闭不了环——
       // 于是"fix 生效 / 没生效 / 我不跟了 / 转上游"四种真实结局在数据上无法落笔，
@@ -1863,74 +2148,44 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       // **为什么必须分开**：把"没走诊断、问题自己没了"混进 resolved 会虚高解决率；
       // 混进 not_resolved 会冤枉命中的 case（把"没测"记成"误诊"）。词表见 `trace-status.yaml`。
       // 本阶段只生成指令（用户粘贴到对话执行），不改面板写入路径——写入是阶段二。
-      const closeCmds = []
-      // 占位串走「没命中」那一支：没有 case 可回写 confidence，指令里也不能出现占位串当 case 名
-      if (caseKindOf(s) === 'case') {
-        closeCmds.push({
-          key: 'close-fix', label: '已解决 · fix 生效', tone: 'success',
-          cmd: '闭环诊断 ' + s.sessionId + '：fix 已应用且验证生效（' + s.activeCase + ' 命中）。'
-            + '标 status: resolved + feedback{outcome: resolved}，写一条 feedback 事件。',
-        })
-        closeCmds.push({
-          key: 'close-nofix', label: '没解决', tone: 'warn',
-          cmd: '闭环诊断 ' + s.sessionId + '：' + s.activeCase + ' 的 fix 应用后没解决问题。'
-            + '标 status: resolved + feedback{outcome: not_resolved}，写一条 feedback 事件。'
-            + '误诊归因按 trace 判定是 case_error 还是 execution_error。',
-        })
-      } else {
-        closeCmds.push({
-          key: 'close-fix', label: '已定位（有结论）', tone: 'success',
-          // 无命中单的结果**不走反馈轴**（没有 case 可回写 confidence）：结果记在 status 与 summary。
-          // 同时要把遗留的 `feedback.outcome: pending` 清掉——否则"状态已结、反馈轴仍挂 pending"，
-          // 面板与 resume 都会把它读成一个还在等的回报（实测这两轴就是这么打架的）。
-          cmd: '闭环诊断 ' + s.sessionId + '：诊断已收尾、根因定位明确。未命中知识库 case，因此不写 feedback；'
-            + '标 status: resolved，并在 summary 里补一句最终怎么解决的；'
-            + '若 trace 里还留着 feedback.outcome: pending（无命中单留下的占位），一并清掉。',
-        })
-      }
-      closeCmds.push({
-        key: 'close-archive', label: '不跟了', tone: 'ghost',
-        cmd: '闭环诊断 ' + s.sessionId + '：不再跟进，也不判断 fix 是否有效'
-          + '（问题自行消失，或环境变更后不再复现。标 status: archived，不写 feedback 事件）',
-      })
-      closeCmds.push({
-        key: 'close-escalate', label: '转上游', tone: 'ghost',
-        cmd: '闭环诊断 ' + s.sessionId + '：本地无法定位，转上游或技术支持。'
-          + '标 status: escalated，不写 feedback 事件。',
-      })
-      if (!canResume) {
-        closeCmds.push({
-          key: 'reopen', label: '重新打开', tone: 'ghost',
-          cmd: '把这个诊断重新打开：' + s.sessionId + '。'
-          + 'status 改回 in_progress；若当时写过 feedback 事件，一并撤掉那条。',
-        })
-      }
-      const toneStyle = (tone) => tone === 'success' ? btnSuccess : (tone === 'warn' ? btnRed : btnGhost)
-      // 指令区形态（2026-09-12 改版，两个实测体验问题）：
-      //  ① **按钮横排**：它们同属"选哪条指令"，旧版每条指令各占一行竖排（5 个按钮 + 5 行展开体），
-      //     卡片被撑得很高、视觉碎；横排才看得出是一组，点开的内容只在下方一处展开。
-      //  ② **卡片内不再重复提示**：旧版每张卡片都印一句「这一单结束了？（点一个 → 复制指令 → 粘到对话）」，
-      //     同一句话重复 N 遍＝噪音；这条说明属于整个列表（列表工具栏/待跟进条已有一句），不在卡片里复读。
       const actions = []
       if (canResume) actions.push({
         key: 'rs', label: '继续诊断', style: btnPrimary, title: '生成续接指令',
         cmd: '用 /skill:resume-diagnosis 续接 ' + s.sessionId,
       })
-      for (const c of closeCmds) actions.push({ key: c.key, label: c.label, style: toneStyle(c.tone), title: '生成收尾指令（复制后粘到对话执行）', cmd: c.cmd })
+      // 「查上游进展」：只要本单命中的案例带上游锚点就给入口，不再要求「等上游」那四条同时成立。
+      // 为什么放宽：入口挂在 `upstreamPending` 上的话，凡是没记 `fix_emitted` 的老单（存量 trace
+      // 基本都没记）就看不到任何查上游的入口，读者以为面板不支持查上游。
+      // 徽标与筛选的「等上游」语义不变（仍是那四条的组合），这里只放宽"生成查上游指令"这一个入口。
+      // 它生成的是**指令**（粘到对话里执行），与「继续诊断 / 沉淀」同一类交互——面板不联网、
+      // 也不回写 knowledge/（写回要 PR，属于周批维护者的活）。
+      const upInfo = upstreamOf(s)
+      const upAnchors = (upInfo && Array.isArray(upInfo.anchors)) ? upInfo.anchors : []
+      if (upAnchors.length && s.activeCase) actions.push({
+        key: 'up', label: '查上游进展', style: btnOutline(T.brand),
+        title: '查这一单命中的上游 issue / PR 进展：生成一条指令，agent 跑 dry-run 读结局并说下一步（不回写案例）',
+        anchors: upAnchors,
+        lastVerified: upInfo.lastVerified || '',
+        cmd: upstreamCmdOf(String(s.activeCase)),
+      })
       const openedCmd = actions.filter(a => a.key === showCmd)[0] || null
       // 报告入口（diagnose 步骤 6 的产出）。**沉淀候选的明细不在这里**——它归展开态的沉淀区
       // （case 与先验候选分家、各带入口，见上方「沉淀区」）：候选与"本单沉淀状态"是同一件事的两面，
       // 拆到卡头下方与卡体深处两处，读者接不上各自的入口（旧版就是这么散的）。
       const docRow = (reportPath || s.sedimentCandidates)
         ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            // 两个入口的词必须不同：一个在面板里读（TL;DR / 依据链 / 一键复制全文），
+            // 一个把那**份文件**交给默认应用打开。旧的「看报告 / 打开报告」四个字里只差两个、
+            // 且都以"报告"结尾，实测被读成同一个动作；「读正文」「用系统应用打开」又被读成
+            // 术语（"正文"指什么、"系统应用"是什么）。现在两个词分指两样东西：报告 / 报告文件。
             reportPath ? React.createElement('button', {
-              type: 'button', onClick: toggleReport, title: '在面板里读报告：TL;DR / 依据链 / 修复方案，可一键复制全文',
+              type: 'button', onClick: toggleReport, title: '在面板里看这份报告：TL;DR / 依据链 / 修复方案，可一键复制全文',
               style: { background: reportOpen ? 'color-mix(in srgb, ' + T.brand + ' 10%, transparent)' : 'transparent', border: '1px solid ' + T.border, color: T.text, borderRadius: 'var(--r-pill)', padding: '2px 11px', fontSize: 'var(--t-tiny)', fontWeight: 600, cursor: 'pointer' },
             }, reportOpen ? '收起报告' : '看报告') : null,
             reportPath ? React.createElement('button', {
-              type: 'button', onClick: () => openFile(reportPath), title: reportPath,
+              type: 'button', onClick: () => openFile(reportPath), title: '用默认应用打开这份报告文件（.md）：' + reportPath,
               style: { background: 'transparent', border: '1px solid ' + T.brand, color: T.brand, borderRadius: 'var(--r-pill)', padding: '2px 11px', fontSize: 'var(--t-tiny)', fontWeight: 600, cursor: 'pointer' },
-            }, opening === reportPath ? '打开中…' : '打开报告') : null,
+            }, opening === reportPath ? '打开中…' : '打开报告文件') : null,
             // 入口是**靠同名规则**找到的（trace 里没记 `report_file`）就说出来：报告明明落在
             // traces/ 里而卡片上什么都不给，读者只会以为"面板读不到报告"（实测反馈）。
             s.reportSource === 'name' ? React.createElement('span', { title: 'trace 里没有 report_file；这份报告是按 <trace 同名>.report.md 的规则找的', style: { color: T.text2, fontSize: 'var(--t-tiny)' } },
@@ -2006,35 +2261,504 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         style: { ...a.style, padding: '2px 10px' },
       }, a.label)
       const resumeAction = actions.filter(a => a.key === 'rs')[0] || null
-      const closeActions = actions.filter(a => a.key !== 'rs')
+      const upstreamAction = actions.filter(a => a.key === 'up')[0] || null
+      // 「打开会话」：从诊断记录里直接切到这一单的会话，不必回左侧列表里按会话号找。
+      // **只能用 `harness_session`**：`session_id` 是诊断自己起的名字（形如
+      // `<日期>-<issue 号>-<短名>`），DSH 的会话号是 `session-<uuid>`，两者不是一回事——
+      // 拿名字去 open 每一次都会抛（实测：第一版用错号，20 单全点不动，就是这一条）。
+      // 没记会话号的老单不给按钮：给一个点了必失败的按钮比不给更坏。
+      // 它是**切走**的动作（点了就离开面板），所以成功不需要回显；失败要说话——
+      // 外来单（import_trace.py 接手的那批）在本机没有这个会话，静默会被读成"面板坏了"。
+      const harnessSession = s.harnessSession ? String(s.harnessSession) : ''
+      const isCurrentSession = !!(harnessSession && props.currentSession && String(props.currentSession) === harnessSession)
+      const navBtn = isCurrentSession
+        ? React.createElement('span', {
+            title: '这一单就是你当前打开的会话——不必再跳',
+            style: { color: T.text2, fontSize: 'var(--t-tiny)', border: '1px dashed ' + T.border, borderRadius: 'var(--r-pill)', padding: '2px 10px' },
+          }, '当前会话')
+        : harnessSession
+        ? React.createElement('button', {
+            type: 'button', title: '切到这条诊断的会话（' + harnessSession + '）',
+            onClick: () => {
+              openSession(harnessSession).then(res => setNavErr(res.ok ? null : res.reason))
+            },
+            style: { background: 'transparent', border: '1px solid ' + T.brand, color: T.brand, borderRadius: 'var(--r-pill)', padding: '2px 11px', fontSize: 'var(--t-tiny)', fontWeight: 600, cursor: 'pointer' },
+          }, '打开会话')
+        : React.createElement('span', {
+            title: '这单的轨迹顶层没有 harness_session，定位不到 DSH 会话（session_id 是诊断自己起的名字，'
+              + '不是 DSH 的会话号）。可能是建会话时漏写，也可能是那次写入该字段之前的单——面板看不出是哪种，'
+              + '只说事实。补法（已知本会话号时秒级）：'
+              + 'python3 scripts/link_harness_sessions.py --trace ' + String(s.file || '') + ' --session-id "$DSH_SESSION_ID" --apply',
+            style: { color: T.text2, fontSize: 'var(--t-tiny)', border: '1px dashed ' + T.border, borderRadius: 'var(--r-pill)', padding: '2px 10px' },
+          }, '未记会话号')
       // 展开的命令块只出现一次（谁被点开就显示谁）；选中关系靠"命令块在最下方"表达，
       // 不再用 opacity 压未选中的按钮——那会把白字压到 2.07:1（AA 要求 4.5）。
+      const undoLastChange = () => {
+        const lc = LAST_CHANGE
+        if (!lc || !lc.sha) return
+        host.call('ascend-trace-transition', {
+          sessionId: lc.sessionId, action: 'reopen', payload: {}, expectSha256: lc.sha,
+        }).then(r => {
+          if (r && r.ok) { LAST_CHANGE = null; if (typeof onRebuilt === 'function') onRebuilt() }
+          else setStEdit(v => ({ ...v, msg: '撤销失败：' + String((r && (r.message || r.code)) || '未知错误') }))
+        }).catch(e => setStEdit(v => ({ ...v, msg: '撤销失败：' + String(e && e.message || e) })))
+      }
+      const stActions = (st && Array.isArray(st.actions)) ? st.actions : []
+      const stAct = stEdit.action ? stActions.filter(a => a.id === stEdit.action)[0] : null
+      const stTarget = (stAct && stEdit.to && Array.isArray(stAct.targets))
+        ? stAct.targets.filter(t => t.to === stEdit.to)[0] : null
+      const stChoices = stTarget ? (stTarget.endingChoices || []) : ((stAct && stAct.endingChoices) || [])
+      const stKinds = stChoices.map(c => c.value)
+      // 「改收尾方式」的必填在**目标动作**上（correct-ending 自己没有 requires/fillable），
+      // 所以字段与「先去回报」都按 base = 目标 ?? 当前动作取。
+      const stBase = stTarget || stAct
+      const stFieldPaths = stBase ? ((stBase.requires || []).concat(stBase.fillable || [])) : []
+      const stMustAll = stBase ? (stBase.mustExist || []) : []
+      // `mustExist` 是「必须已存在」而不是「必须现在填」。命中真实 case 的单一律带上
+      // `feedback.outcome`，但 diagnose 给 fix 时已经写过 pending——按字段存在性判，才不会
+      // 把「已回报过的命中单」也拦成「先去回报」。
+      const stMust = stMustAll.filter(f => {
+        if (f === 'feedback.outcome') return !(st && st.feedback && st.feedback.outcome)
+        return true
+      })
+      const editableFields = stFieldPaths.filter(f => /^(summary|severity|fix_emitted)$/.test(f))
+      const caps = (typeof CAPS_CACHE === 'object') ? CAPS_CACHE : null
+      // 没有能力位（投影失败/旧 host）时按不可写处理：宁可给复制命令，也不要在提交后才撞 E_PERM。
+      const canWrite = !!caps && caps.canWrite !== false
+      const fieldVal = (f) => {
+        const v = (stEdit.fields || {})[f]
+        if (v !== undefined) return v
+        if (f === 'summary') return (st && st.summary) || ''
+        if (f === 'severity') return (st && st.severity) || ''
+        if (f === 'fix_emitted') return (st && st.fixEmitted === true) ? 'true' : (st && st.fixEmitted === false) ? 'false' : ''
+        return ''
+      }
+      const setField = (f, v) => setStEdit(x => ({ ...x, fields: { ...(x.fields || {}), [f]: v } }))
+      const buildPayload = () => {
+        const p = {}
+        if (stEdit.to) p.to = stEdit.to
+        if (stEdit.kind) p['ending.kind'] = stEdit.kind
+        if (stEdit.kind === 'handed_off' && stEdit.handed) p['ending.handed_to'] = stEdit.handed
+        if (stEdit.kind === 'duplicate' && stEdit.dup) p['ending.duplicate_of'] = stEdit.dup
+        for (const f of editableFields) {
+          const v = fieldVal(f)
+          if (v !== '') p[f] = (f === 'fix_emitted') ? (v === 'true') : v
+        }
+        return p
+      }
+      const sq = (v) => "'" + String(v).replace(/'/g, "'\\''") + "'"
+      const validateState = () => {
+        if (!stAct) return { msg: '先选一个结局' }
+        if (stKinds.length > 1 && !stEdit.kind) return { msg: '先选收尾方式', field: 'kind' }
+        if (stEdit.kind === 'handed_off' && !String(stEdit.handed || '').trim()) return { msg: '需要填「转交给」', field: 'handed' }
+        if (stEdit.kind === 'duplicate' && !String(stEdit.dup || '').trim()) return { msg: '需要填「已有单」', field: 'dup' }
+        if (stMust.length) return { msg: '这单命中了案例：先在「回报结果」里记一条现场结果，再收尾' }
+        if (stRisky && !stEdit.riskAck) return { msg: '先勾选「我已了解后果」，再写入', field: 'riskAck' }
+        const missing = editableFields.filter(f => !String(fieldVal(f)).trim())
+        if (missing.length) return { msg: '还需要填：' + missing.map(f => ({ summary: '问题背景', severity: '严重级', fix_emitted: '是否给出了可执行的修复' }[f] || f)).join('、'), field: missing[0] }
+        return null
+      }
+      // 兜底命令：值全部走 JSON（stdin here-doc），不拼命令行——中文、空格、引号、$ 都不会被拆开。
+      // 任何失败（无写权限、无主检出、脚本报错、RPC 不通）都给这一段，用户复制到仓库根目录运行即可。
+      // 「交给 agent」的兜底：同一段命令包成一句可直接粘进对话的话。agent 执行的也是
+      // 同一个脚本，校验/留痕/权限判断一样，不是绕过校验的旁路。
+      const agentPrompt = (cmd) => '请执行下面这条命令，并把输出贴回给我（在仓库根目录运行；执行完点一下面板的刷新）：\n' + cmd
+      const manualCmd = (shell) => {
+        const p = buildPayload()
+        const body = {}
+        if (stAct && stAct.id === 'reopen') body.reopen = true
+        else if (stAct && (stAct.id === 'correct-ending' || stAct.id === 'backfill-ending')) {
+          if (stAct.id === 'correct-ending' && p.to) body.to = p.to
+          if (p['ending.kind']) body.kind = p['ending.kind']
+        } else if (stAct) {
+          body.to = stAct.id.replace('close-', '')
+          if (p['ending.kind']) body.kind = p['ending.kind']
+        }
+        if (p['ending.handed_to']) body.handed_to = p['ending.handed_to']
+        if (p['ending.duplicate_of']) body.duplicate_of = p['ending.duplicate_of']
+        for (const k of ['summary', 'severity', 'fix_emitted']) if (p[k] !== undefined) body[k] = p[k]
+        const sha = String((st && st.contentSha256) || '<sha256>')
+        const json = JSON.stringify(body, null, 2)
+        if (shell === 'powershell') {
+          return 'cd <仓库根目录>\n@\'\n' + json + '\n\'@ | python scripts/trace_transition.py ' + s.sessionId
+            + ' --json --expect-sha256 ' + sha + ' --payload-stdin'
+        }
+        return 'cd <仓库根目录>\npython3 scripts/trace_transition.py ' + s.sessionId
+          + ' --json --expect-sha256 ' + sha + ' --payload-stdin <<\'JSON\'\n'
+          + json + '\nJSON'
+      }
+      const submitState = () => {
+        if (!stAct || stEdit.busy || stEdit.done) return
+        const invalid = validateState()
+        if (invalid) {
+          setStEdit(v => ({ ...v, msg: invalid.msg, errField: invalid.field || '' }))
+          if (invalid.field) {
+            const id = invalid.field === 'handed' ? 'sleu-f-handed' : invalid.field === 'dup' ? 'sleu-f-dup'
+              : invalid.field === 'riskAck' ? 'sleu-risk-ack' : 'sleu-f-' + invalid.field
+            const el = document.getElementById(id); if (el && el.focus) el.focus()
+          }
+          return
+        }
+        if (!canWrite) {
+          if (caps && caps.reasonCode === 'E_NO_ROOT') {
+            setStEdit(v => ({ ...v, msg: '解析不到主检出：请在主检出的面板里打开这一单再写' }))
+            return
+          }
+          const cmd = manualCmd(cmdShell)
+          copyText(cmd).then(ok => setStEdit(v => ({ ...v,
+            msg: ok ? '已复制命令：在仓库根目录运行（当前会话没有写权限）' : '复制失败：下面的命令可手动选中复制' })))
+          return
+        }
+        setStEdit(v => ({ ...v, busy: true, msg: '写入中…' }))
+        host.call('ascend-trace-transition', {
+          sessionId: s.sessionId, action: stAct.id, payload: buildPayload(),
+          expectSha256: (st && st.contentSha256) || '',
+        }).then(r => {
+          if (r && r.ok) {
+            const lbl = (x) => {
+              const one = (VOCAB_CACHE && Array.isArray(VOCAB_CACHE.statuses)) ? VOCAB_CACHE.statuses.filter(y => y.value === x)[0] : null
+              return one ? one.label : String(x || '')
+            }
+            // 刷新是异步的：先写「正在刷新」，不把没发生的事写成已发生。
+            LAST_CHANGE = {
+              sessionId: s.sessionId, from: r.from, to: r.to,
+              fromLabel: lbl(r.from), toLabel: lbl(r.to),
+              sha: (r.current && r.current.sha256) || '',
+            }
+            setStEdit(v => ({ ...v, busy: false, done: true, msg: '已记录：' + lbl(r.from) + ' → ' + lbl(r.to) + '，正在刷新列表…' }))
+            if (typeof onRebuilt === 'function') onRebuilt()
+          } else {
+            const code = r && r.code
+            if (code === 'E_PERM' && caps && caps.reasonCode !== 'E_NO_ROOT') {
+              const cmd = manualCmd(cmdShell)
+              copyText(cmd).then(ok => setStEdit(v => ({ ...v, busy: false,
+                msg: ok ? '没有写权限：已复制命令，在仓库根目录运行' : '没有写权限，且复制失败：下面的命令可手动选中复制' })))
+              return
+            }
+            setStEdit(v => ({ ...v, busy: false, msg: '失败：' + String((r && (r.message || code)) || '未知错误')
+              + (code === 'E_STATE_CHANGED' ? '；这一单刚被改过，点刷新查看当前状态' : '') }))
+          }
+        }).catch(e => setStEdit(v => ({ ...v, busy: false, msg: '失败：' + String(e && e.message || e) })))
+      }
+      const submitReport = () => {
+        if (!st || rpEdit.busy) return
+        setRpEdit(v => ({ ...v, busy: true, msg: '写入中…' }))
+        host.call('ascend-trace-transition', {
+          sessionId: s.sessionId, action: 'report',
+          payload: { report_source: rpEdit.source, report_result: rpEdit.result, report_note: rpEdit.note },
+          expectSha256: (st && st.contentSha256) || '',
+        }).then(r => {
+          if (r && r.ok) {
+            setRpEdit(v => ({ ...v, busy: false, msg: '已记录回报' }))
+            if (typeof onRebuilt === 'function') onRebuilt()
+          } else setRpEdit(v => ({ ...v, busy: false, msg: '失败：' + String((r && (r.message || r.code)) || '未知错误') }))
+        }).catch(e => setRpEdit(v => ({ ...v, busy: false, msg: '失败：' + String(e && e.message || e) })))
+      }
+      const reportCmd = () => {
+        const body = { report_source: rpEdit.source, report_result: rpEdit.result }
+        if (rpEdit.note) body.report_note = rpEdit.note
+        return 'cd <仓库根目录>\npython3 scripts/trace_transition.py ' + s.sessionId
+          + ' --field report --json --expect-sha256 ' + String((st && st.contentSha256) || '<sha256>')
+          + ' --payload-stdin <<\'JSON\'\n' + JSON.stringify(body, null, 2) + '\nJSON'
+      }
+      const reviewInstruction = () => {
+        const latest = (st && Array.isArray(st.reports) && st.reports.length) ? st.reports[st.reports.length - 1] : null
+        const base = 'python3 scripts/trace_transition.py ' + s.sessionId + ' --field review '
+        return '这一单的现场回报说「换别的方法解决了」，与报告里的根因/修复对不上。请读证据后只做一件事（不要改状态）：\n'
+          + '1) 只修订报告描述、不判误诊：' + base + '--verdict report_revision --note "<改了什么>"\n'
+          + '2) 判知识条目错：' + base + '--verdict case_error --note "<依据>"\n'
+          + '3) 判执行错：' + base + '--verdict execution_error --note "<依据>"\n'
+          + '依据：trace ' + s.sessionId + '，报告 ' + ((st && st.reportFile) || '未记录')
+          + '，现场原话：' + ((latest && latest.note) || '（未填写）')
+      }
+      // 样式对象必须先声明：`reportPanel` 下面的 React.createElement 是渲染期立即求值的，
+      // 一旦这一单是「已定位 / 已转交」就走了这个分支，声明若在其后就是暂时性死区
+      // （ReferenceError），整张卡片渲染抛错、诊断 tab 一片空白。
+      const inputStyle = { font: 'inherit', fontSize: 'var(--t-sm)', padding: '4px 6px', borderRadius: 'var(--r-sm)', border: '1px solid var(--hair)', background: T.bg }
+      const reportPanel = (st && (s.status === 'resolved' || s.status === 'escalated')) ? React.createElement('div', { id: 'sleu-report-editor', className: 'sleu-menu-panel', style: { display: menuOpen === 'report' ? 'flex' : 'none', flexDirection: 'column', alignItems: 'stretch', gap: 6, marginTop: 8, padding: '8px 10px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
+        React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2 } },
+          '现场验证来源会写入反馈结果；厂商答复只记录、不算现场解决率。'),
+        React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+          React.createElement('label', { style: { fontSize: 'var(--t-tiny)', color: T.text2, display: 'flex', flexDirection: 'column', gap: 4 } }, '来源',
+            React.createElement('select', { 'aria-label': '回报来源', value: rpEdit.source, onChange: e => setRpEdit(v => ({ ...v, source: e.target.value })), style: inputStyle },
+              ((VOCAB_CACHE && VOCAB_CACHE.reportSources) || [{ value: 'field', label: '现场验证' }, { value: 'vendor', label: '厂商答复' }]).map(o => React.createElement('option', { key: o.value, value: o.value }, o.label || o.value)))),
+          React.createElement('label', { style: { fontSize: 'var(--t-tiny)', color: T.text2, display: 'flex', flexDirection: 'column', gap: 4 } }, '结果',
+            React.createElement('select', { 'aria-label': '回报结果', value: rpEdit.result, onChange: e => setRpEdit(v => ({ ...v, result: e.target.value })), style: inputStyle },
+              ((VOCAB_CACHE && VOCAB_CACHE.reportResults) || []).map(o => React.createElement('option', { key: o.value, value: o.value }, o.label || o.value)))),
+          React.createElement('label', { style: { fontSize: 'var(--t-tiny)', color: T.text2, display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 220 } }, '一句现象（可选）',
+            React.createElement('textarea', { 'aria-label': '一句现象', rows: 2, value: rpEdit.note, onChange: e => setRpEdit(v => ({ ...v, note: e.target.value })), style: { ...inputStyle, resize: 'vertical' } }))),
+        React.createElement('div', { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
+          React.createElement('button', { type: 'button', onClick: submitReport, disabled: rpEdit.busy, style: rpEdit.busy ? btnGhost : btnPrimary }, rpEdit.busy ? '写入中…' : '记录回报'),
+          rpEdit.msg ? React.createElement('span', { role: rpEdit.msg.indexOf('失败') === 0 ? 'alert' : 'status', 'aria-live': 'polite', style: { fontSize: 'var(--t-tiny)', color: rpEdit.msg.indexOf('失败') === 0 ? T.error : T.text2 } }, rpEdit.msg) : null),
+        // 与状态编辑器同一分层：主路径（记录回报）常驻，命令兜底收进折叠块，
+        // 展开后主复制动作是「复制给 agent」，「复制命令」与命令块一起留在次级位置。
+        React.createElement('details', { className: 'sleu-fold sleu-fold-compact' },
+          React.createElement('summary', null,
+            React.createElement('span', null, '命令兜底'),
+            React.createElement('span', { style: { color: T.text2, fontWeight: 400, fontSize: 'var(--t-tiny)' } }, '没有写权限时，复制命令到终端执行')),
+          React.createElement('div', { className: 'sleu-fold-body', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+            React.createElement('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+              React.createElement('button', { type: 'button', onClick: () => copyText(agentPrompt(reportCmd())).then(ok => setRpEdit(v => ({ ...v, msg: ok ? '已复制给 agent 的指令：粘到对话里即可' : '复制失败：请手动选择下方文字' }))), style: { ...btnPrimary, padding: '1px 9px' } }, '复制给 agent'),
+              React.createElement('button', { type: 'button', onClick: () => copyText(reportCmd()).then(ok => setRpEdit(v => ({ ...v, msg: ok ? '已复制命令：在仓库根目录运行' : '复制失败：请手动选择下方命令' }))), style: { ...btnGhost, padding: '1px 9px' } }, '复制命令')),
+            React.createElement('code', { style: { display: 'block', userSelect: 'all', background: T.bg, border: '1px solid var(--hair)', borderRadius: 'var(--r-sm)', padding: '4px 8px', fontSize: 'var(--t-tiny)', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', color: T.text, maxHeight: 120, overflowY: 'auto' } }, reportCmd()))),
+        (st.derived && st.derived.needReportReview) ? React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--hair)', paddingTop: 6 } },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--t-tiny)', color: T.text2 } },
+            React.createElement('span', null, '报告待复核：把下面这段发给诊断对话，让它读完证据后落一条复核结论'),
+            React.createElement('button', { type: 'button', onClick: () => copyText(reviewInstruction()).then(ok => setRpEdit(v => ({ ...v, msg: ok ? '已复制复核指令' : '复制失败：请手动选择下面文字' }))), style: { ...btnGhost, padding: '1px 8px' } }, '复制复核指令')),
+          React.createElement('code', { style: { display: 'block', userSelect: 'all', background: T.bg, border: '1px solid var(--hair)', borderRadius: 'var(--r-sm)', padding: '4px 8px', fontSize: 'var(--t-tiny)', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', color: T.text } }, reviewInstruction())) : null,
+      ) : null
+      // ── 状态编辑器（2026-11 重做：当前 → 选结局 → 补信息 → 确认写入）──────────────
+      // 旧版把动作按钮、表单、主按钮、命令兜底平铺成一块：动作是一排外观相同的小按钮，
+      // 选完以后主按钮仍叫「确认收尾」；命令兜底常驻，还带两个切换与一整段 JSON，
+      // 把注意力从主路径抢走（实测编辑器高 513px，命令块占一半以上）。
+      // 现在按一条线排：每个结局一张卡（名字 + 一句什么时候选它），选中后才出现它需要的字段；
+      // 写入前给「当前 → 目标」预览；命令兜底收进折叠块，只有当前会话没有写权限时才默认展开。
+      // 判据仍全部来自 host 投影（st.actions / requires / fillable / endingChoices），面板只排版。
+      const stStatusOne = (v) => ((VOCAB_CACHE && Array.isArray(VOCAB_CACHE.statuses))
+        ? VOCAB_CACHE.statuses.filter(x => x.value === v)[0] : null)
+      const stStatusLabel = (v) => {
+        const one = stStatusOne(v)
+        const meta = statusMeta[v]
+        return (one && one.label) || (meta && meta.label) || String(v || '未记录')
+      }
+      const stStatusChip = (v, prefix) => {
+        const one = stStatusOne(v)
+        const meta = statusMeta[v]
+        const color = (one && one.color) || (meta && meta.color) || T.text2
+        return React.createElement('span', {
+          style: { display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid ' + color, borderRadius: 'var(--r-pill)', padding: '1px 9px', fontSize: 'var(--t-tiny)', fontWeight: 600, color, whiteSpace: 'nowrap' },
+        },
+          React.createElement(Dot, { color, size: 7, hollow: !!(meta && meta.hollow) || v === 'unknown' }),
+          (prefix || '') + stStatusLabel(v))
+      }
+      // 每个结局一句话：什么时候选它、写下去会发生什么。动作清单来自投影，这里只挂一句说明。
+      const stActionNote = (a) => ({
+        'close-resolved': '根因清楚、能给出 fix 或明确的下一步；收尾方式记「根因明确」。',
+        'close-escalated': '本地不再跟进，交给厂商、技术支持或同事；要填「转交给」。',
+        'close-archived': '没有人接手这单：问题消失、环境变了不复现、与已有单重复，或没走诊断就结束；要选收尾方式。',
+        'correct-ending': '把收尾方式换成另一种（例如「根因明确」改成「问题未复现」），不重开。',
+        'backfill-ending': '这单当时没记收尾方式，补一条；状态不变。',
+        'reopen': '退回「进行中」继续查；原来的收尾记录保留，之后可以再收尾。',
+      }[a.id] || ('写入后这一单变成「' + stStatusLabel((a.to && a.to[0]) || '') + '」。'))
+      const stCurStatus = String((s && s.status) || 'unknown')
+      const stHasEnding = stActions.some(a => /^close-/.test(a.id))
+      // 目标状态：改收尾方式取所选目标，补记只改收尾内容（状态不变），其余取动作的目标状态。
+      const stAfterStatus = (() => {
+        if (!stAct) return ''
+        if (stAct.id === 'correct-ending') return String(stEdit.to || '')
+        if (stAct.id === 'backfill-ending') return stCurStatus
+        return String((stAct.to && stAct.to[0]) || '')
+      })()
+      // 高危动作：状态会变成「不再跟进」或退回「进行中」的，才需要多看一眼。它们改的是这单在
+      // 列表与统计里的归属，不是一条记录的内容，所以视觉上与常规收尾分开，并要勾一下后果才写。
+      // 判据用目标状态与当前状态比（两者都来自投影），不自带动作 id 名单：词表以后新增同类
+      // 转移时这里不用跟着改；「补记收尾方式」与「改收尾方式到同一状态」都只改收尾内容，
+      // 状态不变，不算高危（它们的 `to` 是三个状态的全集，不能只看集合里有 archived）。
+      const stRisky = !!stAct && stAfterStatus !== stCurStatus
+        && (stAfterStatus === 'archived' || stAfterStatus === 'in_progress')
+      const stRiskText = !stRisky ? '' : (stAfterStatus === 'in_progress'
+        ? '这单会退回「进行中」，待跟进数 +1；已记录的收尾方式与最近记录都保留。'
+        : '这单会标成「' + stStatusLabel('archived') + '」并写一条收尾记录，不再出现在待跟进列表里；需要时仍可重新打开。')
+      const stStepNum = { width: 17, height: 17, borderRadius: 'var(--r-pill)', background: 'var(--tint-blue)', color: 'var(--d-blue)', fontSize: 'var(--t-md2)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-mono)' }
+      const stNoteStyle = { color: T.text2, fontWeight: 400, fontSize: 'var(--t-tiny)', lineHeight: 'var(--lh-base)' }
+      const stFieldLabel = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 'var(--t-tiny)', color: T.text2 }
+      const stSecTitle = (n, title, hint) => React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 7, fontSize: 'var(--t-sm)', fontWeight: 700 } },
+        React.createElement('span', { 'aria-hidden': 'true', style: stStepNum }, n),
+        React.createElement('span', null, title),
+        hint ? React.createElement('span', { style: stNoteStyle }, hint) : null)
+      // 结局选项：名字是按钮（可点文字正好是动作名），说明与「谨慎」标记放在按钮外——
+      // 可点区域与说明分离，点名字才选；键盘与读屏也只在按钮上。
+      const stOption = (a) => {
+        const selected = stEdit.action === a.id
+        // 「谨慎」与写入前的后果确认同源：只看这个动作会把状态带到哪，不看动作 id。
+        // 改收尾方式的目标由第 2 步选，选中后若目标状态危险，后果框会出现，这里不提前标。
+        const optTarget = String((a.to && a.to[0]) || '')
+        const risky = a.id !== 'correct-ending' && a.id !== 'backfill-ending'
+          && optTarget !== stCurStatus && (optTarget === 'archived' || optTarget === 'in_progress')
+        return React.createElement('div', {
+          key: a.id,
+          style: { border: '1px solid ' + (selected ? T.brand : 'var(--hair)'), borderRadius: 'var(--r-sm)', background: selected ? 'var(--tint-blue)' : T.bg, padding: '6px 10px', transition: 'border-color var(--m-fast) var(--e-out), background-color var(--m-fast) var(--e-out)' },
+        },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
+            React.createElement('span', {
+              'aria-hidden': 'true',
+              style: { width: 12, height: 12, borderRadius: 'var(--r-pill)', border: selected ? '4px solid ' + T.brand : '1.5px solid color-mix(in srgb, ' + T.text2 + ' 60%, transparent)', boxSizing: 'border-box', flexShrink: 0, alignSelf: 'center', transition: 'border-color var(--m-fast) var(--e-out)' },
+            }),
+            React.createElement('button', {
+              type: 'button', 'aria-pressed': selected ? 'true' : 'false',
+              onClick: () => setStEdit({ action: a.id, kind: (a.endingChoices && a.endingChoices.length === 1) ? a.endingChoices[0].value : '', to: (a.targets && a.targets[0] && a.targets[0].to) || '', handed: '', dup: '', fields: {}, msg: '', done: false, busy: false, riskAck: false }),
+              style: { background: 'none', border: 'none', padding: 0, font: 'inherit', fontSize: 'var(--t-md)', fontWeight: 600, color: T.text, cursor: 'pointer', textAlign: 'left', lineHeight: 'var(--lh-tight)' },
+            }, a.label),
+            risky ? React.createElement('span', { style: tinyBadge('var(--d-amber)') }, '谨慎') : null,
+            React.createElement('span', { style: { flex: 1, minWidth: 0, fontSize: 'var(--t-sm)', color: T.text2, lineHeight: 'var(--lh-base)' } }, stActionNote(a))))
+      }
+      const fieldRow = (f) => {
+        const label = { summary: '问题背景', severity: '严重级', fix_emitted: '本次给出了可执行的修复' }[f] || f
+        const wrap = (child) => React.createElement('label', { key: f, style: stFieldLabel }, label, child)
+        if (f === 'summary') return wrap(React.createElement('textarea', { id: 'sleu-f-' + f, 'aria-label': label, 'aria-invalid': stEdit.errField === f ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', value: fieldVal(f), rows: 2, onChange: e => setField(f, e.target.value), style: { ...inputStyle, minWidth: 320, resize: 'vertical' } }))
+        if (f === 'severity') return wrap(React.createElement('select', { id: 'sleu-f-' + f, 'aria-label': label, 'aria-invalid': stEdit.errField === f ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', value: fieldVal(f), onChange: e => setField(f, e.target.value), style: inputStyle },
+          React.createElement('option', { value: '' }, '请选择'),
+          ((VOCAB_CACHE && VOCAB_CACHE.severities) || []).map(o => React.createElement('option', { key: o.value, value: o.value }, o.label || o.value))))
+        return wrap(React.createElement('select', { id: 'sleu-f-' + f, 'aria-label': label, 'aria-invalid': stEdit.errField === f ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', value: fieldVal(f), onChange: e => setField(f, e.target.value), style: inputStyle },
+          React.createElement('option', { value: '' }, '请选择'),
+          React.createElement('option', { value: 'true' }, '是'),
+          React.createElement('option', { value: 'false' }, '否')))
+      }
+      // 补信息：只渲染所选结局真正要填的字段（候选全部来自投影的 targets / endingChoices /
+      // requires / fillable）。旧版同屏铺出摘要、严重级、是否给出修复与收尾方式，读者不知道
+      // 哪些是这一步必须填的。
+      const stFormRows = (() => {
+        if (!stAct) return []
+        const rows = []
+        if (stAct.targets && stAct.targets.length) rows.push(React.createElement('label', { key: 'to', style: stFieldLabel }, '换成哪种收尾',
+          React.createElement('select', {
+            'aria-label': '换成哪种收尾', value: stEdit.to, style: inputStyle,
+            onChange: e => {
+              const t = stAct.targets.filter(x => x.to === e.target.value)[0]
+              setStEdit(v => ({ ...v, to: e.target.value, fields: {}, msg: '', riskAck: false, kind: (t && t.endingChoices && t.endingChoices.length === 1) ? t.endingChoices[0].value : '' }))
+            },
+          }, stAct.targets.map(t => React.createElement('option', { key: t.to, value: t.to }, t.label)))))
+        if (stKinds.length > 1) rows.push(React.createElement('label', { key: 'kind', style: stFieldLabel }, '收尾方式',
+          React.createElement('select', { id: 'sleu-f-kind', 'aria-label': '收尾方式', 'aria-invalid': stEdit.errField === 'kind' ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', value: stEdit.kind, style: inputStyle, onChange: e => setStEdit(v => ({ ...v, kind: e.target.value })) },
+            React.createElement('option', { value: '' }, '请选择'),
+            stChoices.map(c => React.createElement('option', { key: c.value, value: c.value }, c.label)))))
+        if (stEdit.kind === 'handed_off') rows.push(React.createElement('label', { key: 'handed', style: stFieldLabel }, '转交给',
+          React.createElement('input', { id: 'sleu-f-handed', 'aria-label': '转交给', 'aria-invalid': stEdit.errField === 'handed' ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', placeholder: '名字 · 团队 / issue 号', value: stEdit.handed, onChange: e => setStEdit(v => ({ ...v, handed: e.target.value })), style: { ...inputStyle, minWidth: 200 } })))
+        if (stEdit.kind === 'duplicate') rows.push(React.createElement('label', { key: 'dup', style: stFieldLabel }, '已有单',
+          React.createElement('input', { id: 'sleu-f-dup', 'aria-label': '已有单', 'aria-invalid': stEdit.errField === 'dup' ? 'true' : 'false', 'aria-describedby': 'sleu-state-msg', placeholder: 'VLLM-ASC-11312 或 session:<id>', value: stEdit.dup, onChange: e => setStEdit(v => ({ ...v, dup: e.target.value })), style: { ...inputStyle, minWidth: 220 } })))
+        // 短选项在前、长文本框在后：读表单是从左往右、从上往下，长段落放末位不会把上面挤成窄条。
+        const stFieldOrder = { severity: 1, fix_emitted: 2, summary: 3 }
+        return rows.concat(editableFields.slice()
+          .sort((a, b) => (stFieldOrder[a] || 9) - (stFieldOrder[b] || 9))
+          .map(fieldRow))
+      })()
+      const stPanelBody = !st ? null : [
+        // 头部：标题 + 当前状态 + 收起。当前状态在这里出现一次，预览那一次说明"会变成什么"。
+        React.createElement('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+          React.createElement('span', { style: { fontSize: 'var(--t-md)', fontWeight: 700 } }, '改这一单的状态'),
+          stStatusChip(stCurStatus, '当前 · '),
+          React.createElement('button', { type: 'button', onClick: () => setMenuOpen(null), title: '收起状态编辑器（Esc 同样可以）', style: { ...btnGhost, padding: '2px 10px', marginLeft: 'auto' } }, '收起')),
+        // ① 选结局
+        React.createElement('div', { key: 'step1', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          stSecTitle('1', '选结局', stHasEnding ? '选一个，只出现该结局要填的字段' : '这一单已经收尾：下面是维护记录的动作'),
+          stActions.length
+            ? React.createElement('div', { role: 'group', 'aria-label': '可选的结局', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, stActions.map(stOption))
+            : React.createElement('div', { style: stNoteStyle }, STATE_ERROR ? ('状态读不到：' + STATE_ERROR + '（可刷新重试，或点「刷新」重读 traces/）') : '这一单当前没有可执行的动作。')),
+        // 高危动作的后果与二次确认
+        stRisky ? React.createElement('div', { key: 'risk', style: { display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 10px', border: '1px solid color-mix(in srgb, var(--d-amber) 45%, transparent)', background: 'var(--tint-amber)', borderRadius: 'var(--r-sm)' } },
+          React.createElement('div', { style: { fontSize: 'var(--t-tiny)', lineHeight: 'var(--lh-base)', color: T.text } },
+            React.createElement('b', { style: { color: 'var(--d-amber)' } }, '后果'), '　', stRiskText),
+          React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--t-tiny)', color: T.text, cursor: 'pointer' } },
+            React.createElement('input', { id: 'sleu-risk-ack', type: 'checkbox', checked: !!stEdit.riskAck, 'aria-describedby': 'sleu-state-msg', onChange: e => setStEdit(v => ({ ...v, riskAck: e.target.checked })) }),
+            '我已了解后果')) : null,
+        // ② 补信息
+        React.createElement('div', { key: 'step2', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          stSecTitle('2', '补信息', stFormRows.length ? '只出现这个结局要填的字段' : '这一步没有要填的内容'),
+          stFormRows.length
+            ? React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 10 } }, stFormRows)
+            : React.createElement('div', { style: stNoteStyle }, '确认后只改状态，不写其它字段。'),
+          stMust.length ? React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2, lineHeight: 'var(--lh-base)' } },
+            '这单命中了案例：收尾前先在「回报结果」里记一条现场结果。') : null),
+        // ③ 确认写入（含「当前 → 目标」预览）
+        React.createElement('div', { key: 'step3', style: { display: 'flex', flexDirection: 'column', gap: 6 } },
+          stSecTitle('3', '确认写入'),
+          !stAct ? React.createElement('div', { style: stNoteStyle }, '先在上面选一个结局，这里会给出「当前 → 目标」预览与确认按钮。') : null,
+          stAct ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 10px', border: '1px solid ' + T.border, borderRadius: 'var(--r-sm)', background: T.bg, fontSize: 'var(--t-sm)', fontWeight: 600 } },
+            stStatusChip(stCurStatus, '当前 · '),
+            React.createElement('span', { style: { color: T.text2, fontWeight: 400 } }, '→'),
+            stAfterStatus
+              ? stStatusChip(stAfterStatus, '目标 · ')
+              : React.createElement('span', { style: { color: T.text2, fontWeight: 400 } }, '目标 · 还没选结局'),
+            stAfterStatus && stAfterStatus === stCurStatus ? React.createElement('span', { style: stNoteStyle }, '（只改收尾内容，状态不变）') : null) : null,
+          stAct ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+            React.createElement('button', {
+              type: 'button', onClick: submitState,
+              disabled: stEdit.busy || stEdit.done,
+              style: (stEdit.busy || stEdit.done) ? btnGhost : btnPrimary,
+            }, stEdit.done ? '已记录' : stEdit.busy ? '写入中…' : canWrite ? (stAct.id === 'reopen' ? '确认重新打开' : stAct.id === 'correct-ending' ? '确认改收尾' : stAct.id === 'backfill-ending' ? '确认补记' : '确认收尾') : '复制命令'),
+            React.createElement('span', { style: stNoteStyle }, canWrite ? '经脚本校验，追加一条转移记录' : '当前会话没有写权限：点它复制命令，在终端或对话里执行'),
+            stEdit.msg ? React.createElement('span', { id: 'sleu-state-msg', role: (stEdit.msg.indexOf('失败') === 0 || stEdit.msg.indexOf('复制失败') === 0) ? 'alert' : 'status', 'aria-live': 'polite', style: { fontSize: 'var(--t-tiny)', color: (stEdit.msg.indexOf('失败') === 0 || stEdit.msg.indexOf('复制失败') === 0) ? T.error : T.text2 } }, stEdit.msg) : null) : null),
+        // ④ 命令兜底：与主路径分层。默认收起，只有当前会话没有写权限时默认展开（那是最短的路）。
+        //    展开后只有一个主复制动作（复制给 agent），shell 切换降为次级，命令块只出现这一处。
+        !stAct ? null : React.createElement('details', { key: 'cmd', className: 'sleu-fold', open: !canWrite || undefined, style: { marginBottom: 0 } },
+          React.createElement('summary', null,
+            React.createElement('span', null, '命令兜底'),
+            React.createElement('span', { style: { color: T.text2, fontWeight: 400, fontSize: 'var(--t-tiny)' } },
+              canWrite ? '想自己在终端跑，或交给对话里的 agent 时用（同一个脚本）' : '当前会话没有写权限，确认时会复制下面这条命令')),
+          React.createElement('div', { className: 'sleu-fold-body', style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+              React.createElement('button', { type: 'button', onClick: () => { const cmd = manualCmd(cmdShell); copyText(agentPrompt(cmd)).then(ok => setStEdit(v => ({ ...v, msg: ok ? '已复制给 agent 的指令：粘到对话里即可' : '复制失败：下面文字可手动选中' }))) }, style: btnPrimary }, '复制给 agent'),
+              React.createElement('button', { type: 'button', onClick: () => { const cmd = manualCmd(cmdShell); copyText(cmd).then(ok => setStEdit(v => ({ ...v, msg: ok ? '已复制命令：在仓库根目录运行' : '复制失败：下面命令可手动选中' }))) }, style: btnGhost }, '复制命令'),
+              React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--t-tiny)', color: T.text2, marginLeft: 'auto' } }, '写法',
+                React.createElement('button', { type: 'button', 'aria-pressed': cmdShell === 'bash' ? 'true' : 'false', onClick: () => setCmdShell('bash'), style: cmdShell === 'bash' ? { ...btnPrimary, padding: '1px 9px', borderRadius: 'var(--r-pill)' } : { ...btnGhost, padding: '1px 9px', borderRadius: 'var(--r-pill)' } }, 'bash'),
+                React.createElement('button', { type: 'button', 'aria-pressed': cmdShell === 'powershell' ? 'true' : 'false', onClick: () => setCmdShell('powershell'), style: cmdShell === 'powershell' ? { ...btnPrimary, padding: '1px 9px', borderRadius: 'var(--r-pill)' } : { ...btnGhost, padding: '1px 9px', borderRadius: 'var(--r-pill)' } }, 'PowerShell'))),
+            React.createElement('code', { style: { display: 'block', userSelect: 'all', background: T.bg2, border: '1px solid var(--hair)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 'var(--t-tiny)', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', color: T.text, maxHeight: 140, overflowY: 'auto', lineHeight: 'var(--lh-base)' } }, manualCmd(cmdShell)))),
+        (st.provenance && st.provenance.at) ? React.createElement('div', { key: 'prov', style: { fontSize: 'var(--t-tiny)', color: T.text2 } },
+          '最近记录：' + String(st.provenance.at).slice(5, 16).replace('T', ' ')
+          + (function (by) { return by ? ' · ' + by : '' }(st.provenance.source === 'import' ? (st.provenance.sourceLabel || '上一台机器') : (st.provenance.byLabel || '')))) : null,
+      ]
+      const stPanel = st ? React.createElement('div', { id: 'sleu-state-editor', tabIndex: -1, autoFocus: true, className: 'sleu-menu-panel',
+        onKeyDown: e => { if (e.key === 'Escape') { setMenuOpen(null) } }, style: { display: menuOpen === 'state' ? 'flex' : 'none', flexDirection: 'column', alignItems: 'stretch', gap: 10, marginTop: 8, padding: '8px 12px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
+        stPanelBody,
+      ) : React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2 } },
+        STATE_ERROR ? ('状态读不到：' + STATE_ERROR) : '状态投影还没加载（点刷新重试）。')
+      // 动作区：上行是这一单的主操作（打开 / 资料 / 继续查 / 查上游），下行是记录维护
+      // （改状态 / 回报 / 交接）。此前六七个按钮平铺在一行，「改状态」与「继续诊断」同权重，
+      // 读者分不清哪个是下一步；旧版「改状态」还曾是卡片右上角的绝对定位按钮，压住 token
+      // 列与展开箭头（被压住的两处点不到）。
       const actionArea = React.createElement('div', { style: { margin: '0 16px', padding: '10px 0 14px', borderTop: '1px solid var(--hair)' } },
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+          navBtn,
+          navErr ? React.createElement('span', { style: { color: 'var(--c-amber)', fontSize: 'var(--t-tiny)' } }, navErr) : null,
           docRow,
           resumeAction ? cmdButton(resumeAction) : null,
-          closeActions.length ? menuBtn('close', '收尾', '生成收尾指令（复制后粘到对话执行）') : null,
-          menuBtn('handoff', '交接包', '导出交接包到 traces/exports/，或接手另一台机器上的单'),
-        ),
+          upstreamAction ? cmdButton(upstreamAction) : null,
+          // 锚点跟在入口旁边：点之前就知道要查的是哪一条上游单（title 里给上次外部验证的周）。
+          upstreamAction && upstreamAction.anchors
+            ? React.createElement('span', {
+                title: '这一单命中的案例挂在这些上游单上'
+                  + (upstreamAction.lastVerified ? '；上次外部验证 ' + upstreamAction.lastVerified : '；还没有外部验证记录'),
+                style: { fontSize: 'var(--t-tiny)', color: T.text2, fontFamily: 'var(--font-mono)' },
+              }, upstreamAction.anchors.join('、')) : null),
+        // 记录维护：与主操作分开一行，入口本身也小一号。
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 } },
+          React.createElement('span', { style: { fontSize: 'var(--t-tiny)', color: T.text2, fontWeight: 600 } }, '记录'),
+          stActions.length ? React.createElement('button', {
+            type: 'button', 'aria-label': '直接修改这一单的状态', 'aria-controls': 'sleu-state-editor',
+            'aria-expanded': menuOpen === 'state' ? 'true' : 'false',
+            title: '直接修改这一单的状态：经脚本校验并追加一条转移记录',
+            onClick: () => setMenuOpen(menuOpen === 'state' ? null : 'state'),
+            style: { ...btnGhost, padding: '2px 10px' },
+          }, '改状态' + (menuOpen === 'state' ? ' ▴' : ' ▾')) : null,
+          (st && (s.status === 'resolved' || s.status === 'escalated')) ? React.createElement('button', {
+            type: 'button', 'aria-expanded': menuOpen === 'report' ? 'true' : 'false', 'aria-controls': 'sleu-report-editor',
+            title: '记录现场或厂商回报的结果（不改变状态）',
+            onClick: () => setMenuOpen(menuOpen === 'report' ? null : 'report'),
+            style: { ...btnGhost, padding: '2px 10px' },
+          }, '回报结果' + (menuOpen === 'report' ? ' ▴' : ' ▾')) : null,
+          menuBtn('handoff', '交接包', '导出交接包到 traces/exports/，或接手另一台机器上的单')),
+        // 生成的指令紧贴按钮下方：点「继续诊断 / 查上游进展」的下一眼就是可复制的 prompt。
+        openedCmd ? React.createElement('div', { style: { marginTop: 8 } },
+          React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2, marginBottom: 6 } },
+            openedCmd.key === 'up' ? '查上游的指令（复制后粘到对话里执行；dry-run，不回写案例）' : '续接的指令（复制后粘到对话里执行）'),
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+            React.createElement('code', { style: { flex: 1, minWidth: 0, userSelect: 'all', background: T.bg2, border: '1px solid var(--hair)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 'var(--t-sm)', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 'var(--lh-base)', color: T.text } }, openedCmd.cmd),
+            React.createElement('button', { type: 'button', onClick: () => doCopy(openedCmd.cmd, openedCmd.key), style: copyFailKey === openedCmd.key ? btnRed : btnPrimary, title: '复制指令' },
+              copied === openedCmd.key ? '已复制' : (copyFailKey === openedCmd.key ? '失败' : '复制')))) : null,
         // 动作组的展开区：固定在按钮行**下方**，同一时刻只有一块；按钮行本身不动。
         // 两个组都常驻 DOM、用 display 切换：不参与布局（没有位置偏移），也不占 Tab 序
         // （display:none 的元素不可聚焦）。
-        React.createElement('div', { className: 'sleu-menu-panel', style: { display: menuOpen === 'close' ? 'flex' : 'none', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 8, padding: '8px 10px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
-          closeActions.map(cmdButton)),
         React.createElement('div', { className: 'sleu-menu-panel', style: { display: menuOpen === 'handoff' ? 'flex' : 'none', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 8, padding: '8px 10px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
           handoffRow),
-        openedCmd ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
-          React.createElement('code', { style: { flex: 1, userSelect: 'all', background: T.bg2, border: '1px solid var(--hair)', borderRadius: 'var(--r-sm)', padding: '5px 8px', fontSize: 'var(--t-sm)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.text } }, openedCmd.cmd),
-          React.createElement('button', { type: 'button', onClick: () => doCopy(openedCmd.cmd, openedCmd.key), style: copyFailKey === openedCmd.key ? btnRed : btnPrimary, title: '复制指令' },
-            copied === openedCmd.key ? '已复制' : (copyFailKey === openedCmd.key ? '失败' : '复制')),
-        ) : null,
+        stPanel,
+        reportPanel,
       )
-      return React.createElement('div', { className: 'sleu-card', style: { background: T.bg, backgroundImage: 'var(--surf)', border: '1px solid var(--hair)', borderLeft: '3px solid ' + statusAccent, borderRadius: 'var(--r-lg)', marginBottom: 10 } },
+      return React.createElement('div', { className: 'sleu-card', style: { background: T.bg, backgroundImage: 'var(--surf)', border: '1px solid var(--hair)', borderLeft: '3px solid ' + (meta.acc || 'var(--acc-gray)'), borderRadius: 'var(--r-lg)', marginBottom: 10 } },
         // 勾选框在整行按钮**外面**：整行是一个 button，把 checkbox 嵌进去是嵌套交互元素，
         // 键盘与事件都会打架。它只在「待升格」筛选下渲染。
         selectable ? React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px 0', fontSize: 'var(--t-sm)', color: T.text2, cursor: 'pointer' } },
           React.createElement('input', { type: 'checkbox', checked: selected, onChange: () => onToggleFile(s.file) }),
-          '选中用于批量标已解决') : null,
+          '选中') : null,
         React.createElement('button', {
           type: 'button', 'aria-expanded': !!open, onClick: toggle, className: 'sleu-row',
           style: { width: '100%', padding: '12px 16px 0', cursor: 'pointer', border: 'none', textAlign: 'left', color: T.text, font: 'inherit' },
@@ -2043,7 +2767,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
           // 列宽与上方的列头共用 ROW_COLS，否则表格读起来是错位的。
           React.createElement('div', { style: { display: 'grid', gridTemplateColumns: ROW_COLS, alignItems: 'center', gap: 10, width: '100%' } },
             React.createElement('span', { title: meta.label, style: { display: 'flex', alignItems: 'center', gap: 6, color: meta.color, fontSize: 'var(--t-sm)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
-              React.createElement(Dot, { color: meta.color, hollow: s.status === 'unknown' }),
+              React.createElement(Dot, { color: meta.color, hollow: (s.state && s.state.displayTone) ? !!s.state.displayTone.hollow : s.status === 'unknown' }),
               meta.label),
             React.createElement('span', { className: 'sleu-mono', title: s.sessionId, style: { fontWeight: 500, fontSize: 'var(--t-tiny)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, s.sessionId),
             React.createElement('span', { className: 'sleu-c-fw', title: [s.framework, s.platform, s.category].filter(Boolean).join(' · '), style: { color: T.text2, fontSize: 'var(--t-tiny)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } },
@@ -2075,6 +2799,25 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
                   caseKindOf(s) === 'placeholder' ? React.createElement('span', { title: 'trace 里记的定位值（不是知识库里的 case）', className: 'sleu-mono', style: { maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 } }, s.activeCase) : null),
             // 「待沉淀」「待升格」两条待办的徽标（判据与升格闸门同源）。
             // 它们此前只有展开卡片才看得见——会话一多就成了看不见的积压。
+            (LAST_CHANGE && LAST_CHANGE.sessionId === s.sessionId) ? React.createElement('span', {
+              title: '这一单刚被改过：如果它的新状态不再匹配当前筛选，先留在原位，方便你确认或撤销',
+              style: { display: 'inline-flex', alignItems: 'center', gap: 6, ...tinyBadge('var(--d-amber)') },
+            }, '已移出当前筛选',
+              React.createElement('button', { type: 'button', onClick: e => { e.stopPropagation(); undoLastChange() }, style: { ...btnGhost, padding: '0 6px', fontSize: 'var(--t-tiny)' } }, '撤销')) : null,
+            (st && st.derived && st.derived.needReportReview) ? React.createElement('span', {
+              title: '现场说问题解决了，但用的不是报告里的修复——报告描述可能需要修正（不是误诊）',
+              style: tinyBadge('var(--d-amber)'),
+            }, '报告待复核') : null,
+            (st && st.derived && st.derived.lastReview && !st.derived.needReportReview) ? React.createElement('span', {
+              title: '这一单的现场回报已经复核过',
+              style: tinyBadge('var(--d-purple)'),
+            }, '已复核') : null,
+            (st && st.ending && st.ending.kind && st.ending.kind !== 'root_cause') ? React.createElement('span', {
+              title: '本单的收尾方式（写入 trace 的 ending.kind）', style: tinyBadge('var(--d-amber)'),
+            }, ((VOCAB_CACHE && VOCAB_CACHE.endings) || []).reduce((acc, e2) => e2.value === st.ending.kind ? e2.label : acc, st.ending.kind)) : null,
+            (st && st.provenance && st.provenance.at) ? React.createElement('span', { style: { color: T.text2, fontSize: 'var(--t-tiny)' } },
+              '记录于 ' + String(st.provenance.at).slice(5, 16).replace('T', ' ') + ' · '
+              + (st.provenance.source === 'import' ? (st.provenance.sourceLabel || '上一台机器') : (st.provenance.byLabel || ''))) : null,
             needSedOf(s) ? React.createElement('span', {
               title: '有 case 类沉淀候选（= 根因已形成可复用结论）、还没沉淀'
                 + (isClosedOf(s) ? '' : '；诊断尚未标收尾')
@@ -2100,6 +2843,19 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
             (s.fixEmitted === false)
               ? React.createElement('span', { title: '本次诊断没有给出可执行的修复（常见于等上游修复、或只定位到根因）',
                   style: tinyBadge('var(--d-gray)') }, '未给 fix') : null,
+            // 等上游：判据见 `scripts/_trace_state.py` 的 derive（这里不复述条数——判据加过一腿，
+            // 复述必然漂）。收起态就能看出"这单在等上游"，而不只是「没给 fix」（后者也可是
+            // "只定位到根因"）。title 给锚点与上一次外部验证，查证动作在动作行的「查上游」。
+            // 颜色按角色取灰（`dsh-plugins/README.md` 的「颜色按角色分」）：它标的是"本机没有待办
+            // 动作"，与「未给 fix」同档；蓝是「外来」（来源）专用，不借来标状态。
+            upstreamPendingOf(s)
+              ? React.createElement('span', {
+                  title: '已收尾、没给出可执行修复，命中的案例带上游锚点且结论依据来自上游（'
+                    + ((upstreamOf(s) || {}).anchors || []).join('、')
+                    + ((upstreamOf(s) || {}).lastVerified ? '；上次外部验证 ' + upstreamOf(s).lastVerified : '；还没有外部验证记录')
+                    + '）。点动作行的「查上游」生成查证指令，判上游有没有结论（不改本机状态）',
+                  style: tinyBadge('var(--d-gray)'),
+                }, '等上游') : null,
             // fix 验证结果（现场回报）：pending 由「等回报」那条承载，这里只标已有结论的三种。
             (String(s.feedback || '') === 'resolved')
               ? React.createElement('span', { title: '工程师回报：这个 fix 在自己的环境里生效了', style: tinyBadge('var(--d-green)') }, 'fix 已验证') : null,
@@ -2132,7 +2888,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
               rel ? React.createElement('span', { title: s.updatedAt ? '最后更新：' + (fmtTimeFull(s.updatedAt) || s.updatedAt) : null }, '更新 ' + rel) : null,
             ) : null,
           ),
-          // 副行：**收起态显示"这单在查什么"**——取 trace 的问题背景段（host 带的 summarySnippet）。
+          // 副行：**收起态显示"这单在查什么"**——取 trace 的本次诊断摘要段（host 带的 summarySnippet）。
           // 旧版显示"最后一步 · Agent" + 最后一个事件的 output，读者看不懂：最后一个事件常常是
           // 产出报告 / 续接 / 回报这类**记录维护**动作（实测反馈："最后一步……让人看不懂也觉得很奇怪"），
           // 它回答的是"记录被改了什么"，不是"这单在查什么"。没有背景段才退回最后一个事件的输出。
@@ -2159,7 +2915,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
           fbKindOf(s) === 'case' ? React.createElement('div', { style: { color: T.warn, fontSize: 'var(--t-md)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 } },
             React.createElement(Dot, { color: T.warn }),
             '结果待回报：' + (s.feedbackCase || (caseKindOf(s) === 'case' ? s.activeCase : '') || '命中 case') + '（下方可生成回报指令）') : null,
-          fbKindOf(s) === 'no-case' ? React.createElement('div', { style: { color: T.text2, fontSize: 'var(--t-md)', marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 6 } },
+          (fbKindOf(s) === 'no-case' && (!s.state || !s.state.derived || s.state.derived.open !== false)) ? React.createElement('div', { style: { color: T.text2, fontSize: 'var(--t-md)', marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 6 } },
             React.createElement('span', { style: { flexShrink: 0 } }, '等现场补材料：'),
             React.createElement('span', { title: s.waitingFor || '', style: { color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } },
               s.waitingFor ? (s.waitingFor.length > 60 ? s.waitingFor.slice(0, 60) + '…' : s.waitingFor) : '本次诊断缺的材料（见轨迹里的「缺」标记）'),
@@ -2237,6 +2993,9 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         })
       }, [])
       const [timeRange, setTimeRange] = React.useState('all')
+      // 列表排序：'time' 用 host 给的顺序（按诊断开始时间倒序，见 panel-host.js 的 listTraces），
+      // 'value' 见下方 valueRankOf
+      const [sortBy, setSortBy] = React.useState('time')
       // 切筛选就清空勾选与展开的批量指令：勾选只在「待升格」这一屏里有意义，
       // 带着上一屏的选择去点批量闭环，最容易把没看过的单一起标掉。
       React.useEffect(() => { setSel({}); setBatchCmd(null); setBatchCopied(null) }, [kbFilter])
@@ -2257,7 +3016,14 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
           [64, 84, 74, 84, 78, 78].map((w, i) => React.createElement('span', { key: i, className: 'sleu-skel', style: { width: w, height: 26 } }))),
         [0, 1, 2, 3].map(i => React.createElement('div', { key: 'r' + i, className: 'sleu-skel', style: { height: 46, marginBottom: 8 } })))
       const r = state.data
-      if (!r || !r.ok) return React.createElement('div', { style: { ...base, padding: 16, color: T.error } }, '无法读取 traces/: ' + (r && r.error || '未知错误'))
+      if (r) { if (r.vocab) VOCAB_CACHE = r.vocab; CAPS_CACHE = r.capabilities || CAPS_CACHE; STATE_ERROR = r.stateError || null }
+      if (!r || !r.ok) {
+        // 与诊断记录面板同一个句式：缺什么 + 下一步。旧版只有一行裸红字（`无法读取 traces/: …`），
+        // 读者既不知道"这一层只读 traces/"也不知道该跑什么命令。
+        return React.createElement('div', { className: 'sleu-ledger-empty', style: { ...base, color: T.error } },
+          '读不到诊断记录：' + String((r && r.error) || '未知错误')
+          + '。这一层只读 traces/；目录不在时先在仓库里跑一次诊断（/skill:diagnose）后刷新。')
+      }
 
       let sessions = r.sessions || []
       // 待跟进**三类互斥**（此前重复计数：`status: in_progress` 的定义含"结论已给但用户在跟进"，
@@ -2284,10 +3050,15 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       //   空记录 = 连一轮对话都没有——它不占筛选，只在列表上挂一个「空记录」徽标；
       //   待升格 = 草稿已提交、但来源诊断还没闭环——升格闸门会拦，与"诊断收尾"是两件事。
       const nOpen = sessions.filter(needWorkOf).length
+      const nReportReview = sessions.filter(x => x.state && x.state.derived && x.state.derived.needReportReview).length
       const nNeedSed = sessions.filter(needSedOf).length
       const nNeedReview = sessions.filter(needReviewOf).length
       const nSubmitted = sessions.filter(isSubmittedOf).length
       const nNeedPromote = sessions.filter(needPromoteOf).length
+      // 等上游：已收尾、没给 fix、命中的案例有上游锚点。它**不进「待跟进」三数**——
+      // 那三数（在查 / 等回报 / 待标收尾）都是"欠一个动作"，等上游的单不欠本机任何动作，
+      // 它欠的是上游。混进去会让"3 项待跟进"里出现一单无人在追的。
+      const nUpstream = sessions.filter(upstreamPendingOf).length
       const q = query.trim().toLowerCase()
       if (q) {
         sessions = sessions.filter(s =>
@@ -2308,6 +3079,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
            (needReviewOf(s) ? '待复核 ' : '') +
            (isSkeletonOf(s) ? '空记录 ' : '') +
            (isSubmittedOf(s) ? '已交草稿 已沉淀 ' + (needPromoteOf(s) ? '待升格 未收尾 ' : '等整理 ') : '') +
+           (upstreamPendingOf(s) ? '等上游 上游锚点 ' + ((upstreamOf(s) || {}).anchors || []).join(' ') + ' ' : '') +
            (sedStateOf(s) === 'submitted' ? '已沉淀' : '')).includes(q)
         )
       }
@@ -2321,6 +3093,8 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
       if (kbFilter === 'close-pending') sessions = sessions.filter(isClosedButOpen)
       if (kbFilter === 'need-sed') sessions = sessions.filter(needSedOf)
       if (kbFilter === 'need-promote') sessions = sessions.filter(isSubmittedOf)
+      if (kbFilter === 'upstream') sessions = sessions.filter(upstreamPendingOf)
+      if (kbFilter === 'report-review') sessions = sessions.filter(x => x.state && x.state.derived && x.state.derived.needReportReview)
       // 按诊断开始时间过滤（`created_at`）：只留窗口内的单；没记开始时间的单不猜，直接排除。
       if (timeRange !== 'all') {
         const cut = Date.now() - Number(timeRange) * 86400000
@@ -2328,6 +3102,18 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
           const t = s.createdAt ? new Date(s.createdAt).getTime() : NaN
           return !isNaN(t) && t >= cut
         })
+      }
+      // 刚改过的那一单即使不再匹配当前筛选也先留在列表里：用户刚做完动作，行当场消失
+      // 会让人以为改丢了；这一行带「已移出当前筛选 · 撤销」，下一次操作/刷新后消失。
+      if (LAST_CHANGE && LAST_CHANGE.sessionId && !sessions.some(x => x.sessionId === LAST_CHANGE.sessionId)) {
+        const kept = (r.sessions || []).filter(x => x.sessionId === LAST_CHANGE.sessionId)[0]
+        if (kept) sessions = sessions.concat([kept])
+      }
+      // 「价值优先」：会话攒多以后，按时间排会把"值得先看的那几单"埋在最底下。
+      // 判据（`valueRankOf` / `updatedTsOf`）放在 apply 作用域里与侧栏「诊断记录」共用一份——
+      // 两处各写一份就会漂移，读者会得到两套"价值"。
+      if (sortBy === 'value') {
+        sessions = sessions.slice().sort((a, b) => valueRankOf(b) - valueRankOf(a) || updatedTsOf(b) - updatedTsOf(a))
       }
       // 待跟进三类见上方计数处注释（互斥）；徽章与横幅都用这三个数
       const badge = [
@@ -2339,6 +3125,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         nClose ? nClose + ' 待标收尾' : null,
         nNeedSed ? nNeedSed + ' 待沉淀' : null,
         nNeedReview ? nNeedReview + ' 待复核' : null,
+        nUpstream ? nUpstream + ' 等上游' : null,
         nSubmitted ? nSubmitted + ' 已交草稿' : null,
       ].filter(Boolean).join(' · ')
       // 说明放 title：这几个词只有在点开时才需要，常驻在筛选条上会把一行 chip 读成文档。
@@ -2351,12 +3138,14 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         { id: 'need-sed', label: '待沉淀' + (nNeedSed ? ' ' + nNeedSed : ''), title: '有 case 类沉淀候选（= 根因已形成可复用结论）、还没沉淀，且命中的 case 不在库里——按这一屏一次生成批量沉淀命令' },
         { id: 'need-review', label: '待复核' + (nNeedReview ? ' ' + nNeedReview : ''), title: '有报告或只有 reference / triage 候选，没有 case 类候选：根因可能还没定。读一眼报告，定了补一条 case 候选，没定就继续查或标收尾' },
         { id: 'need-promote', label: '已交草稿' + (nSubmitted ? ' ' + nSubmitted : ''), title: '草稿已经交到 inbox、等知识整理（含来源诊断还没收尾的那批——它们在升格前会被检查拦下）' },
+        { id: 'upstream', label: '等上游' + (nUpstream ? ' ' + nUpstream : ''), title: '已收尾、没给出可执行修复，且命中案例本身依据上游结论（上游修复已合入 / 维护者确认 / 官方文档）：本机没有待办动作，缺的是上游的结论。按这一屏一次生成批量查证指令（dry-run，不回写案例）' },
+        { id: 'report-review', label: '报告待复核' + (nReportReview ? ' ' + nReportReview : ''), title: '现场说「换别的方法解决了」：需要 agent 读证据后修订报告描述、或判条目错 / 执行错（不判误诊时只改报告）' },
       ]
 
       // 空态：先说"这一屏为什么空"，再说下一步。筛选为空与"还没有任何诊断"是两件事——
       // 前者通常是这一类已经处理完，统一写"去跑一次 diagnose"会被读成数据没生成。
       const totalSessions = (r.sessions || []).length
-      const FILTER_LABEL = { all: '全部', kb: '库中已有', new: '新形态', miss: '无对应案例', open: '未收尾', running: '在查', awaiting: '等回报', 'close-pending': '待标收尾', 'need-sed': '待沉淀', 'need-review': '待复核', 'need-promote': '已交草稿' }
+      const FILTER_LABEL = { all: '全部', kb: '库中已有', new: '新形态', miss: '无对应案例', open: '未收尾', running: '在查', awaiting: '等回报', 'close-pending': '待标收尾', 'need-sed': '待沉淀', 'need-review': '待复核', 'need-promote': '已交草稿', upstream: '等上游' }
       const EMPTY_HINT = {
         kb: '没有命中过知识库 case 的诊断。',
         new: '没有"命中 case、但库里还没有"的诊断。',
@@ -2368,15 +3157,21 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
         'need-sed': '没有可沉淀的单：有 case 类沉淀候选的诊断都已经沉淀过了。',
         'need-review': '没有待复核的单：有报告或 reference 候选、但还没产出 case 候选的诊断都复核过了。',
         'need-promote': '没有已交到 inbox 的草稿。做完沉淀（草稿进 inbox）后会出现在这里，等知识整理排期升格。',
+        upstream: '没有在等上游的单：已收尾、没给 fix、命中案例带上游锚点且依据在上游的单都没有。判据要求这一单记过"有没有给出修复"——没记的老单不进这一屏。',
       }
       const emptyTitle = q ? '没有匹配的会话'
         : (!totalSessions ? '还没有诊断记录'
           : (timeRange !== 'all' ? '该时间范围内没有会话'
             : ('「' + (FILTER_LABEL[kbFilter] || '当前筛选') + '」下没有会话')))
+      // 按投影分类的两屏（等上游 / 报告待复核）在投影读不到时必须换一句话：空列表不是
+      // "这一类没有单"，是"分类本身没算出来"。旧版在这两种情形下照样说"没有…"。
+      const derivedScreen = kbFilter === 'upstream' || kbFilter === 'report-review'
       const emptyHint = q ? '换个关键词，或点「全部」清掉筛选'
         : (!totalSessions ? '在对话里跑一次 /skill:diagnose，这里就会出现会话与完整轨迹'
-          : (timeRange !== 'all' ? '放宽时间范围，或点「全部」清掉筛选。'
-            : (EMPTY_HINT[kbFilter] || '点「全部」查看所有诊断。')))
+          : (STATE_ERROR && derivedScreen
+            ? '状态投影读不到（' + STATE_ERROR + '）：这一屏按投影分类，列表为空不代表没有这类单——点「刷新」重读。'
+            : (timeRange !== 'all' ? '放宽时间范围，或点「全部」清掉筛选。'
+              : (EMPTY_HINT[kbFilter] || '点「全部」查看所有诊断。'))))
 
       // 首屏要先回答"有什么在等我"——所以计数里把**待跟进**的两项单独提出来（进行中、待回报），
       // 而不是混在一串 "N 会话 · N 库中已有 …" 里让读者自己找
@@ -2404,41 +3199,48 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
             ) : null,
           )
         }
+        if (kbFilter === 'upstream') {
+          // 等上游：按筛选结果一次生成**一条**查证指令（名单里的 case id），不是每单一条。
+          // 一次全量 dry-run 也够，但那会把 100+ 条锚点全查一遍（一次 gh api 一条）；这一屏
+          // 只需要查"正在等的这几单"。`--case` 可重复正是为这一条加的。
+          // 指令里不带 `--apply`：写回 knowledge/ 是 tracked 改动、要走 PR，属于周批维护者的活。
+          // 去重：多个 session 可能命中同一条 case（同一问题被两个人各开一单），
+          // 命令里每条案例只该出现一次。
+          const ids = Array.from(new Set(sessions
+            .map(s => (caseKindOf(s) === 'case' && s.activeCase ? String(s.activeCase) : ''))
+            .filter(Boolean)))
+          if (!ids.length) return null
+          const text = '用 /skill:resume-diagnosis 查这批 case 的上游状态（只查上游，不续接）：'
+            + 'python3 scripts/verify_upstream_outcomes.py ' + ids.map(id => '--case ' + id).join(' ')
+            + '｜按「上游确认 / 上游否定且案例声明已合入（脚本标作「矛盾」，退出码 1）/ 未验证 / 不可查证」分桶汇总，只展开前两类；'
+            + '仍是 open 的说明不构成证据，别据此说"上游修好了"。dry-run，不要 --apply。'
+          return React.createElement('div', { style: { marginBottom: 8, padding: '8px 10px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+              React.createElement('span', { style: { fontSize: 'var(--t-sm)', color: T.text2 }, title: '范围 = 当前筛选（含搜索词）；单数与案例数不一定相等（多个 session 可能命中同一条案例）' }, '在等上游 ' + sessions.length + ' 单 · ' + ids.length + ' 条案例'),
+              React.createElement('button', { type: 'button', style: batchCmd === 'up' ? btnPrimary : btnGhost, onClick: () => { setBatchCmd(batchCmd === 'up' ? null : 'up'); setBatchCopied(null) } },
+                batchCmd === 'up' ? '隐藏指令' : '批量查这 ' + ids.length + ' 条案例的上游'),
+            ),
+            batchCmd === 'up' ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
+              React.createElement('code', { style: { flex: 1, userSelect: 'all', background: T.bg, border: '1px solid var(--hair)', borderRadius: 'var(--r-xs)', padding: '5px 8px', fontSize: 'var(--t-sm)', fontFamily: 'var(--font-mono)', color: T.text, wordBreak: 'break-word', lineHeight: 'var(--lh-base)' } }, text),
+              React.createElement('button', { type: 'button', style: batchCopied === 'fail' ? btnRed : btnPrimary, onClick: () => copyText(text).then(ok => setBatchCopied(ok ? 'up' : 'fail')) },
+                batchCopied === 'up' ? '已复制' : (batchCopied === 'fail' ? '失败' : '复制')),
+            ) : null,
+          )
+        }
         if (kbFilter === 'need-promote') {
-          // 这一屏收全部已交草稿；批量标收尾只对"来源诊断还没收尾"的那些有意义
-          // （已收尾的草稿没有要补的闭环证据，勾它们只会把状态再写一遍）。
+          // 这一屏只报现状：批量收尾会连带写反馈轴（那条轴排在下一批），本版不提供批量入口，
+          // 也不再生成第二套收尾命令——否则同一张卡上会出现两套说法。逐单用卡片里的「改状态」。
           const submitted = sessions
           const list = submitted.filter(needPromoteOf)
           const drafts = (r && r.inboxDrafts) || []
-          // 草稿在 inbox、但没有任何 trace 回写沉淀状态时，这一屏仍要说话——那正是"看不见的队列"。
           if (!submitted.length && !drafts.length) return null
-          const chosen = list.filter(s => sel[s.file])
-          const ids = chosen.map(s => s.sessionId).filter(Boolean)
-          const text = '批量闭环以下 ' + ids.length + ' 单，结局都是「已解决 · fix 生效」：' + ids.join('、')
-            + '。逐单：有命中 case 的标 status: resolved + feedback{outcome: resolved} 并写一条 feedback 事件；'
-            + '未命中 case 的只标 status: resolved，不写 feedback；若 trace 里还留着 feedback.outcome（旧数据），一并清掉。'
-          const allSelected = list.length > 0 && list.every(s => sel[s.file])
           return React.createElement('div', { style: { marginBottom: 8, padding: '8px 10px', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', background: T.bg2 } },
-            React.createElement('div', { style: { fontSize: 'var(--t-sm)', color: T.text2, marginBottom: list.length ? 8 : 0 } },
+            React.createElement('div', { style: { fontSize: 'var(--t-sm)', color: T.text2 } },
               '已交草稿 ' + submitted.length + ' 单'
-              + (list.length ? '，其中 ' + list.length + ' 单来源诊断还没收尾（升格前的检查会拦）' : '，都不卡：等知识整理排期升格')),
-            drafts.length ? React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2, marginBottom: list.length ? 6 : 0 } },
+              + (list.length ? '，其中 ' + list.length + ' 单来源诊断还没收尾（升格前的检查会拦）。逐单用卡片动作行里的「改状态」收尾。' : '，都不卡：等知识整理排期升格。')),
+            drafts.length ? React.createElement('div', { style: { fontSize: 'var(--t-tiny)', color: T.text2, marginTop: 4 } },
               'inbox 里另有 ' + drafts.length + ' 份草稿没有对应的诊断记录（不是从某次诊断沉淀来的，或 source_session 回写漏了）：'
-              + drafts.slice(0, 4).join('、') + (drafts.length > 4 ? ' 等' : '')) : null,
-            list.length ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
-              React.createElement('button', { type: 'button', style: btnGhost, onClick: () => { const n = {}; if (!allSelected) list.forEach(s => { n[s.file] = true }); setSel(n) } },
-                allSelected ? '取消全选' : '全选这 ' + list.length + ' 单'),
-              React.createElement('button', { type: 'button', disabled: !ids.length, style: !ids.length ? { ...btnGhost, opacity: 0.5, cursor: 'default' } : btnGhost, onClick: () => { if (!ids.length) return; setBatchCmd(batchCmd === 'close' ? null : 'close'); setBatchCopied(null) } },
-                '批量标已解决' + (ids.length ? '（已选 ' + ids.length + ' 单）' : '')),
-            ) : null,
-            list.length ? React.createElement('div', { style: { marginTop: 4, fontSize: 'var(--t-tiny)', color: T.text2 } },
-              '只勾真的验证过 fix 生效的单——批量标 resolved 会写进条目使用记录；没验证的先别勾。') : null,
-            batchCmd === 'close' && ids.length ? React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
-              React.createElement('code', { style: { flex: 1, userSelect: 'all', background: T.bg, border: '1px solid var(--hair)', borderRadius: 'var(--r-xs)', padding: '5px 8px', fontSize: 'var(--t-sm)', fontFamily: 'var(--font-mono)', color: T.text, wordBreak: 'break-word', lineHeight: 'var(--lh-base)' } }, text),
-              React.createElement('button', { type: 'button', style: batchCopied === 'fail' ? btnRed : btnPurple, onClick: () => copyText(text).then(ok => setBatchCopied(ok ? 'close' : 'fail')) },
-                batchCopied === 'close' ? '已复制' : (batchCopied === 'fail' ? '失败' : '复制')),
-            ) : null,
-          )
+              + drafts.slice(0, 4).join('、') + (drafts.length > 4 ? ' 等' : '')) : null)
         }
         return null
       })()
@@ -2460,6 +3262,18 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
               nFollow ? (nFollow + ' 项待跟进') : ((r.sessions || []).length + ' 个会话')),
           ),
         ),
+        (LAST_CHANGE && LAST_CHANGE.sessionId) ? React.createElement('div', {
+          style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px', marginBottom: 10, background: 'var(--tint-amber)', border: '1px solid var(--hair)', borderRadius: 'var(--r-md)', fontSize: 'var(--t-md)', color: T.text },
+        },
+          React.createElement(Dot, { color: T.warn, size: 7 }),
+          React.createElement('span', null, '刚记下一笔：' + (LAST_CHANGE.fromLabel || LAST_CHANGE.from) + ' → ' + (LAST_CHANGE.toLabel || LAST_CHANGE.to) + '（如果这单已不匹配当前筛选，先留在列表里）'),
+          React.createElement('button', { type: 'button', onClick: () => {
+            host.call('ascend-trace-transition', { sessionId: LAST_CHANGE.sessionId, action: 'reopen', payload: {}, expectSha256: LAST_CHANGE.sha })
+              .then(r2 => { if (r2 && r2.ok) { LAST_CHANGE = null; setReloadAt(n => n + 1) } })
+              .catch(() => {})
+          }, style: { ...btnGhost, padding: '2px 10px' } }, '撤销'),
+          React.createElement('button', { type: 'button', onClick: () => { LAST_CHANGE = null; setReloadAt(n => n + 1) }, style: { ...btnGhost, padding: '2px 10px' } }, '知道了'),
+        ) : null,
         // 待跟进提示：只在真有的时候出现，且给"下一步做什么"。
         // 三类各自对应一个动作（续接 / 追问结果 / 改 status），所以分开说；末尾一句点明这是两条轴，
         // 免得读者把"在查"与"等回报"读成同一件事的两句话。
@@ -2506,7 +3320,7 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
                   } else setQuery(v)
                 },
                 onKeyDown: e => { if (e.key === 'Escape') { if (typeof queryTimerDispose === 'function') queryTimerDispose(); setQueryInput(''); setQuery('') } },
-                title: '可搜：会话号、状态、框架、平台、类别、定位到的 case、问题背景、待沉淀 / 待复核 / 已交草稿',
+                title: '可搜：会话号、状态、框架、平台、类别、定位到的 case、本次诊断摘要、待沉淀 / 待复核 / 已交草稿',
                 style: { width: '100%', boxSizing: 'border-box', padding: '8px 30px 8px 30px', fontSize: 'var(--t-sm)', borderRadius: 'var(--r-md)', border: '1px solid var(--hair)', background: T.bg, color: T.text, transition: 'border-color var(--m-fast) var(--e-out)' },
               }),
               query ? React.createElement('button', {
@@ -2522,6 +3336,13 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
               onChange: e => setTimeRange(e.target.value),
               style: { padding: '7px 8px', fontSize: 'var(--t-tiny)', borderRadius: 'var(--r-md)', border: '1px solid var(--hair)', background: T.bg, color: T.text, cursor: 'pointer' },
             }, [['all', '全部时间'], ['7', '近 7 天'], ['30', '近 30 天'], ['90', '近 90 天']].map(p => React.createElement('option', { key: p[0], value: p[0] }, p[1]))),
+            // 排序与时间筛选并排：两个都是"这一屏看什么"的开关，分开摆会被当成两套设置。
+            React.createElement('select', {
+              value: sortBy, 'aria-label': '会话排序',
+              title: '按时间 = 按诊断开始时间（created_at）倒序（默认）；按价值 = ' + VALUE_ORDER_TEXT,
+              onChange: e => setSortBy(e.target.value),
+              style: { padding: '7px 8px', fontSize: 'var(--t-tiny)', borderRadius: 'var(--r-md)', border: '1px solid var(--hair)', background: T.bg, color: T.text, cursor: 'pointer' },
+            }, [['time', '排序：按时间'], ['value', '排序：按价值']].map(p => React.createElement('option', { key: p[0], value: p[0] }, p[1]))),
           ),
           batchBar,
           sessions.length ? React.createElement('div', { style: { display: 'grid', gridTemplateColumns: ROW_COLS, gap: 10, padding: '8px 16px 4px', marginTop: 4 } },
@@ -2560,6 +3381,11 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
           : React.createElement('div', { className: 'sleu-list' },
               sessions.map(s => React.createElement(SessionCard, {
                 key: s.file, session: s, sessionId: sessionId,
+                // 当前会话号：卡片据此把「打开会话」换成「当前会话」，避免一个点了没反应的按钮。
+                currentSession: (function () {
+                  const sn = sessionListSnapshot()
+                  return sn && sn.current ? String(sn.current) : ''
+                })(),
                 selectable: kbFilter === 'need-promote',
                 selected: !!sel[s.file],
                 onToggleFile: toggleSel,
@@ -3728,13 +4554,450 @@ body[data-ds-dark-theme] .sleu{--c-blue:#7db3fc;--c-green:#5cd68f;--c-purple:#b3
     }
 
 
+    // ── 会话行的「待回报」标记：L2 行首空心点 + L1 悬停卡一行 ──────────────────────
+    //
+    // 数据只有一条瘦 RPC（`ascend-session-marks`）：哪几个会话欠回报、欠了多久、命中哪个 case。
+    // 侧栏每行都渲染这两个组件，所以取数**必须共享**：模块级一份状态 + 一处在途请求，
+    // N 行只读同一次结果。逐行发请求会把 RPC 打成筛子（几百行），这是设计约束不是优化。
+    //
+    // 刷新：首次挂载取一次，30 秒内复用（与面板的复用窗口同一量级）；过期后下一次挂载再取。
+    // 取不到时**保留上一次结果**：清空会把"读不到"显示成"没有欠账"。
+    const MARK_TTL_MS = 30000
+    const markState = { at: 0, marks: Object.create(null) }
+    const markWaiters = new Set()
+    let markRequest = null
+
+    function refreshMarks(force) {
+      const fresh = !force && markState.at > 0 && (Date.now() - markState.at) < MARK_TTL_MS
+      if (fresh) return Promise.resolve()
+      if (markRequest !== null) return markRequest
+      markRequest = host.call('ascend-session-marks', {})
+        .then((r) => {
+          if (r && r.ok && Array.isArray(r.marks)) {
+            const next = Object.create(null)
+            for (const m of r.marks) if (m && m.sessionId) next[String(m.sessionId)] = m
+            markState.marks = next
+          }
+          markState.at = Date.now()
+          for (const fn of markWaiters) { try { fn() } catch (e) { /* 一个订阅者失败不阻塞其余 */ } }
+          markWaiters.clear()
+        })
+        .catch(() => {
+          markState.at = Date.now()
+          markWaiters.clear()
+        })
+        .then(() => { markRequest = null })
+      return markRequest
+    }
+
+    // 一行一个订阅：挂载时同步读共享状态，取数回来后由 markWaiters 通知重渲染。
+    // 没有全局定时器（动态沙箱不提供），所以刷新只发生在挂载与明确调用处。
+    function useTraceMark(sessionId) {
+      const [mark, setMark] = React.useState(null)
+      React.useEffect(() => {
+        let alive = true
+        const sync = () => { if (alive) setMark(markState.marks[String(sessionId)] || null) }
+        markWaiters.add(sync)
+        sync()
+        refreshMarks(false)
+        return () => { alive = false; markWaiters.delete(sync) }
+      }, [sessionId])
+      return mark
+    }
+
+    // 记号的文案片段。悬停卡很窄（侧栏 280px 里的一张卡），所以不用一整句：
+    // 一行说"该不该管"，一行说起算日与命中，第三行只在两轴并存时说明它们不矛盾。
+    // 迁移期兜底：与 trace-status.yaml 的 label 保持一致（侧栏拿不到投影时用）。
+    // 只有这一张兜底表（卡片、侧栏共用），不再各写一份。
+    const FALLBACK_STATUS_LABEL = { resolved: '已定位', in_progress: '进行中', escalated: '已转交他人', archived: '不再跟进', unknown: '状态未记录' }
+    function markBits(mark) {
+      if (!mark) return null
+      const t = mark.since ? new Date(mark.since).getTime() : NaN
+      const valid = !isNaN(t)
+      let debt = '欠账天数未记录'
+      let since = '起算日未记录'
+      if (valid) {
+        const d = new Date(t)
+        const p = n => String(n).padStart(2, '0')
+        debt = '欠 ' + Math.max(0, Math.floor((Date.now() - t) / 86400000)) + ' 天'
+        since = '自 ' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+      }
+      const hit = mark.kind === 'case' && mark.caseId ? '命中 ' + mark.caseId : '未命中 case'
+      const pending = mark.mark === 'pending'
+      // 标题：待回报给"欠多久"（要人做的动作），可复用给"是什么"（能拿来用的东西）
+      const title = pending ? '待回报 · ' + debt : '知识库可复用'
+      let detail = since + ' · ' + hit
+      if (!pending) {
+        const bits2 = []
+        if (mark.caseId) bits2.push('命中 ' + mark.caseId + '（库中已有）')
+        if (mark.sedimented) bits2.push('已沉淀')
+        detail = bits2.length ? bits2.join(' · ') : '知识库里有可复用的条目'
+      }
+      // 第三行只在"已收尾但还欠回报"时出现：这正是读者会读成矛盾的组合。
+      const axis = (pending && mark.status === 'resolved')
+        ? '诊断状态 ' + (FALLBACK_STATUS_LABEL[mark.status] || mark.status) + '（收尾与回报是两条轴）'
+        : ''
+      return { pending: pending, title: title, detail: detail, axis: axis, debt: debt, since: since, hit: hit }
+    }
+
+    // L1：悬停卡里的两到三行（悬停 800ms 后出现；侧栏自己的卡已有标题与时间，这里只加欠账/可复用）
+    function TraceRowHover(props) {
+      const mark = useTraceMark(props && props.sessionId)
+      if (!mark) return null
+      const bits = markBits(mark)
+      return React.createElement('div', { className: 'sleu-hover-mark' },
+        React.createElement('div', { className: 'sleu-hover-title' }, bits.title),
+        React.createElement('div', { className: 'sleu-hover-detail' }, bits.detail),
+        bits.axis ? React.createElement('div', { className: 'sleu-hover-axis' }, bits.axis) : null,
+      )
+    }
+
+    // L2：行首记号。两种形状——缺环（待回报，等人）与实心菱形（知识库可复用，值得点开），
+    // 靠形状与颜色**双通道**区分。DSH 只在"空闲且已读"的行渲染这个位置（运行中/未读先让给
+    // 它的状态点），所以这是尽力而为的标记，不是每行都有的徽标。
+    function TraceRowLeading(props) {
+      const mark = useTraceMark(props && props.sessionId)
+      if (!mark) return null
+      const bits = markBits(mark)
+      const label = [bits.title, bits.detail, bits.axis].filter(Boolean).join(' · ')
+      return React.createElement('span', {
+        className: bits.pending ? 'sleu-row-dot' : 'sleu-row-gem',
+        role: 'img',
+        'aria-label': label,
+        title: label,
+      })
+    }
+
+    // 会话 tab 只留「诊断」：它读的是这一单的轨迹。
+
+    // ============ 侧栏「诊断记录」（页脚入口 + 帧级浮层）============
+    // 为什么是这两处而不是会话列表本身：侧栏的会话行没有插件槽位，能注册的只有
+    // 「整个浏览区」（`sidebar.workspaces`，注册进去 = 接管自带列表）。所以走
+    // `sidebar.footer.action`（附加一个入口，不占自带那一格）+ `shell.overlay`
+    // （帧级浮层，点击穿透的附加层，无自带 occupant）。会话本身用 `sessions.open` 切过去。
+    function LedgerEntryButton(props) {
+      const wide = !!(props && props.wide)
+      const open = useLedgerOpen()
+      return React.createElement('button', {
+        type: 'button',
+        title: '诊断记录：列出本工作区的诊断会话，可按时间或按价值排序，点一行直接切过去',
+        'aria-label': '诊断记录', 'aria-expanded': open ? 'true' : 'false',
+        onClick: () => setLedgerOpen(!ledger.open),
+        style: {
+          display: 'flex', alignItems: 'center', justifyContent: wide ? 'flex-start' : 'center',
+          gap: 8, width: wide ? '100%' : 32, height: 32, padding: wide ? '0 10px' : 0,
+          boxSizing: 'border-box', border: '1px solid ' + T.border, borderRadius: 'var(--r-md)',
+          background: open ? 'color-mix(in srgb, ' + T.brand + ' 12%, transparent)' : 'transparent',
+          color: T.text, font: 'inherit', fontSize: 'var(--t-sm)', cursor: 'pointer',
+          transition: 'background-color var(--m-fast) var(--e-out)',
+        },
+      },
+        React.createElement('span', { 'aria-hidden': 'true', style: { fontSize: 'var(--t-md)', lineHeight: 1 } }, '☰'),
+        wide ? React.createElement('span', null, '诊断记录') : null)
+    }
+
+    // 回报债的天数：起算日优先用 trace 的 `feedback_pending_since`（skill 写的），
+    // 没有再退到更新时间。两个都没有就说「天数未记录」——写 0 会被读成"今天刚欠下"。
+    function ledgerDebtText(s) {
+      const raw = (s && (s.feedbackPendingSince || s.updatedAt || s.createdAt)) || ''
+      const t = raw ? new Date(raw).getTime() : NaN
+      if (isNaN(t)) return '天数未记录'
+      return '欠 ' + Math.max(0, Math.floor((Date.now() - t) / 86400000)) + ' 天'
+    }
+
+    // 诊断记录面板（点侧栏底部「诊断记录」弹出来的那张卡）。数据走与「诊断」tab 同一条 RPC
+    // （`ascend-traces-list`）；「按价值」用的 `valueRankOf` 与「诊断」tab 是同一份——两处各算
+    // 一份就会给出两套"价值"。「按时间」按行尾那一列（最后更新时间）倒序：时间列不降序会被读成
+    // 排序坏了（这张卡曾只有价值序，最新开工的两单因为没有结论落在最底一档），所以默认按时间。
+    // 用 `updatedAt` 当主键与 host 的取舍不同（`panel-host.js` 的 listTraces 按 `created_at` 排，
+    // 因为那一列承担"何时开始诊断"的语义，而 `updated_at` 由 agent 手填、写错就会改次序）；这里
+    // 排序与行尾显示的是同一个字段，两者不一致才是缺陷。
+    // 这里是**只读 + 导航**：不写 trace、不生成指令，指令仍然在「诊断」tab 里。
+    //
+    // 键盘按一等用法设计：打开即聚焦搜索框，↑↓ 选行、Enter 打开、Esc 关闭、Tab 在卡内循环。
+    // 用它的人在做"批量翻"——一条条鼠标点开再关掉，比键盘慢一个数量级。
+    const LEDGER_FILTERS = [
+      { id: 'all', label: '全部', test: () => true },
+      { id: 'pending', label: '待回报', test: s => !!s.feedbackPending },
+      { id: 'reusable', label: '可复用', test: s => sedStateOf(s) !== 'none' || !!s.activeCaseInKb },
+      { id: 'open', label: '未收尾', test: s => isOpenOf(s) },
+      { id: 'recent', label: '近 30 天',
+        // 这一格按开始时间算（与列表默认的"最后更新时间"不是同一列），所以给一句 tooltip。
+        title: '按开始时间（created_at）算：最近 30 天开工的单',
+        test: s => {
+          const t = new Date(s.createdAt || s.updatedAt || 0).getTime()
+          return !isNaN(t) && (Date.now() - t) <= 30 * 86400000
+        } },
+    ]
+
+    // 会话列表快照：面板要标出"你已经在这一条里"（否则点一行没反应，读起来像坏了），
+    // 底部计数则回答"还有多少会话根本没有诊断记录"。服务不在时返回 null，两边都只说能说的。
+    function sessionListSnapshot() {
+      try {
+        const svc = sessionsService()
+        if (!svc || !svc.list || typeof svc.list.getSnapshot !== 'function') return null
+        return svc.list.getSnapshot() || null
+      } catch (e) {
+        return null
+      }
+    }
+
+    function LedgerPanel() {
+      const open = useLedgerOpen()
+      const [state, setState] = React.useState({ loading: false, data: null })
+      const [q, setQ] = React.useState('')
+      const [navMsg, setNavMsg] = React.useState(null)
+      const [filter, setFilter] = React.useState('all')
+      const [sortBy, setSortBy] = React.useState('time')
+      const [active, setActive] = React.useState(0)
+      const snap = sessionListSnapshot()
+      const currentId = snap && snap.current ? String(snap.current) : ''
+      const workspaceTotal = snap && Array.isArray(snap.ids) ? snap.ids.length : null
+
+      React.useEffect(() => {
+        if (!open) return undefined
+        let alive = true
+        // 刷新时保留手上那份（切走再切回不必空一屏）；`prev` 仍然防一手——
+        // 首帧之外没人保证它是本组件写进去的对象。
+        setState(prev => ({ loading: true, data: (prev && prev.data) || null }))
+        host.call('ascend-traces-list', { sessionId: null })
+          .then(res => {
+            if (alive) setState({ loading: false, data: res })
+          })
+          .catch(() => {
+            if (alive) setState({ loading: false, data: { ok: false, error: 'Host RPC 失败' } })
+          })
+        return () => { alive = false }
+      }, [open])
+
+      // 读到什么就当什么：面板渲染检查用共享 hook 槽的 mock，这里拿到的值可能来自别的组件
+      // （真实 React 不会），不该因此把整个面板拖崩。
+      const st = (state && typeof state === 'object') ? state : { loading: true, data: null }
+      const qText = typeof q === 'string' ? q : ''
+      const r = st.data
+      const all = (r && r.ok && Array.isArray(r.sessions)) ? r.sessions : []
+      const KW_LIMIT = 40
+      const kw = qText.trim().toLowerCase()
+      const searched = kw
+        ? all.filter(s => [s.sessionId, s.summarySnippet, s.activeCase, s.framework, s.platform, s.status]
+            .filter(Boolean).join(' ').toLowerCase().includes(kw))
+        : all
+      const activeFilter = LEDGER_FILTERS.filter(f => f.id === filter)[0] || LEDGER_FILTERS[0]
+      const filtered = filter === 'all' ? searched : searched.filter(activeFilter.test)
+      const sorted = filtered.slice().sort(sortBy === 'value'
+        ? (a, b) => valueRankOf(b) - valueRankOf(a) || updatedTsOf(b) - updatedTsOf(a)
+        : (a, b) => updatedTsOf(b) - updatedTsOf(a) || createdTsOf(b) - createdTsOf(a))
+      const shown = sorted.slice(0, KW_LIMIT)
+      const counts = {}
+      for (const f of LEDGER_FILTERS) counts[f.id] = f.id === 'all' ? searched.length : searched.filter(f.test).length
+
+      const close = () => { setNavMsg(null); setLedgerOpen(false) }
+      const openRow = row => {
+        if (!row) return
+        const target = row.harnessSession ? String(row.harnessSession) : ''
+        if (currentId && target && target === currentId) {
+          setNavMsg('你已经在这一条会话里了')
+          return
+        }
+        if (!target) {
+          setNavMsg('这单的轨迹顶层没有 harness_session，定位不到会话（session_id 不是 DSH 会话号）。'
+            + '可能是建会话时漏写，也可能是旧单；补法：'
+            + 'python3 scripts/link_harness_sessions.py --trace ' + String(row.file || '') + ' --session-id "$DSH_SESSION_ID" --apply')
+          return
+        }
+        openSession(target).then(res => {
+          if (res.ok) close()
+          else setNavMsg(res.reason)
+        })
+      }
+
+      // 键盘：Esc 关、↑↓ 选、Enter 开、Tab 在卡内循环。没有键盘出口的模态会把键盘用户困住，
+      // 而这里的主要用法本来就是键盘。
+      React.useEffect(() => {
+        if (!open || typeof document === 'undefined') return undefined
+        const search = document.querySelector('[data-ledger-search]')
+        if (search && typeof search.focus === 'function') search.focus()
+        const onKey = e => {
+          // 焦点在 <select> 里时，方向键与 Enter 是它自己的用法（换选项、展开列表）；抢过来会
+          // 变成"移动行高亮 / 打开行"，读者会以为面板在乱跳。**Tab 除外**：它由下面那段焦点环
+          // 接管，否则从这道下拉 Shift+Tab 出去会把焦点带到 aria-modal 卡片外的页面上。
+          const tag = e && e.target && e.target.tagName ? String(e.target.tagName).toLowerCase() : ''
+          if (e.key === 'Escape') { e.preventDefault(); setNavMsg(null); setLedgerOpen(false); return }
+          if (tag === 'select' && e.key !== 'Tab') return
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            const step = e.key === 'ArrowDown' ? 1 : -1
+            setActive(i => Math.max(0, Math.min(shown.length - 1, (typeof i === 'number' ? i : 0) + step)))
+            return
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            openRow(shown[typeof active === 'number' ? active : 0])
+            return
+          }
+          if (e.key !== 'Tab') return
+          const card = document.querySelector('[data-ledger-card]')
+          if (!card || typeof card.querySelectorAll !== 'function') return
+          // `select` 必须在圈里：排序开关是卡片里唯一的下拉，漏了它，纯键盘用户切不了排序。
+          const focusables = card.querySelectorAll('button, input, select, [tabindex]:not([tabindex="-1"])')
+          if (!focusables.length) return
+          const first = focusables[0]
+          const last = focusables[focusables.length - 1]
+          const here = document.activeElement
+          if (e.shiftKey && here === first) { e.preventDefault(); last.focus() }
+          else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus() }
+        }
+        document.addEventListener('keydown', onKey)
+        return () => { document.removeEventListener('keydown', onKey) }
+      }, [open, active, shown])
+
+      // 选中的行滚进视野（键盘翻页时不能让高亮跑到卡外）。
+      React.useEffect(() => {
+        if (!open || typeof document === 'undefined') return undefined
+        const el = document.querySelector('[data-ledger-row="' + String(active) + '"]')
+        if (el && typeof el.scrollIntoView === 'function') {
+          try { el.scrollIntoView({ block: 'nearest' }) } catch (e) { /* 老浏览器不支持对象参数就跳过 */ }
+        }
+        return undefined
+      }, [open, active])
+
+      if (!open) return null
+      return React.createElement('div', {
+        className: 'sleu sleu-ledger-backdrop',
+        // 点遮罩关闭：只在遮罩自身被点中时触发，卡片内部的点击不会冒泡成关闭。
+        onMouseDown: e => { if (e.target === e.currentTarget) close() },
+      },
+        React.createElement('div', { className: 'sleu-ledger-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': '诊断记录', 'data-ledger-card': 'true' },
+          React.createElement('div', { className: 'sleu-ledger-head' },
+            React.createElement('span', { style: { fontSize: 'var(--t-lg)', fontWeight: 700 } }, '诊断记录'),
+            React.createElement('span', { style: { color: T.text2, fontSize: 'var(--t-tiny)' } },
+              (r && r.ok)
+                ? (all.length + ' 条诊断记录' + (workspaceTotal === null ? '' : ' · 本工作区 ' + workspaceTotal + ' 个会话'))
+                : '读不到诊断记录'),
+            // 排序与搜索并排：两个都是"这一屏怎么读"的开关，分开摆会被当成两套设置。
+            React.createElement('select', {
+              value: sortBy, 'aria-label': '诊断记录排序', 'data-ledger-sort': 'true',
+              title: sortBy === 'value'
+                ? '按价值：' + VALUE_ORDER_TEXT
+                : '按时间：行尾那一列（最后更新时间）倒序',
+              onChange: e => { setSortBy(e.target.value); setActive(0) },
+              style: { marginLeft: 'auto', padding: '5px 8px', fontSize: 'var(--t-tiny)', borderRadius: 'var(--r-md)', border: '1px solid var(--hair)', background: T.bg, color: T.text, cursor: 'pointer' },
+            }, [['time', '排序：按时间'], ['value', '排序：按价值']].map(p => React.createElement('option', { key: p[0], value: p[0] }, p[1]))),
+            React.createElement('input', {
+              value: qText, placeholder: '过滤会话号 / 背景 / 案例', 'aria-label': '过滤诊断记录', 'data-ledger-search': 'true',
+              onChange: e => { setQ(e.target.value); setActive(0) },
+              style: { width: 190, padding: '6px 9px', fontSize: 'var(--t-sm)', borderRadius: 'var(--r-md)', border: '1px solid var(--hair)', background: T.bg, color: T.text },
+            }),
+            React.createElement('button', {
+              type: 'button', onClick: close, title: '关闭（Esc）', 'aria-label': '关闭诊断记录',
+              style: { border: 'none', background: 'transparent', color: T.text2, cursor: 'pointer', fontSize: 'var(--t-lg)', lineHeight: 1, padding: '2px 6px' },
+            }, '×'),
+          ),
+          // 五个筛选：计数按搜索后的集合算，所以"待回报 3"始终和旁边的"全部 12"同一口径。
+          React.createElement('div', { className: 'sleu-ledger-chips' },
+            LEDGER_FILTERS.map(f => React.createElement('button', {
+              key: f.id, type: 'button', className: 'sleu-ledger-chip', title: f.title || null,
+              'aria-pressed': f.id === filter ? 'true' : 'false',
+              onClick: () => { setFilter(f.id); setActive(0) },
+            }, f.label + (counts[f.id] ? ' ' + counts[f.id] : ''))),
+            React.createElement('span', { className: 'sleu-ledger-hint' }, '↑↓ 选行 · Enter 打开 · Esc 关闭'),
+          ),
+          navMsg ? React.createElement('div', { style: { padding: '6px 14px', color: 'var(--c-amber)', fontSize: 'var(--t-tiny)' } }, navMsg) : null,
+          st.loading && !r ? React.createElement('div', { className: 'sleu-ledger-empty' }, '正在读诊断记录…')
+            : (!r || !r.ok)
+              ? React.createElement('div', { className: 'sleu-ledger-empty' },
+                  '读不到诊断记录：' + String((r && r.error) || 'Host RPC 失败')
+                  + '。这一层只读 traces/；目录不在时先在仓库里跑一次诊断。')
+              : !all.length
+                ? React.createElement('div', { className: 'sleu-ledger-empty' },
+                    '这个工作区还没有诊断记录。跑一次 /skill:diagnose 之后会出现在这里。')
+                : React.createElement('div', { className: 'sleu-ledger-body' },
+                    shown.length
+                      ? shown.map((s, i) => {
+                          const meta = statusMeta[String(s.status || 'unknown')] || statusMeta.unknown
+                          const hit = caseKindOf(s) === 'case'
+                          const isCurrent = !!(currentId && s.harnessSession && String(s.harnessSession) === currentId)
+                          const isActive = i === (typeof active === 'number' ? active : 0)
+                          return React.createElement('button', {
+                            key: s.file || s.sessionId, type: 'button',
+                            className: 'sleu-ledger-row' + (isActive ? ' is-active' : ''),
+                            'data-ledger-row': String(i),
+                            'aria-selected': isActive ? 'true' : 'false',
+                            onMouseEnter: () => setActive(i),
+                            title: s.harnessSession
+                              ? (isCurrent ? '你已经在这一条会话里' : '切到会话 ' + String(s.harnessSession))
+                              : '这单没记 harness_session，点一下会说明补法',
+                            onClick: () => openRow(s),
+                          },
+                            React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 6, color: meta.color, fontSize: 'var(--t-sm)', fontWeight: 700, whiteSpace: 'nowrap' } },
+                              React.createElement(Dot, { color: meta.color, hollow: (s.state && s.state.displayTone) ? !!s.state.displayTone.hollow : s.status === 'unknown' }), meta.label),
+                            React.createElement('span', { className: 'sleu-ledger-sid', title: String(s.sessionId || '') }, String(s.sessionId || '—')),
+                            React.createElement('span', { className: 'sleu-ledger-sum', title: s.summarySnippet || s.lastOutput || '' },
+                              s.summarySnippet || s.lastOutput || '（没有背景段）'),
+                            React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' } },
+                              hit ? React.createElement('span', { style: Object.assign(tinyBadge(s.activeCaseInKb ? 'var(--d-green)' : 'var(--d-amber)'), { fontSize: 'var(--t-tiny)' }),
+                                title: s.activeCaseInKb ? '命中的案例知识库里已有（可直接对照）' : '命中了案例，但知识库里还没有它（新形态，值得先看）',
+                              }, String(s.activeCase) + (s.activeCaseInKb ? '' : ' · 新形态')) : null,
+                              s.feedbackPending ? React.createElement('span', {
+                                style: Object.assign(tinyBadge('var(--d-amber)'), { fontSize: 'var(--t-tiny)' }),
+                                title: '轨迹里 feedback.outcome 还是 pending：给了 fix，现场还没回报是否生效。'
+                                  + '它与收尾状态（status）是两条独立的轴——已定位表示这次诊断已收尾，'
+                                  + '待回报表示那个 fix 还没被验证。侧栏行首的琥珀色缺环就是这一条。',
+                              }, '待回报 · ' + ledgerDebtText(s)) : null,
+                              sedStateOf(s) !== 'none' ? React.createElement('span', { style: Object.assign(tinyBadge('var(--d-purple)'), { fontSize: 'var(--t-tiny)' }) }, '已沉淀') : null,
+                              isCurrent ? React.createElement('span', { style: Object.assign(tinyBadge('var(--d-blue)'), { fontSize: 'var(--t-tiny)' }) }, '当前') : null,
+                              React.createElement('span', { style: { color: T.text2, fontSize: 'var(--t-tiny)' } }, relTime(s.updatedAt || s.createdAt) || '—')),
+                            React.createElement('span', { 'aria-hidden': 'true', style: { color: T.text2, fontSize: 'var(--t-md)' } }, '→'))
+                        })
+                      : React.createElement('div', { className: 'sleu-ledger-empty' },
+                          kw ? '没有匹配「' + qText.trim() + '」的会话。' : '「' + activeFilter.label + '」下没有会话。'),
+                  ),
+          React.createElement('div', { className: 'sleu-ledger-foot' },
+            React.createElement('span', null, sortBy === 'value'
+              ? '排序：' + VALUE_ORDER_TEXT + '。'
+              : '排序：按最后更新时间倒序，行尾那一列就是这个时间。'),
+            React.createElement('span', null, '只读 traces/，写操作仍在「诊断」tab 里生成指令。'),
+            sorted.length > KW_LIMIT ? React.createElement('span', null, '当前只列前 ' + KW_LIMIT + ' 条，搜索或筛选可收窄。') : null),
+        ),
+      )
+    }
+
+
     slots.inject('conversation.view', () => slots.register(
       { name: 'conversation.view', id: 'ascend-diagnose', order: 20, label: '诊断' },
       (props) => React.createElement(TraceView, props),
     ))
-    slots.inject('conversation.view', () => slots.register(
-      { name: 'conversation.view', id: 'ascend-metrics', order: 21, label: '指标' },
-      (props) => React.createElement(MetricsView, props),
+    // 指标读的是全库（metrics/ 与判据），与当前会话无关，所以常驻包把它交给整页「Ascend Sleuth」
+    // （dsh-plugins/sleuth-console）：没有会话也能打开，会话里不再多一个只显示全库数据的 tab。
+    // 动态热加载路径没有整页容器（SLEUTH_VIEWS 不存在），退回原来的 conversation.view tab。
+    if (typeof SLEUTH_VIEWS !== 'undefined' && SLEUTH_VIEWS !== null) {
+      SLEUTH_VIEWS.metrics = (props) => React.createElement(MetricsView, props)
+    } else {
+      slots.inject('conversation.view', () => slots.register(
+        { name: 'conversation.view', id: 'ascend-metrics', order: 21, label: '指标' },
+        (props) => React.createElement(MetricsView, props),
+      ))
+    }
+
+    // 侧栏两个座位：行首小点（只在空闲已读的行出现）与悬停卡一行。都只读。
+    slots.inject('sidebar.session.row.leading', () => slots.register(
+      { name: 'sidebar.session.row.leading', id: 'ascend-pending' },
+      (props) => React.createElement(TraceRowLeading, props),
+    ))
+    slots.inject('sidebar.session.row.hover', () => slots.register(
+      { name: 'sidebar.session.row.hover', id: 'ascend-pending' },
+      (props) => React.createElement(TraceRowHover, props),
+    ))
+    // 侧栏页脚：诊断记录入口。它是**附加**项（新 id 落在自带项旁边，不替换任何一格）；
+    // 侧栏收起时只剩图标（`wide: false`）。
+    slots.inject('sidebar.footer.action', () => slots.register(
+      { name: 'sidebar.footer.action', id: 'sleu-ledger-entry', order: 30, label: '诊断记录' },
+      (props) => React.createElement(LedgerEntryButton, props),
+    ))
+    // 帧级浮层：诊断记录本体。`shell.overlay` 是点击穿透的附加层，所以浮层自己打开 pointer-events。
+    slots.inject('shell.overlay', () => slots.register(
+      { name: 'shell.overlay', id: 'sleu-ledger-overlay', order: 40, label: '诊断记录' },
+      () => React.createElement(LedgerPanel),
     ))
   },
 }

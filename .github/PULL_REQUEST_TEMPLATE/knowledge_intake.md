@@ -10,7 +10,8 @@ PR body 正文从首个 "## " 区块开始。
 ## 背景与动机
 
 <!-- 三行以内，一行一件事：这条知识从哪来（哪次诊断 / 反馈 / 外部对话）→ 不收会怎样（同类问题会被重新诊断一遍）→ 收进来之后覆盖到哪一类症状。
-     写工程师能直接读的话：短句、动词开头、给具体事实或读数；不用比喻与自造缩写，也不写自我评价（如「已如实标注」）。 -->
+     写工程师能直接读的话：短句、动词开头、给具体事实或读数；不用比喻与自造缩写，也不写自我评价（如「已如实标注」）。
+     这三行开工时先写进本次任务记录（目录用 `python3 scripts/shared_dir.py proposals-tasks` 取，运行时件不进 git），PR 时原样复制过来；收尾现编的会写成过程叙述。 -->
 
 - 触发：
 - 不做的代价：
@@ -23,6 +24,15 @@ PR body 正文从首个 "## " 区块开始。
 - 分类：new_pattern / variant_of:\<case-id\> / covered_by:\<case-id\>
 - 证据：
 - 建议处置：升格 Tier 2 / 并入已有 case（扩 compat）/ 仅 postmortem 转正
+
+## Groom 评估（机器可读 provenance）
+
+<!-- 由 groom 产出：把 `python3 scripts/groom_record.py --pr-marker --draft-key <key>` 的输出原样贴在下面。
+     不要手改 assessed_commit / candidate_case / human_decision；合入前复核与 CI 读这段注释。 -->
+
+```text
+（粘贴 groom-assessment 注释）
+```
 
 ## Agent 预核意见（**由独立 agent 产出**；作者不得代填；低风险改动可留空）
 

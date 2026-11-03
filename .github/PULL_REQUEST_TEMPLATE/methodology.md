@@ -10,6 +10,7 @@ PR body 正文从首个 "## " 区块开始。
 <!-- 三行以内，一行一件事：为什么现在做（触发现象与出处）→ 不做会怎样 → 做完哪一点不一样。
      触发写现象与出处（读数、错例、反馈记录、上级要求），不写"为了优化"。
      论证与数据在后面的区块，这里不复述。
+     这三行开工时先写进本次任务记录（目录用 `python3 scripts/shared_dir.py proposals-tasks` 取，运行时件不进 git），PR 时原样复制过来；收尾现编的会写成过程叙述。
      写工程师能直接读的话：短句、动词开头、给具体事实或读数；不用比喻与自造缩写，也不写自我评价（如「已如实标注」）。 -->
 
 - 触发：
@@ -46,7 +47,7 @@ PR body 正文从首个 "## " 区块开始。
 - [ ] 改动前跑了 golden 套件，基线：N 条通过
 - [ ] 改动后重跑，原通过项无一变为失败
 - [ ] **若改动了 `eval/golden/**` 或它指向的 case**：按「更新 fixture 头注 → `python3 scripts/eval_scorecard.py --build` → 账本随夹具同 PR 提交」记账；自查跑 `--check`（CI `eval-scorecard` 会验夹具哈希，夹具改了不重建账本即红）
-- [ ] **本改动对应的 EV 卡带可复现判据**（`predicted_effect.measure`：命令 + 期望，或如实声明不可度量）——reviewer 用 `python3 scripts/ev_measure.py <card-id> --run` 机械复核，不必开全文
+- [ ] **本改动对应的记录**：有卡时贴卡号与 `predicted_effect.measure`（命令 + 期望，或如实声明不可度量），reviewer 用 `python3 scripts/ev_measure.py <card-id> --run` 机械复核；`record-only` 部署改为贴信号台账条目（`proposals/signals/<文件>`），reviewer 按 `evidence` + `trajectory` 复核现象
 - [ ] **若触及输出契约 / 交互形态**（输出模板、结论呈现、追问链形态）：附**盲辨对照**（同问题新旧输出各一份、去掉来源、交不知情者判"哪份更清楚 / 更不像模板"），或说明为何不需要——此类改动的成败是主观的，无对照无法排除"只是换了措辞"；强度为**约定**，由 reviewer 核
 - [ ] **若改动交接包链路**（`scripts/export_trace.py` / `import_trace.py` / `docs/guide/handoff.md`）：
       `python3 scripts/check_handoff.py` 末行「全部通过」。该检查**不进 CI**（新检查尚无复发记录，

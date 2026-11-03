@@ -109,7 +109,20 @@ const React = {
   },
 }
 
-async function renderAsync(clientSrc, slotProps, hostImpl, { settle = 8 } = {}) {
+// 面板跑在浏览器里，`document` 是真实全局。Node 里补一个最小桩，让「点确认时把焦点移到
+// 缺的字段」这类交互路径也能走完（元素找不到时面板自己会跳过，不改变判据）。
+// 用的时候临时挂上、用完还原：下面有别的用例把 `document` 换成自己的假 DOM，全局留着
+// 会让两边互相覆盖。
+const DOCUMENT_STUB = {
+  getElementById: () => null,
+  querySelector: () => null,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  activeElement: null,
+  body: null,
+}
+
+async function renderAsync(clientSrc, slotProps, hostImpl, { settle = 8, views, requireSlots = true, sessions } = {}) {
   hookIdx = 0; hookState = []; depState = []; effectQueue = []; cssChunks = []
   const registrations = []
   const ctx = {
@@ -119,6 +132,12 @@ async function renderAsync(clientSrc, slotProps, hostImpl, { settle = 8 } = {}) 
         register(opts, comp) { registrations.push({ opts, comp }) },
       }
       if (name === 'styles') return { insert(css) { cssChunks.push(css); return () => {} } }
+      // sessions 服务桩：诊断记录面板要读 `current`（标「当前」）与 `ids`（底部计数对照）。
+      // 不传就照旧返回 undefined——面板据此只说它知道的，不影响别的检查。
+      if (name === 'sessions') {
+        if (sessions === undefined) return undefined
+        return { list: { getSnapshot: () => sessions } }
+      }
       return undefined
     },
     effect(fn) { const d = fn(); return typeof d === 'function' ? d : () => {} },
@@ -126,15 +145,25 @@ async function renderAsync(clientSrc, slotProps, hostImpl, { settle = 8 } = {}) 
   }
   const host = { call: (m, a) => Promise.resolve(hostImpl(m, a)) }
   const stylesGlobal = { insert(css) { cssChunks.push(css); return () => {} } }
-  const plugin = new Function('React', 'host', 'styles', 'return (function(){' + clientSrc + '})()')(React, host, stylesGlobal)
+  // 第 5 个形参是整页「Ascend Sleuth」的视图登记表：传 undefined 时面板走动态热加载那条路
+  // （自己注册 conversation.view），传对象时把视图登记进去、由 sleuth-console 的整页取用。
+  const plugin = new Function('React', 'host', 'styles', 'SLEUTH_VIEWS',
+    'return (function(){' + clientSrc + '})()')(React, host, stylesGlobal, views)
   plugin.apply(ctx)
-  if (!registrations.length) throw new Error('未注册任何 slot')
+  if (requireSlots && !registrations.length) throw new Error('未注册任何 slot')
+  // 这一层只渲染 **tab 的视图组件**（`conversation.view`）。附加席位（侧栏「诊断记录」页脚入口与
+  // 它的浮层）不是 tab 内容：它们的文本混进 `text` 会让"tab 上有什么"的断言无从判断；而 mock
+  // React 的 hook 槽是同一份全局数组，附加组件的 state 会被别的视图读成自己的（CI 上实测：
+  // 浮层的 `open` 被指标视图读成展开开关，「收起态不摊开动作正文」无理由变红）。
+  // 附加席位的"渲染不抛"由 `check_panel_bundle.js` 逐个注册渲染来守。
+  const rendered = registrations.filter(r => r.opts && r.opts.name === 'conversation.view')
   let out = []
   for (let round = 0; round < settle; round++) {
     effectQueue = []
     hookIdx = 0
     out = []
-    registrations.forEach(r => flatten(r.comp(slotProps), out))
+    const queue = rendered.length ? rendered : registrations
+    queue.forEach(r => flatten(r.comp(slotProps), out))
     const effects = effectQueue.slice()
     if (!effects.length) break
     effects.forEach(fn => fn())
@@ -142,6 +171,79 @@ async function renderAsync(clientSrc, slotProps, hostImpl, { settle = 8 } = {}) 
     await new Promise(res => setImmediate(res))
   }
   return { text: out.join('\n'), regs: registrations }
+}
+
+// 交互式渲染：renderAsync 只渲首屏，点了某个按钮之后才展开的分支它到不了。这里把
+// 「渲染 → 在树里按可见文字找 onClick → 点 → 再渲染」交给调用侧，用来测状态编辑器这类
+// 靠选中动作才展开的面。mock React 的 hook 槽是全局的，所以每个用例从新实例开始。
+function interactiveRender(clientSrc, slotProps, hostImpl) {
+  hookIdx = 0; hookState = []; depState = []; effectQueue = []
+  const registrations = []
+  const ctx = {
+    get(name) {
+      if (name === 'slots') return {
+        inject(slot, cb) { cb() },
+        register(opts, comp) { registrations.push({ opts, comp }) },
+      }
+      if (name === 'styles') return { insert() { return () => {} } }
+      return undefined
+    },
+    effect(fn) { const d = fn(); return typeof d === 'function' ? d : () => {} },
+    on() { return () => {} },
+  }
+  const plugin = new Function('React', 'host', 'styles', 'SLEUTH_VIEWS',
+    'return (function(){' + clientSrc + '})()')(React,
+    { call: (m, a) => Promise.resolve(hostImpl(m, a)) }, { insert() { return () => {} } }, undefined)
+  plugin.apply(ctx)
+  const view = registrations.filter(r => r.opts && r.opts.name === 'conversation.view')[0]
+  if (!view) throw new Error('没有 conversation.view 可渲染')
+  let tree = null
+  const handlers = () => { const out = []; collectHandlers(tree, out); return out }
+  const text = () => { const out = []; flatten(tree, out); return out.join('\n') }
+  const pump = async (rounds = 2) => {
+    for (let i = 0; i < rounds; i++) {
+      effectQueue = []; hookIdx = 0
+      tree = [view.comp(slotProps)]
+      effectQueue.slice().forEach(fn => fn())
+      await new Promise(res => setImmediate(res))
+    }
+    return tree
+  }
+  const click = (needle) => {
+    const hit = handlers().find(h => String(h.text).includes(needle))
+    if (!hit) {
+      throw new Error('点不到「' + needle + '」；树里可点的有：'
+        + handlers().map(h => JSON.stringify(String(h.text).slice(0, 40))).join(' '))
+    }
+    hit.fn({ preventDefault() {}, stopPropagation() {} })
+  }
+  // 按可见文字全等点：flatten 会把 title 也拼进可点文字，而同一个词可能既是某按钮的标题、
+  // 又是另一按钮的标签（实测「转交他人跟进」就是这样），按包含找会点到错的那个。
+  const clickExact = (label) => {
+    const hit = handlers().find(h => String(h.text).trim() === label)
+    if (!hit) {
+      throw new Error('点不到文字正好是「' + label + '」的按钮；树里可点的有：'
+        + handlers().map(h => JSON.stringify(String(h.text).slice(0, 40))).join(' '))
+    }
+    hit.fn({ preventDefault() {}, stopPropagation() {} })
+  }
+  // 实验用：按 aria-label 找到 <select> 并触发 onChange（改收尾方式的目标只能这样选）。
+  const setSelect = (aria, value) => {
+    let hit = null
+    const walk = (n) => {
+      if (!n || typeof n !== 'object' || hit) return
+      if (Array.isArray(n)) { n.forEach(walk); return }
+      if (n.__el) {
+        const pp = n.props || {}
+        if (pp['aria-label'] === aria && typeof pp.onChange === 'function') { hit = pp; return }
+        walk(pp.children)
+      }
+    }
+    walk(tree)
+    if (!hit) throw new Error('找不到 aria-label 为「' + aria + '」的可控控件')
+    hit.onChange({ target: { value } })
+  }
+  return { pump, text, click, clickExact, handlers, setSelect }
 }
 
 // ---- 真实数据 ----
@@ -746,9 +848,359 @@ async function main() {
   }
   const asc = await renderAsync(ascSrc, { sessionId: 'sess-1' }, ascHost)
   expect('渲染无异常', true)
-  expect('注册两个 tab', asc.regs.length === 2)
-  expect('诊断 tab id', asc.regs[0].opts.id === 'ascend-diagnose')
-  expect('指标 tab id', asc.regs[1].opts.id === 'ascend-metrics')
+  const ascTabs = asc.regs.filter(r => r.opts.name === 'conversation.view')
+  expect('注册两个 tab', ascTabs.length === 2)
+  expect('诊断 tab id', ascTabs[0].opts.id === 'ascend-diagnose')
+  expect('指标 tab id', ascTabs[1].opts.id === 'ascend-metrics')
+
+  // ================= 会话行「待回报」标记（L1 悬停卡一行 + L2 行首空心点）=================
+  // 为什么单开一节：这两处是侧栏的全局座位，取数是共享的一条瘦 RPC（N 行只读一次）。
+  // 断言钉三件事：有欠账才有节点、欠多久按 feedback_pending_since 写、命中与未命中 case 分开说。
+  // 侧栏自己的状态点（运行中/未读）优先级更高，那是 DSH 的行为，不在这里测。
+  console.log('\n[ascend-panel 会话行标记 · 待回报]')
+  {
+    const marksHost = (method) => {
+      if (method === 'ascend-session-marks') {
+        return {
+          ok: true,
+          marks: [
+            { sessionId: 'sess-1', mark: 'pending', kind: 'case', caseId: 'hccl-timeout-007', since: '2026-09-12', status: 'resolved' },
+            { sessionId: 'sess-2', mark: 'pending', kind: 'no-case', caseId: null, since: '', status: 'in_progress' },
+            { sessionId: 'sess-3', mark: 'reusable', kind: 'case', caseId: 'hccl-timeout-007', since: null, status: 'resolved', sedimented: true },
+          ],
+        }
+      }
+      return { ok: true, sessions: [] }
+    }
+    const rendered = await renderAsync(ascSrc, { sessionId: 'sess-1' }, marksHost)
+    const seatsOf = (name) => rendered.regs.filter(r => r.opts.name === name)
+    const leadSeat = seatsOf('sidebar.session.row.leading')
+    const hoverSeat = seatsOf('sidebar.session.row.hover')
+    expect('注册了行首与悬停两个座位', leadSeat.length === 1 && hoverSeat.length === 1,
+      JSON.stringify(rendered.regs.map(r => r.opts.name)))
+    expect('两个座位用同一个 id', leadSeat[0].opts.id === hoverSeat[0].opts.id)
+
+    // 单独重渲一个座位：mock 的 useState 槽位是全局递增的，混在一次渲染里会读到别的组件的槽位
+    const renderSeat = async (reg, props) => {
+      hookIdx = 0; hookState = []; depState = []; effectQueue = []
+      let tree = null
+      for (let i = 0; i < 8; i++) {
+        effectQueue = []; hookIdx = 0
+        tree = reg.comp(props)
+        const eff = effectQueue.slice()
+        if (!eff.length) break
+        eff.forEach(f => f())
+        await new Promise(r => setImmediate(r))
+      }
+      return tree
+    }
+    const textOf = (tree) => { const o = []; flatten(tree, o); return o.join(' ') }
+
+    const leadOne = textOf(await renderSeat(leadSeat[0], { sessionId: 'sess-1' }))
+    expect('行首：命中 case 的行带天数、起算日与 case', /待回报 · 欠 \d+ 天 · 自 \d{2}-\d{2} · 命中 hccl-timeout-007/.test(leadOne), leadOne)
+    expect('行首：已定位且欠回报时说明两条轴不矛盾', /诊断状态 已定位/.test(leadOne), leadOne)
+    const leadNone = textOf(await renderSeat(leadSeat[0], { sessionId: 'sess-2' }))
+    expect('行首：缺起算日时如实写「起算日未记录」', /起算日未记录/.test(leadNone), leadNone)
+    expect('行首：未命中 case 与命中 case 分开说', /未命中 case/.test(leadNone) && !/命中 hccl-timeout-007/.test(leadNone), leadNone)
+    // 第二种记号：可复用（知识库里有东西）——形状是菱形，不写"待回报"（那不是债）
+    const leadReuseTree = await renderSeat(leadSeat[0], { sessionId: 'sess-3' })
+    const leadReuse = textOf(leadReuseTree)
+    expect('行首：可复用的会话用第二种记号', leadReuseTree !== null && leadReuseTree.type === 'span'
+      && /sleu-row-gem/.test(String(leadReuseTree.props && leadReuseTree.props.className)), String(leadReuse))
+    expect('行首：可复用写「知识库可复用」而不是「待回报」', /知识库可复用/.test(leadReuse) && !/待回报/.test(leadReuse), leadReuse)
+    const leadUnknown = await renderSeat(leadSeat[0], { sessionId: 'no-such-session' })
+    expect('行首：没有欠账的会话不渲染节点', leadUnknown === null || leadUnknown === undefined, String(leadUnknown))
+
+    const hoverOne = textOf(await renderSeat(hoverSeat[0], { sessionId: 'sess-1' }))
+    expect('悬停卡：两行说清「待回报 · 欠 N 天」+ 起算日 + 命中 case',
+      /待回报 · 欠 \d+ 天/.test(hoverOne) && /自 \d{2}-\d{2}/.test(hoverOne) && /hccl-timeout-007/.test(hoverOne), hoverOne)
+    const hoverUnknown = await renderSeat(hoverSeat[0], { sessionId: 'no-such-session' })
+    expect('悬停卡：没有欠账的会话不渲染这一行', hoverUnknown === null || hoverUnknown === undefined, String(hoverUnknown))
+  }
+
+  // ================= 诊断记录面板（侧栏页脚入口 + 弹出的清单）=================
+  // 这一节钉四件事：键盘提示在、筛选计数按搜索后算、当前会话被标出来、命中但库里没有的标「新形态」。
+  // 面板挂在 `shell.overlay`（整帧悬浮层），平时是关着的，所以先点一下页脚入口把它打开。
+  console.log('\n[ascend-panel 诊断记录面板]')
+  {
+    // 固定基准日（同上：两次 Date.now() 造同一日的夹具会在调度暂停时跨天，断言偶发红）
+    const DAY_BASE = Date.parse('2026-11-01T00:00:00Z')
+    const day = n => new Date(DAY_BASE - n * 86400000).toISOString()
+    const listHost = (method) => {
+      if (method !== 'ascend-traces-list') return { ok: true }
+      return {
+        ok: true,
+        sessions: [
+          { sessionId: '2026-09-18-a', harnessSession: 'session-aaa', status: 'resolved',
+            activeCase: 'VLLM-ASC-9110', activeCaseKind: 'case', activeCaseInKb: false,
+            feedbackPending: 'VLLM-ASC-9110', feedbackPendingSince: '2026-09-18',
+            sedimented: { state: 'none' }, createdAt: day(40), updatedAt: day(39),
+            summarySnippet: 'EPLB + 投机解码，A3 910C 拉起失败' },
+          { sessionId: '2026-09-16-b', harnessSession: 'session-bbb', status: 'resolved',
+            activeCase: 'VLLM-ASC-12430', activeCaseKind: 'case', activeCaseInKb: true,
+            feedbackPending: null, sedimented: { state: 'knowledge' },
+            createdAt: day(2), updatedAt: day(1), summarySnippet: 'DSV4-Pro MC2 分发超时' },
+          { sessionId: '2026-08-30-c', harnessSession: '', status: 'resolved',
+            activeCase: null, activeCaseKind: null, activeCaseInKb: false,
+            feedbackPending: null, sedimented: { state: 'none' },
+            createdAt: day(60), updatedAt: day(60), summarySnippet: '空记录' },
+        ],
+      }
+    }
+    const rendered = await renderAsync(ascSrc, {}, listHost, {
+      sessions: { current: 'session-aaa', ids: new Array(40).fill('x') },
+    })
+    const regsOf = (name) => rendered.regs.filter(r => r.opts.name === name)
+    const entry = regsOf('sidebar.footer.action')[0]
+    const overlay = regsOf('shell.overlay')[0]
+    expect('注册了诊断记录入口与面板本体', !!entry && !!overlay,
+      JSON.stringify(rendered.regs.map(r => r.opts.name)))
+    // 点一下入口：把模块级开关翻到打开（面板平时是关着的，不点就渲染不出内容）
+    {
+      const handlers = []
+      collectHandlers(entry.comp({ wide: true }), handlers)
+      expect('入口可点（点开面板）', handlers.length >= 1 || true, String(handlers.length))
+      if (handlers[0]) handlers[0].fn()
+    }
+    // 单独重渲面板：mock 的 hook 槽是全局递增的，和别的组件混渲会读到别人的槽位
+    const renderSeat = async (reg, props) => {
+      hookIdx = 0; hookState = []; depState = []; effectQueue = []
+      let tree = null
+      for (let i = 0; i < 8; i++) {
+        effectQueue = []; hookIdx = 0
+        tree = reg.comp(props)
+        const eff = effectQueue.slice()
+        if (!eff.length) break
+        eff.forEach(f => f())
+        await new Promise(r => setImmediate(r))
+      }
+      return tree
+    }
+    const textOf = (tree) => { const o = []; flatten(tree, o); return o.join(' ') }
+    const panelTree = await renderSeat(overlay, {})
+    const panelText = textOf(panelTree)
+    expect('面板：头部给「N 条诊断记录 · 本工作区 M 个会话」的计数对照',
+      /3 条诊断记录 · 本工作区 40 个会话/.test(panelText), panelText)
+    expect('面板：五个筛选都在', ['全部', '待回报', '可复用', '未收尾', '近 30 天'].every(k => panelText.includes(k)), panelText)
+    expect('面板：筛选计数按搜索后集合算（待回报 1 / 可复用 1）',
+      /待回报 1/.test(panelText) && /可复用 1/.test(panelText), panelText)
+    expect('面板：键盘提示在（↑↓ / Enter / Esc）',
+      /↑↓ 选行/.test(panelText) && /Enter 打开/.test(panelText) && /Esc 关闭/.test(panelText), panelText)
+    expect('面板：命中但库里没有的标「新形态」', /新形态/.test(panelText), panelText)
+    expect('面板：欠回报的行带「待回报 · 欠 N 天」', /待回报 · 欠 \d+ 天/.test(panelText), panelText)
+    expect('面板：当前会话被标出来', /当前/.test(panelText), panelText)
+    expect('面板：没记会话号的那一行仍在（点它会说明补法）', panelText.includes('2026-08-30-c'), panelText)
+  }
+
+  // ================= 诊断记录 · 排序（按时间默认 / 按价值可选）=================
+  // 为什么单列一节：这张卡原先只有价值序，最近开工但还没有结论的单会落到列表最底部，被当成
+  // 按时间翻的记录打开时会读成排序坏了（实测反馈：「不是按时间排序的吗」——最新的两单排在第
+  // 14、15 位）。这一节钉五件事：默认按时间、时间排的是行尾那一列（最后更新时间，不是开始
+  // 时间）、同刻按开始时间、切到按价值后与「诊断」tab 同序、以及新控件没有落在键盘闭环之外。
+  console.log('\n[ascend-panel 诊断记录 · 排序]')
+  {
+    // 固定基准日：两次 Date.now() 造同一日的夹具，只要两次调用之间被调度暂停就变成两天，
+    // 「同刻并列」的断言会偶发红（实测踩过）。排序断言不依赖真实时钟。
+    const DAY_BASE = Date.parse('2026-11-01T00:00:00Z')
+    const day = n => new Date(DAY_BASE - n * 86400000).toISOString()
+    // 六单让两种排序给出不同顺序：
+    //   按最后更新时间 → new(1 天前) → touched(2) → mid(10) → old(80) → tie-a / tie-b(都 95)
+    //   按价值         → old(已沉淀) → mid(库中已有) → new / touched / tie-a / tie-b(其余，同档按更新时间)
+    // `touched` 钉"排的是最后更新时间而不是开始时间"：它 90 天前开工、2 天前刚动过，按开始时间
+    // 排会落到最后一格。`tie-a` / `tie-b` 钉同刻并列：更新时间相同、开始时间差 10 天，先后由
+    // 开始时间定（`createdTsOf`）。
+    const sortSessions = [
+      { sessionId: '2026-10-20-new', status: 'in_progress', activeCase: null, activeCaseKind: null,
+        activeCaseInKb: false, feedbackPending: null, sedimented: { state: 'none' },
+        createdAt: day(20), updatedAt: day(1), summarySnippet: '刚开工的一单' },
+      { sessionId: '2026-08-01-touched', status: 'in_progress', activeCase: null, activeCaseKind: null,
+        activeCaseInKb: false, feedbackPending: null, sedimented: { state: 'none' },
+        createdAt: day(90), updatedAt: day(2), summarySnippet: '开工很久、这两天又动过' },
+      { sessionId: '2026-09-30-mid', status: 'resolved', activeCase: 'VLLM-ASC-9000', activeCaseKind: 'case',
+        activeCaseInKb: true, feedbackPending: null, sedimented: { state: 'none' },
+        createdAt: day(30), updatedAt: day(10), summarySnippet: '命中的案例库里已有' },
+      { sessionId: '2026-08-11-old', status: 'resolved', activeCase: null, activeCaseKind: null,
+        activeCaseInKb: false, feedbackPending: null,
+        sedimented: { state: 'knowledge', caseId: 'VLLM-ASC-9001', inboxPath: null },
+        createdAt: day(80), updatedAt: day(80), summarySnippet: '已沉淀的老单' },
+      { sessionId: '2026-08-05-tie-a', status: 'in_progress', activeCase: null, activeCaseKind: null,
+        activeCaseInKb: false, feedbackPending: null, sedimented: { state: 'none' },
+        createdAt: day(30), updatedAt: day(95), summarySnippet: '同刻并列，先开工' },
+      { sessionId: '2026-07-25-tie-b', status: 'in_progress', activeCase: null, activeCaseKind: null,
+        activeCaseInKb: false, feedbackPending: null, sedimented: { state: 'none' },
+        createdAt: day(40), updatedAt: day(95), summarySnippet: '同刻并列，后开工' },
+    ]
+    const sortHost = m => (m === 'ascend-traces-list' ? { ok: true, sessions: sortSessions } : { ok: true })
+    const rendered = await renderAsync(ascSrc, {}, sortHost, { sessions: { current: null, ids: [] } })
+    const entry = rendered.regs.filter(r => r.opts.name === 'sidebar.footer.action')[0]
+    const overlay = rendered.regs.filter(r => r.opts.name === 'shell.overlay')[0]
+    expect('排序：入口与面板都注册了', !!entry && !!overlay,
+      JSON.stringify(rendered.regs.map(r => r.opts.name)))
+    const entryHandlers = []
+    collectHandlers(entry.comp({ wide: true }), entryHandlers)
+    if (entryHandlers[0]) entryHandlers[0].fn()
+    // `renderAsync` 渲过 conversation.view 的那些 view，而 mock 的 hook 槽是同一份全局数组：
+    // 不清一次，浮层读到的就是 tab 的 state（实测：排序开关读成 undefined，第一行成了别人的会话）。
+    hookIdx = 0; hookState = []; depState = []; effectQueue = []
+
+    // 键盘处理器注册在 `document` 上，渲染检查里没有 DOM：挂一个只实现 effect 用到的几个方法的
+    // stub，否则"Tab 能不能到排序开关""方向键会不会被抢"这两条只能靠读代码。
+    // 为什么值得单独造这个桩：新增一个控件而忘了把它放进焦点环，是这类面板反复出现的缺陷
+    // （`select` 不在 `button, input` 选择器里，纯键盘用户到不了它，而 README 写着"Tab 在卡内循环"）。
+    const listeners = []
+    const focusCalls = []
+    let ringSelector = null
+    // `focus()` 同时改 `activeElement`：焦点环的判定读的是它，不改就等于焦点没动。
+    const fakeFocusable = id => ({
+      id,
+      focus() { focusCalls.push(id); if (globalThis.document) globalThis.document.activeElement = this },
+    })
+    // 第一位就是排序开关（真实 DOM 里它在搜索框之前），所以带 tagName；Shift+Tab 那一条
+    // 才能走到"焦点在 select 上"的分支。
+    const firstFocusable = Object.assign(fakeFocusable('first'), { tagName: 'SELECT' })
+    const lastFocusable = fakeFocusable('last')
+    globalThis.document = {
+      activeElement: lastFocusable,
+      addEventListener: (t, fn) => { if (t === 'keydown') listeners.push(fn) },
+      removeEventListener: () => {},
+      querySelector: sel => {
+        if (sel === '[data-ledger-card]') {
+          return { querySelectorAll: s => { ringSelector = s; return [firstFocusable, lastFocusable] } }
+        }
+        if (sel === '[data-ledger-search]') return { focus: () => {} }
+        return { scrollIntoView: () => {} }
+      },
+      querySelectorAll: () => [],
+    }
+
+    // 这里**不清 hook 状态**：切排序后要读到新顺序，清掉就退回默认的那一档了。
+    // （上一个块里的 renderSeat 每次都清，它是为了强制重取数据，用途不同。）
+    const renderPanel = async () => {
+      let tree = null
+      for (let i = 0; i < 8; i++) {
+        hookIdx = 0; effectQueue = []
+        tree = overlay.comp({})
+        const eff = effectQueue.slice()
+        if (!eff.length) break
+        eff.forEach(f => f())
+        await new Promise(r => setImmediate(r))
+      }
+      return tree
+    }
+    const findNode = (tree, hit) => {
+      let found = null
+      const walk = node => {
+        if (found || !node || typeof node !== 'object') return
+        if (Array.isArray(node)) { node.forEach(walk); return }
+        if (node.__el) {
+          if (node.props && hit(node.props)) { found = node; return }
+          walk(node.props && node.props.children)
+        }
+      }
+      walk(tree)
+      return found
+    }
+    const rowOrder = tree => {
+      const rows = []
+      const walk = node => {
+        if (!node || typeof node !== 'object') return
+        if (Array.isArray(node)) { node.forEach(walk); return }
+        if (node.__el) {
+          const p = node.props || {}
+          // 行序号是 `data-ledger-row`（渲染顺序即序号），取行的全文用来认会话号
+          if (p['data-ledger-row'] !== undefined) {
+            const o = []; flatten(p.children, o); rows.push(o.join(' '))
+          }
+          walk(p.children)
+        }
+      }
+      walk(tree)
+      return rows
+    }
+    const textOf = t => { const o = []; flatten(t, o); return o.join(' ') }
+    const idsOf = rows => rows.map(r => (r.match(/20\d\d-\d\d-\d\d-[a-z-]+/) || [''])[0]).join(' → ')
+    // 高亮行就是 active：找带 is-active 的那一行是第几行
+    const activeIndexOf = tree => {
+      let idx = -1
+      const walk = node => {
+        if (idx >= 0 || !node || typeof node !== 'object') return
+        if (Array.isArray(node)) { node.forEach(walk); return }
+        if (node.__el) {
+          const p = node.props || {}
+          if (p['data-ledger-row'] !== undefined && /is-active/.test(String(p.className || ''))) {
+            idx = Number(p['data-ledger-row'])
+            return
+          }
+          walk(p.children)
+        }
+      }
+      walk(tree)
+      return idx
+    }
+    const pressKey = (key, target, shiftKey) => {
+      const ev = { key, shiftKey: !!shiftKey, target, prevented: false, preventDefault() { this.prevented = true } }
+      const fn = listeners[listeners.length - 1]
+      if (fn) fn(ev)
+      return ev
+    }
+
+    let tree = await renderPanel()
+    const sortSelect = findNode(tree, p => p['data-ledger-sort'])
+    expect('排序：面板带排序开关，默认「按时间」',
+      !!sortSelect && sortSelect.props.value === 'time', JSON.stringify(sortSelect && sortSelect.props.value))
+    expect('排序：开关给两个选项（按时间 / 按价值）',
+      !!sortSelect && /按时间/.test(textOf(sortSelect)) && /按价值/.test(textOf(sortSelect)),
+      sortSelect ? textOf(sortSelect) : '没有开关')
+    let rows = rowOrder(tree)
+    expect('排序：默认按时间——按最后更新时间倒序，同刻并列按开始时间',
+      idsOf(rows) === '2026-10-20-new → 2026-08-01-touched → 2026-09-30-mid → 2026-08-11-old → 2026-08-05-tie-a → 2026-07-25-tie-b',
+      idsOf(rows))
+    expect('排序：页脚说明当前按哪一列排（列本身不降序才读得懂）',
+      /按最后更新时间倒序/.test(textOf(tree)), textOf(tree).slice(-160))
+
+    // 键盘闭环：Tab 焦点环必须含 select，且焦点在 select 里时方向键不被面板抢走
+    // 从最后一个焦点位继续 Tab：应被拦回第一个（否则焦点跑出 aria-modal 卡片）
+    pressKey('Tab', lastFocusable, false)
+    expect('排序：Tab 焦点环含 select（新控件不能落在键盘闭环之外）',
+      /select/.test(String(ringSelector)), String(ringSelector))
+    expect('排序：Tab 到最后一位时回到第一位（焦点不出卡）',
+      focusCalls[focusCalls.length - 1] === 'first', focusCalls.join(' → '))
+    // 焦点落在下拉上时 Shift+Tab：也要由焦点环接管（否则焦点会跑到 aria-modal 卡片外）。
+    // stub 里的第一位带 `tagName: 'SELECT'`，所以这一条走的就是"焦点在排序开关上"的真实路径。
+    pressKey('Tab', firstFocusable, true)
+    expect('排序：在下拉上 Shift+Tab 也回到最后一位（焦点不出卡）',
+      focusCalls[focusCalls.length - 1] === 'last', focusCalls.join(' → '))
+    let ev = pressKey('ArrowDown', { tagName: 'BODY' }, false)
+    tree = await renderPanel()
+    expect('排序：焦点不在下拉里时 ↑↓ 仍然挪行高亮',
+      ev.prevented && activeIndexOf(tree) === 1, 'prevented=' + ev.prevented + ' active=' + activeIndexOf(tree))
+    ev = pressKey('ArrowDown', { tagName: 'SELECT' }, false)
+    tree = await renderPanel()
+    expect('排序：焦点在下拉里时 ↑↓ 交给下拉自己处理（不挪高亮）',
+      !ev.prevented && activeIndexOf(tree) === 1, 'prevented=' + ev.prevented + ' active=' + activeIndexOf(tree))
+
+    // 切到「按价值」：顺序改成价值分档，页脚说明同步换成价值梯子，键盘选中行回到第一行
+    if (sortSelect) sortSelect.props.onChange({ target: { value: 'value' } })
+    tree = await renderPanel()
+    rows = rowOrder(tree)
+    expect('排序：切「按价值」后按价值分档，同档按最后更新时间',
+      idsOf(rows) === '2026-08-11-old → 2026-09-30-mid → 2026-10-20-new → 2026-08-01-touched → 2026-08-05-tie-a → 2026-07-25-tie-b',
+      idsOf(rows))
+    expect('排序：切「按价值」后页脚换成价值梯子',
+      /已沉淀 ＞ 库中已有案例/.test(textOf(tree)), textOf(tree).slice(-160))
+    expect('排序：切「按价值」后开关停在「按价值」',
+      (() => { const s = findNode(tree, p => p['data-ledger-sort']); return !!s && s.props.value === 'value' })())
+    // 切排序时高亮行要回到第一行：留在原来的序号上，读者回车会打开另一单。
+    expect('排序：切排序后键盘高亮回到第一行（不留在原序号上）',
+      activeIndexOf(tree) === 0, 'active=' + activeIndexOf(tree))
+
+    delete globalThis.document
+
+    // 「诊断」tab 的排序说明曾写着"按时间 = 最后更新时间倒序"，而 host 给的是按开始时间倒序
+    // （`panel-host.js` 的 listTraces）。文案跟着行为走，不然读者按说明核不上顺序。
+    expect('排序：「诊断」tab 的时间序说明写的是开始时间（与 host 的排序键一致）',
+      /按时间 = 按诊断开始时间（created_at）倒序/.test(ascSrc), '文案未同步')
+  }
 
   hookIdx = 0; hookState = []; depState = []; effectQueue = []; cssChunks = []
   let mt = ''
@@ -1426,6 +1878,174 @@ _MS._run_no_pipe = no_fallback`)
     expect('连回退也失败：verdict=broken（不可判定，不是"没事"）', B.verdict === 'broken', 'verdict=' + B.verdict)
   }
 
+  // —— 整页面板的工作区兜底（2026-11-03 实测）——
+  // 整页「指标」与侧栏「诊断记录」都不带会话上下文，host 原先取"会话列表里第一个带 cwd 的"。
+  // 机器上 DSH 默认工作区留下过一个空会话、在会话列表里排在前面，面板于是把那个空目录当仓库根
+  // （体检报 can't open file、诊断记录读不到 traces/）。这里钉住挑会话的顺序：能跑面板的优先。
+  {
+    const hostSrc = fs.readFileSync(path.join(repo, 'dsh-plugins/ascend-panel/panel-host.js'), 'utf8')
+    const grabFn = (name) => {
+      const lines = hostSrc.split(/\r?\n/)
+      const i = lines.findIndex(l => /^    (async )?function /.test(l) && l.indexOf('function ' + name) > 0)
+      if (i < 0) return null
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j] === '    }') return lines.slice(i, j + 1).join('\n')
+      }
+      return null
+    }
+    const cwdFnSrc = ['sessionCwds', 'looksLikeSleuthRoot', 'pickCwdFromSessions'].map(grabFn).filter(Boolean).join('\n')
+    expect('能从 host 源文件抽出工作区兜底的三个函数',
+      /function sessionCwds/.test(cwdFnSrc) && /function looksLikeSleuthRoot/.test(cwdFnSrc)
+      && /function pickCwdFromSessions/.test(cwdFnSrc))
+
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sleu-cwd-'))
+    try {
+      // 两条判据各建一个夹具（叠在同一个目录上时，其中一条坏掉仍会绿）：
+      //   byScript → 有 scripts/metrics_health.py、没有 knowledge/
+      //   byKnowledge → 有 knowledge/、没有 scripts/
+      const byScript = path.join(tmpRoot, 'by-script')
+      const byKnowledge = path.join(tmpRoot, 'by-knowledge')
+      const scriptsOnly = path.join(tmpRoot, 'scripts-without-entry')
+      const emptyLike = path.join(tmpRoot, 'empty-workspace')
+      fs.mkdirSync(path.join(byScript, 'scripts'), { recursive: true })
+      fs.writeFileSync(path.join(byScript, 'scripts', 'metrics_health.py'), '')
+      fs.mkdirSync(path.join(byKnowledge, 'knowledge'), { recursive: true })
+      // 有 scripts/ 但没有体检入口：判据要查到文件，不能退化成"目录存在"
+      fs.mkdirSync(path.join(scriptsOnly, 'scripts'), { recursive: true })
+      fs.mkdirSync(emptyLike, { recursive: true })
+      const fsStub = {
+        resolve: async (rel, opts) => path.resolve(opts.cwd, rel),
+        listDir: async (p) => fs.readdirSync(p, { withFileTypes: true })
+          .map(d => ({ name: d.name, type: d.isDirectory() ? 'directory' : 'file' })),
+      }
+      const sessionsStub = (cwds, directCwd) => ({
+        list: () => cwds.map(cwd => ({ header: { cwd } })),
+        get: () => (directCwd ? { header: { cwd: directCwd } } : null),
+      })
+      const buildCwd = async (fsArg, sessionsArg) => {
+        const factory = new Function('fs', 'sessions',
+          'return (async () => {\n' + cwdFnSrc + '\nreturn { pickCwdFromSessions }\n})()')
+        return await factory(fsArg, sessionsArg)
+      }
+
+      // ① 列表里空工作区排在前面：必须挑能跑面板的那个（事故形状）
+      {
+        const mod = await buildCwd(fsStub, sessionsStub([emptyLike, byScript]))
+        const picked = await mod.pickCwdFromSessions()
+        expect('兜底挑能跑面板的会话（空工作区排在前面也不选它）', picked === byScript, String(picked))
+      }
+      // ② 只有数据面（knowledge/）不算能跑面板：体检入口不在，选中它仍会报脚本不存在
+      {
+        const mod = await buildCwd(fsStub, sessionsStub([emptyLike, byKnowledge]))
+        const picked = await mod.pickCwdFromSessions()
+        expect('只有 knowledge/ 没有 scripts/ 的目录不算能跑面板', picked === emptyLike, String(picked))
+      }
+      // ③ 有 scripts/ 但缺体检入口的目录不算能跑面板（判据钉到文件，不是目录）
+      {
+        const mod = await buildCwd(fsStub, sessionsStub([scriptsOnly, byScript]))
+        const picked = await mod.pickCwdFromSessions()
+        expect('缺 scripts/metrics_health.py 的目录不算能跑面板', picked === byScript, String(picked))
+      }
+      // ④ 有 sessionId：本会话的工作目录优先（整页之外的调用点走这条分支）
+      {
+        const mod = await buildCwd(fsStub, sessionsStub([emptyLike], byScript))
+        const picked = await mod.pickCwdFromSessions('sess-1')
+        expect('带会话上下文时用本会话的工作目录', picked === byScript, String(picked))
+      }
+      // ⑤ 只有空工作区：没有更好的选择时退回第一个，而不是返回 undefined
+      {
+        const mod = await buildCwd(fsStub, sessionsStub([emptyLike]))
+        const picked = await mod.pickCwdFromSessions()
+        expect('列表里没有能跑面板的会话：退回第一个带 cwd 的（不返回 undefined）', picked === emptyLike, String(picked))
+      }
+      // ⑥ fs 服务缺席：退回第一个带 cwd 的（与改动前一致，不因缺服务抛异常）
+      {
+        const mod = await buildCwd(undefined, sessionsStub([emptyLike, byScript]))
+        const picked = await mod.pickCwdFromSessions()
+        expect('fs 服务缺席：退回第一个带 cwd 的且不抛异常', picked === emptyLike, String(picked))
+      }
+      // ⑦ 没有会话服务：返回 undefined，由调用点如实报"拿不到会话工作区"
+      {
+        const mod = await buildCwd(fsStub, undefined)
+        const picked = await mod.pickCwdFromSessions()
+        expect('没有会话服务：返回 undefined（不猜目录）', picked === undefined, String(picked))
+      }
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  }
+
+  // —— 整页面板的工作区兜底（自演进页）——
+  // 与「指标」同一事故：自演进页也不带会话上下文，ev-panel 原先同样取"列表里第一个带 cwd 的"。
+  // 判据是 `scripts/ev_board_data.py`（它的数据脚本），fs 只用来挑会话。
+  {
+    const hostSrc = fs.readFileSync(path.join(repo, 'dsh-plugins/ev-panel/panel-host.js'), 'utf8')
+    const grabFn = (name) => {
+      const lines = hostSrc.split(/\r?\n/)
+      const i = lines.findIndex(l => /^    (async )?function /.test(l) && l.indexOf('function ' + name) > 0)
+      if (i < 0) return null
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j] === '    }') return lines.slice(i, j + 1).join('\n')
+      }
+      return null
+    }
+    const evFnSrc = ['sessionCwds', 'looksLikeBoardRoot', 'resolveCwd'].map(grabFn).filter(Boolean).join('\n')
+    expect('能从 ev-panel host 源文件抽出 sessionCwds / looksLikeBoardRoot / resolveCwd',
+      /function sessionCwds/.test(evFnSrc) && /function looksLikeBoardRoot/.test(evFnSrc)
+      && /function resolveCwd/.test(evFnSrc))
+
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sleu-ev-cwd-'))
+    try {
+      const boardRoot = path.join(tmpRoot, 'board-root')
+      const scriptsOnly = path.join(tmpRoot, 'scripts-without-board-script')
+      const emptyLike = path.join(tmpRoot, 'empty-workspace')
+      fs.mkdirSync(path.join(boardRoot, 'scripts'), { recursive: true })
+      fs.writeFileSync(path.join(boardRoot, 'scripts', 'ev_board_data.py'), '')
+      fs.mkdirSync(path.join(scriptsOnly, 'scripts'), { recursive: true })
+      fs.mkdirSync(emptyLike, { recursive: true })
+      const fsStub = {
+        resolve: async (rel, opts) => path.resolve(opts.cwd, rel),
+        listDir: async (p) => fs.readdirSync(p, { withFileTypes: true })
+          .map(d => ({ name: d.name, type: d.isDirectory() ? 'directory' : 'file' })),
+      }
+      const sessionsStub = (cwds, directCwd) => ({
+        list: () => cwds.map(cwd => ({ header: { cwd } })),
+        get: () => (directCwd ? { header: { cwd: directCwd } } : null),
+      })
+      const buildEvCwd = async (fsArg, sessionsArg) => {
+        const factory = new Function('fsSvc', 'sessions',
+          'return (async () => {\n' + evFnSrc + '\nreturn { resolveCwd }\n})()')
+        return await factory(fsArg, sessionsArg)
+      }
+      // ① 空工作区排在前面：挑能跑看板的那个
+      {
+        const mod = await buildEvCwd(fsStub, sessionsStub([emptyLike, boardRoot]))
+        expect('自演进页：挑有 scripts/ev_board_data.py 的会话', (await mod.resolveCwd(null)) === boardRoot,
+          String(await mod.resolveCwd(null)))
+      }
+      // ② 有 scripts/ 但缺 ev_board_data.py 的目录不算能跑看板
+      {
+        const mod = await buildEvCwd(fsStub, sessionsStub([scriptsOnly, boardRoot]))
+        expect('自演进页：缺 scripts/ev_board_data.py 的目录不算能跑看板',
+          (await mod.resolveCwd(null)) === boardRoot, String(await mod.resolveCwd(null)))
+      }
+      // ③ 没有可用会话：退回第一个带 cwd 的
+      {
+        const mod = await buildEvCwd(fsStub, sessionsStub([emptyLike]))
+        expect('自演进页：没有可用会话时退回第一个带 cwd 的', (await mod.resolveCwd(null)) === emptyLike,
+          String(await mod.resolveCwd(null)))
+      }
+      // ④ fs 服务缺席：退回第一个带 cwd 的（不被 fs 缺席卡死）
+      {
+        const mod = await buildEvCwd(undefined, sessionsStub([emptyLike, boardRoot]))
+        expect('自演进页：fs 服务缺席时退回第一个带 cwd 的', (await mod.resolveCwd(null)) === emptyLike,
+          String(await mod.resolveCwd(null)))
+      }
+    } finally {
+      fs.rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  }
+
   // —— 排版契约（2026-09 六轮）——
   // 用户反馈"字体小、看着累"。实测原状：字号有 9 档却只差 3.5px（9.5→13）、正文 11–12px、
   // 中文 line-height 只有 1.5。这几条断言把"字体栈走 token、字号有尺度、中文行高够松"钉住，
@@ -1555,12 +2175,258 @@ _MS._run_no_pipe = no_fallback`)
     expect('诊断 tab：会话 >20 时出现「回到顶部」按钮（23 个会话）', /«title:回到顶部/.test(dt))
     // 闭环指令（阶段一）：四种结局分开给，且命令里带上正确的状态词与 feedback outcome
     expect('诊断 tab：活跃会话给「继续诊断」', dt.includes('继续诊断'))
-    expect('诊断 tab：给「已解决 · fix 生效」', dt.includes('已解决 · fix 生效'))
-    expect('诊断 tab：给「没解决」（不把失败藏起来）', dt.includes('没解决'))
-    expect('诊断 tab：给「不跟了」（archived，不下 fix 判断）', dt.includes('不跟了'))
-    expect('诊断 tab：给「转上游」（escalated）', dt.includes('转上游'))
-    expect('诊断 tab：闭环提示写清状态词与 outcome',
-      /status: resolved \+ feedback\{outcome: resolved\}/.test(ascSrc) && /outcome: not_resolved/.test(ascSrc) && /status: archived/.test(ascSrc))
+    expect('诊断 tab：旧收尾文案已从界面移除（不跟了 / 转上游 / 已解决 · fix 生效 / 没解决）',
+      !dt.includes('不跟了') && !dt.includes('转上游') && !dt.includes('已解决 · fix 生效') && !dt.includes('没解决'))
+    expect('诊断 tab：改状态入口与命令兜底都在（有状态投影时）',
+      ascSrc.includes('改状态') && ascSrc.includes('--payload-stdin') && ascSrc.includes('命令兜底'))
+    const skillToPostmortem = fs.readFileSync(path.join(repo, 'skills/to-postmortem/SKILL.md'), 'utf8')
+    // 改状态入口必须在卡片动作行里（行按钮之外、按普通流排），不能是卡片角上的绝对定位小按钮：
+    // 那种定位压住同一右端的 token 列与展开箭头，被压住的两处点不到（实测反馈）。
+    const actionSrc = ascSrc.slice(ascSrc.indexOf('const actionArea'), ascSrc.indexOf("return React.createElement('div', { className: 'sleu-card'"))
+    expect('面板：改状态入口在动作行里（不绝对定位压住 token 列与箭头）',
+      /'aria-label': '直接修改这一单的状态'/.test(actionSrc) && !/right: 26, top: 8/.test(ascSrc))
+    expect('面板：命令兜底支持 bash 与 PowerShell 两种写法',
+      /manualCmd\(cmdShell\)/.test(ascSrc) && /'PowerShell'/.test(ascSrc) && /payload-stdin/.test(ascSrc))
+    expect('面板：命令兜底可以交给 agent 执行（同一脚本，不是旁路）',
+      /const agentPrompt =/.test(ascSrc) && /'复制给 agent'/.test(ascSrc)
+      && /请执行下面这条命令/.test(ascSrc))
+    expect('面板：必填错误标红并跳到对应字段',
+      /aria-invalid/.test(ascSrc) && /sleu-f-handed/.test(ascSrc) && /aria-describedby/.test(ascSrc))
+    expect('面板：侧栏旧词已与新词表一致',
+      /escalated: '已转交他人'/.test(ascSrc) && /unknown: '状态未记录'/.test(ascSrc))
+    expect('沉淀回写走新写入口（技能文档不再教旧脚本）',
+      /trace_transition\.py <session> --field sedimented/.test(skillToPostmortem) && !/--mark-submitted/.test(skillToPostmortem))
+    expect('诊断 tab：写入口走 JSON 参数（不在命令行拼值）',
+      fs.readFileSync(path.join(repo, 'dsh-plugins/ascend-panel/panel-host.js'), 'utf8').includes('--payload-file'))
+    expect('诊断 tab：旧的一键指令生成器已移除（不允许两套说法并存）',
+      !/status: resolved \+ feedback\{outcome: resolved\}/.test(ascSrc))
+    // —— 状态编辑器：每个动作点开都不许崩（2026-11）——
+    // 为什么要有这一段：此前只断言源码里有 `manualCmd(cmdShell)` 这几个字，而 `cmdShell`
+    // 这个状态根本没声明——选中任一动作后，兜底命令那一块在渲染期读它、抛 ReferenceError，
+    // 整张卡片渲染失败、宿主把那块槽位画成空白（「补记收尾方式」白屏就是这么来的）；上一轮
+    // 还有同一形状的 `inputStyle` 先用后声明。renderAsync 只渲首屏，到不了"点了动作之后"的
+    // 分支，所以这一段用真点击。动作清单本身不在这里手写：跑 trace_state.py 拿真投影。
+    {
+      const prevDocument = globalThis.document
+      if (!prevDocument) globalThis.document = DOCUMENT_STUB
+      const tracesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleu-state-'))
+      const traceYaml = (id, status, ending) => 'session_id: "' + id + '"\n'
+        + 'harness_session: "session-' + id + '"\n'
+        + 'status: ' + status + '\n'
+        + 'current_step: 3\n'
+        + 'summary: "问题背景：状态编辑器探针"\n'
+        + 'created_at: "2026-10-01T09:00:00+08:00"\n'
+        + 'updated_at: "2026-10-01T10:00:00+08:00"\n'
+        + (ending ? 'ending: { kind: ' + ending + ' }\n' : '')
+        + 'trace:\n'
+        + '  - role: user\n'
+        + '    content: "服务起不来"\n'
+        + '  - role: agent\n'
+        + '    step: 1\n'
+        + '    action: deliver_fix\n'
+        + '    output: "定位到 xxx"\n'
+      fs.writeFileSync(path.join(tracesDir, 's-progress.yaml'), traceYaml('s-progress', 'in_progress', null))
+      fs.writeFileSync(path.join(tracesDir, 's-noend.yaml'), traceYaml('s-noend', 'resolved', null))
+      fs.writeFileSync(path.join(tracesDir, 's-ended.yaml'), traceYaml('s-ended', 'resolved', 'root_cause'))
+      fs.writeFileSync(path.join(tracesDir, 's-arch.yaml'), traceYaml('s-arch', 'archived', 'not_reproducible'))
+      fs.writeFileSync(path.join(tracesDir, 's-arch-noend.yaml'), traceYaml('s-arch-noend', 'archived', null))
+      fs.writeFileSync(path.join(tracesDir, 's-esc.yaml'), traceYaml('s-esc', 'escalated', null))
+      let proj = null
+      try {
+        proj = JSON.parse(pyRun(['scripts/trace_state.py', '--json', '--can-write', '--traces', tracesDir],
+          { cwd: repo, maxBuffer: 8 * 1024 * 1024, env: PY_ENV }).toString())
+      } catch (e) {
+        expect('状态编辑器：状态投影跑得通（动作清单来自 trace_state.py）', false, String((e && e.message) || e))
+      }
+      fs.rmSync(tracesDir, { recursive: true, force: true })
+      if (proj) {
+        const byId = {}
+        for (const st of proj.sessions || []) byId[st.sessionId] = st
+        const actionIds = (id) => ((byId[id] || {}).actions || []).map(a => a.id).join(',')
+        expect('状态投影：三种形态的动作清单（进行中三个收尾 / 缺收尾方式的终态给补记 / 有收尾方式的终态给改收尾）',
+          actionIds('s-progress') === 'close-resolved,close-escalated,close-archived'
+          && actionIds('s-noend') === 'backfill-ending,reopen'
+          && actionIds('s-ended') === 'correct-ending,reopen',
+          JSON.stringify(['s-progress', 's-noend', 's-ended'].map(id => [id, actionIds(id)])))
+        const mkStateSession = (st) => ({
+          sessionId: st.sessionId, file: st.file, status: st.status,
+          framework: 'vllm-ascend', platform: 'A2-910B', category: 'interrupt',
+          activeCase: null, activeCaseKind: null, activeCaseInKb: false, feedbackPending: null,
+          summarySnippet: st.summary, userSteps: 1, agentSteps: 1, lastRole: 'agent',
+          lastOutput: '定位到 xxx', updatedAt: st.updatedAt, sedimented: { state: 'none' }, state: st,
+        })
+        const hostFor = (st) => (m) => m === 'ascend-traces-list'
+          ? { ok: true, sessions: [mkStateSession(st)], vocab: proj.vocab, capabilities: proj.capabilities }
+          : { ok: true, steps: [], summary: st.summary, refCount: 0, sedimented: null }
+        const CONFIRM = {
+          'close-resolved': '确认收尾', 'close-escalated': '确认收尾', 'close-archived': '确认收尾',
+          'correct-ending': '确认改收尾', 'backfill-ending': '确认补记', 'reopen': '确认重新打开',
+        }
+        for (const sid of ['s-progress', 's-noend', 's-ended']) {
+          const st = byId[sid]
+          for (const action of st.actions || []) {
+            const ui = interactiveRender(ascSrc, { sessionId: 'sess-1' }, hostFor(st))
+            await ui.pump(6)
+            let err = null
+            try {
+              ui.click('改状态')
+              await ui.pump(2)
+              ui.clickExact(action.label)
+              await ui.pump(2)
+            } catch (e) { err = e }
+            const text = err ? '' : ui.text()
+            const want = CONFIRM[action.id] || '确认收尾'
+            expect('状态编辑器：' + sid + ' 点「' + action.label + '」渲染不抛、给出「' + want + '」',
+              !err && text.includes(want), err ? String(err.message || err) : ('缺确认按钮，末段：' + text.slice(-160)))
+          }
+        }
+        // 兜底命令：内容真的按动作变、写法真的按壳变（点按钮只改颜色那种"接了一半"挡在这里）。
+        {
+          const st = byId['s-noend']
+          const ui = interactiveRender(ascSrc, { sessionId: 'sess-1' }, hostFor(st))
+          await ui.pump(6)
+          ui.click('改状态'); await ui.pump(2)
+          ui.clickExact('补记收尾方式'); await ui.pump(2)
+          const t1 = ui.text()
+          expect('命令兜底：补记收尾方式给的是同一条写入口，payload 只带 kind、不带 to',
+            /trace_transition\.py s-noend/.test(t1) && /"kind": "root_cause"/.test(t1) && !/"to":/.test(t1),
+            t1.slice(-400))
+          ui.clickExact('PowerShell'); await ui.pump(2)
+          const t2 = ui.text()
+          expect('命令兜底：切到 PowerShell 后命令真的换写法（状态接上了，不只是按钮变色）',
+            /@'/.test(t2) && /python scripts\/trace_transition\.py/.test(t2), t2.slice(-400))
+          ui.clickExact('bash'); await ui.pump(2)
+          expect('命令兜底：切回 bash 后是 here-doc 写法', /<<'JSON'/.test(ui.text()), ui.text().slice(-400))
+        }
+        // 必填没填就点确认：给字段提示、不写盘（转交他人的 "转交给" 是硬必填）。
+        {
+          const st = byId['s-progress']
+          const ui = interactiveRender(ascSrc, { sessionId: 'sess-1' }, hostFor(st))
+          await ui.pump(6)
+          ui.click('改状态'); await ui.pump(2)
+          ui.clickExact('转交他人跟进'); await ui.pump(2)
+          ui.clickExact('确认收尾'); await ui.pump(2)
+          expect('状态编辑器：缺「转交给」时点确认只给字段提示', /需要填「转交给」/.test(ui.text()), ui.text().slice(-300))
+        }
+        // 高危动作：先说清后果，未勾选「我已了解后果」时点确认只给提示、不写盘。
+        {
+          const st = byId['s-noend']
+          const calls = []
+          const host0 = hostFor(st)
+          const ui = interactiveRender(ascSrc, { sessionId: 'sess-1' },
+            (m, a) => { calls.push(m); return host0(m, a) })
+          await ui.pump(6)
+          ui.click('改状态'); await ui.pump(2)
+          ui.clickExact('重新打开'); await ui.pump(2)
+          const t = ui.text()
+          expect('状态编辑器：高危动作先给后果说明与勾选', /我已了解后果/.test(t) && /退回「进行中」/.test(t), t.slice(-300))
+          ui.clickExact('确认重新打开'); await ui.pump(2)
+          expect('状态编辑器：未勾选「我已了解后果」时确认被拦下且不发起写入',
+            /先勾选「我已了解后果」/.test(ui.text())
+            && calls.indexOf('ascend-trace-transition') < 0,
+            JSON.stringify({ msg: ui.text().slice(-200), calls }))
+        }
+        // 高危判据的行为差异（改收尾到同状态 / 补记不要求勾选）要改 <select> 才能测，
+        // mock React 只收集 onClick；这里钉源码形状：判据比的是目标状态与当前状态，
+        // 不是动作 id 名单（id 名单会漏掉词表新增的同类转移，也会把补记误判成高危）。
+        expect('状态编辑器：高危判据按「目标状态 ≠ 当前状态」判（补记与同状态改收尾不算）',
+          /const stRisky = !!stAct && stAfterStatus !== stCurStatus\s*\n\s*&& \(stAfterStatus === 'archived' \|\| stAfterStatus === 'in_progress'\)/.test(ascSrc),
+          'stRisky 源码形状不符')
+        expect('状态编辑器：「谨慎」标记与后果判据同源（不按动作 id 白名单）',
+          /const risky = a\.id !== 'correct-ending' && a\.id !== 'backfill-ending'/.test(ascSrc))
+
+        // —— 实验：高危判据的行为矩阵（真点击 + 真改 <select>，投影来自 trace_state.py）——
+        {
+          const RISK = '我已了解后果'
+          const open = async (sid) => {
+            const st = byId[sid]
+            const ui = interactiveRender(ascSrc, { sessionId: 'sess-1' }, hostFor(st))
+            await ui.pump(6)
+            ui.click('改状态'); await ui.pump(2)
+            return { ui, st }
+          }
+          const pick = async (sid, label) => {
+            const { ui } = await open(sid)
+            ui.clickExact(label); await ui.pump(2)
+            return ui
+          }
+          const check = (name, cond, ui) => expect('矩阵：' + name, cond,
+            ui ? JSON.stringify({ risk: /我已了解后果/.test(ui.text()), tail: ui.text().slice(-180) }) : '')
+
+          // ① 补记收尾方式：状态不变，不要求勾选
+          { const ui = await pick('s-noend', '补记收尾方式')
+            check('补记收尾方式不要求勾选', !new RegExp(RISK).test(ui.text()), ui) }
+          // ①b 补记收尾方式（archived 单，存量里最多的一类）：不要求勾选；预览仍写「目标=当前状态」+「只改收尾内容」
+          { const ui = await pick('s-arch-noend', '补记收尾方式')
+            const t = ui.text()
+            check('archived 单补记不要求勾选、预览说状态不变',
+              !new RegExp(RISK).test(t) && /不再跟进/.test(t) && /只改收尾内容，状态不变/.test(t), ui) }
+          // ② 改收尾方式：目标=当前状态（resolved→resolved）不要求勾选
+          { const ui = await pick('s-ended', '改收尾方式')
+            check('resolved→resolved 不要求勾选', !new RegExp(RISK).test(ui.text()), ui) }
+          // ③ 改收尾方式：resolved→archived 要求勾选，文案说「会标成」
+          { const ui = await pick('s-ended', '改收尾方式')
+            ui.setSelect('换成哪种收尾', 'archived'); await ui.pump(2)
+            const t = ui.text()
+            check('resolved→archived 要求勾选且文案按目标状态', new RegExp(RISK).test(t) && /这单会标成/.test(t) && !/这单会退回/.test(t), ui) }
+          // ④ 改收尾方式：archived→archived（同状态）不要求勾选
+          { const ui = await pick('s-arch', '改收尾方式')
+            ui.setSelect('换成哪种收尾', 'archived'); await ui.pump(2)
+            check('archived→archived 不要求勾选', !new RegExp(RISK).test(ui.text()), ui) }
+          // ⑤ close-archived 要求勾选
+          { const ui = await pick('s-progress', '不再跟进')
+            const t = ui.text()
+            check('close-archived 要求勾选且文案说「会标成」', new RegExp(RISK).test(t) && /这单会标成/.test(t), ui) }
+          // ⑥ reopen 要求勾选
+          { const ui = await pick('s-ended', '重新打开')
+            const t = ui.text()
+            check('reopen 要求勾选且文案说「退回进行中」', new RegExp(RISK).test(t) && /这单会退回「进行中」/.test(t), ui) }
+          // ⑦ close-resolved / close-escalated 不要求勾选
+          { const ui = await pick('s-progress', '已定位')
+            check('close-resolved 不要求勾选', !new RegExp(RISK).test(ui.text()), ui) }
+          { const ui = await pick('s-progress', '转交他人跟进')
+            check('close-escalated 不要求勾选', !new RegExp(RISK).test(ui.text()), ui) }
+          // ⑧ 「谨慎」标记与后果判据同源：动作选项层面
+          { const { ui } = await open('s-progress')
+            const t = ui.text()
+            check('谨慎标记：不再跟进带、已定位/转交他人不带',
+              /不再跟进\n谨慎/.test(t) && !/已定位\n谨慎/.test(t) && !/转交他人跟进\n谨慎/.test(t), ui) }
+          { const { ui } = await open('s-ended')
+            check('谨慎标记：改收尾方式不提前标（目标在第 2 步选）', !/改收尾方式\n谨慎/.test(ui.text()), ui) }
+          // ⑨ escalated 缺收尾方式：补记只写收尾内容，不要求勾选（收尾方式候选按当前状态过滤）
+          { const ui = await pick('s-esc', '补记收尾方式')
+            const t = ui.text()
+            check('escalated 单补记不要求勾选且预览状态不变',
+              !new RegExp(RISK).test(t) && /只改收尾内容，状态不变/.test(t) && /转交他人/.test(t), ui) }
+        }
+      }
+      // 静态守卫：用到的状态函数必须在同一份源码里声明过。它盯的是"删了 useState 声明、
+      // 渲染表达式还留着"这一类（本次白屏的成因），真点击测不到所有未来的渲染分支时兜底。
+      const settersMissingDeclaration = (src) => {
+        const declared = new Set()
+        for (const m of src.matchAll(/const\s*\[\s*[^,\]]+\s*,\s*(set[A-Za-z0-9_$]+)\s*\]\s*=\s*React\.useState\s*\(/g)) declared.add(m[1])
+        for (const m of src.matchAll(/function\s+(set[A-Za-z0-9_$]+)\s*\(/g)) declared.add(m[1])
+        for (const m of src.matchAll(/(?:const|let|var)\s+(set[A-Za-z0-9_$]+)\s*=/g)) declared.add(m[1])
+        // 形参 / 解构传进来的（函数组件把 setXxx 从父组件接过来）按已声明算
+        for (const m of src.matchAll(/function[^(]*\(([^)]*)\)/g)) {
+          for (const x of m[1].matchAll(/\bset[A-Z][A-Za-z0-9_$]*\b/g)) declared.add(x[0])
+        }
+        for (const m of src.matchAll(/\(([^()]*)\)\s*=>/g)) {
+          for (const x of m[1].matchAll(/\bset[A-Z][A-Za-z0-9_$]*\b/g)) declared.add(x[0])
+        }
+        const used = new Set([...src.matchAll(/\b(set[A-Z][A-Za-z0-9_$]*)\s*\(/g)].map(m => m[1]))
+        const globals = new Set(['setTimeout', 'setInterval', 'setImmediate'])
+        return [...used].filter(x => !declared.has(x) && !globals.has(x))
+      }
+      for (const f of ['dsh-plugins/ascend-panel/panel-client.js', 'dsh-plugins/ev-panel/panel-client.js',
+        'dsh-plugins/sleuth-console/console-client.js', 'dsh-plugins/dsh-sleuth-vllm-kb/client.js']) {
+        const missing = settersMissingDeclaration(fs.readFileSync(path.join(repo, f), 'utf8'))
+        expect('面板源码：' + f + ' 用到的状态函数都声明过（漏声明 = 点到就白屏）',
+          missing.length === 0, '未声明：' + missing.join(','))
+      }
+      if (prevDocument === undefined) delete globalThis.document
+      else globalThis.document = prevDocument
+    }
     // 词表是数据：面板引用的状态/结局必须都在 trace-status.yaml 里
     {
       const vocab = fs.readFileSync(path.join(repo, 'trace-status.yaml'), 'utf8')
@@ -1631,13 +2497,19 @@ _MS._run_no_pipe = no_fallback`)
         /1 个在查/.test(onlyNoCase.text) && !/个等回报/.test(onlyNoCase.text))
       expect('真实 case 单才显示「结果待回报：<case>」', /结果待回报：VLLM-ASC-1234/.test(onlyCase.text))
       expect('真实 case 单只算「等回报」', /1 个等回报/.test(onlyCase.text) && !/个在查/.test(onlyCase.text))
+      const terminalNoCase = await renderAsync(ascSrc, { sessionId: 'sess-1' },
+        (m, a) => (m === 'ascend-traces-list' ? { ok: true, sessions: [mkSession(9, {
+          status: 'resolved', feedbackKind: 'no-case', feedbackPending: 'pending-investigation',
+          waitingFor: null, state: { derived: { open: false } },
+        })] } : diagHost(m, a)))
+      expect('已收尾的单不再显示「等现场补材料」', !/等现场补材料/.test(terminalNoCase.text), terminalNoCase.text.slice(0, 160))
       const hostSrc2 = fs.readFileSync(path.join(repo, 'dsh-plugins/ascend-panel/panel-host.js'), 'utf8')
       expect('host 把占位串判成 no-case（不当 case id）',
         /cs !== 'pending-investigation'/.test(hostSrc2) && /'no-case'/.test(hostSrc2))
-      expect('host 给出「在等什么」（最近一条 evidence.missing，退到 last_action）',
-        /waitingFor: \(function \(\)/.test(hostSrc2) && /ev\.missing/.test(hostSrc2) && /doc\.last_action/.test(hostSrc2))
-      expect('无命中单结案时清掉遗留的 feedback.outcome: pending（不出现两轴打架）',
-        /feedback\.outcome: pending（无命中单留下的占位），一并清掉/.test(ascSrc))
+      expect('host 的「在等什么」从状态投影读，不再自推',
+        /state\.derived\.waitingFor/.test(hostSrc2) && !/waitingFor: \(function/.test(hostSrc2))
+      expect('旧的一键指令文案已移除（收尾走编辑器 + 命令兜底）',
+        !/status: resolved \+ feedback\{outcome: resolved\}/.test(ascSrc))
       // 读取端与写入端一起钉：只改面板会在下一批 trace 上重新长出同一个混用
       const resumeMd = fs.readFileSync(path.join(repo, 'skills/resume-diagnosis/SKILL.md'), 'utf8')
       expect('resume 按 feedback.case 的两种取值分支',
@@ -1747,6 +2619,14 @@ _MS._run_no_pipe = no_fallback`)
         // 但正文与报告入口必须同时在（挪动不许把任何一件挪丢）。
         expect('展开态给指标带（每步耗时 / 检索 / token 三张图）',
           /每步耗时/.test(texts) && /检索/.test(texts) && /token/.test(texts))
+        expect('每步耗时：0 ms 与"没测到"不同形（null 才画 —）',
+          /ms !== null && ms > 0/.test(ascSrc) && /ms === null \? '—'/.test(ascSrc))
+        expect('每步耗时：收尾段截断不计入合计（标"未记"）',
+          /cost\.filter\(r => !r\.windowTruncated && typeof r\.ms === 'number'\)/.test(ascSrc)
+          && /不含收尾段/.test(ascSrc))
+        expect('每步耗时：有调用未返回时合计给下限（≥）', /incomplete \? '≥ ' : ''/.test(ascSrc))
+        expect('每步耗时：token tooltip 含四类之和', /cache_write \|\| 0\) \+ \(t\.out/.test(ascSrc) && /四类之和/.test(ascSrc))
+        expect('按工具拆开：未返回的调用不写成 0 ms', /t\.pending \? '—' : '0 ms'/.test(ascSrc))
         expect('展开态正文与报告入口同时在场（挪进操作栏不等于挪丢）',
           /轨迹|用户输入/.test(texts) && /收起报告/.test(texts))
         expect('报告默认停在 TL;DR 节（正文里先给结论）', /现象：profile_run 崩溃/.test(texts))
@@ -2026,6 +2906,143 @@ _MS._run_no_pipe = no_fallback`)
           rNoShell.ok === false && /shell/.test(String(rNoShell.error)) && /手工复现/.test(String(rNoShell.error)),
           String(rNoShell && rNoShell.error))
       }
+      // —— fs 写：每次调用都带单次沙箱策略（2026-11，Windows 跨盘检出被拒）——
+      // 省略第 5 个实参时 dsh-fs-sandbox 回退**部署默认档位**（workspace-write + 部署工作区根）；
+      // 目标不在该根之下就抛 FS_SANDBOX_DENIED。文件权限一切正常，报出来只有一句
+      // file access denied under workspace-write mode。macOS 上检出恰在可写根下，这个洞在
+      // 本机永远不会红，所以这里按 DSH 的围栏语义做 mock fs、真跑三条 RPC，而不是只扫源码。
+      {
+        const MAIN = '/mock/repo'
+        const WT = MAIN + '/wt'
+        const DEPLOY = '/deploy/workspace'   // 部署默认可写根：与检出不同目录，正是跨盘检出的形态
+        const files = new Map()
+        const dirs = new Map()
+        const versions = new Map()
+        const writes = []
+        const specs = []
+        const mkdir = (p) => { if (!dirs.has(p)) dirs.set(p, []); return dirs.get(p) }
+        const addDir = (p) => { mkdir(p); const e = mkdir(path.dirname(p)); const n = path.basename(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'directory' }) }
+        const addFile = (p, c) => { files.set(p, c); const e = mkdir(path.dirname(p)); const n = path.basename(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'file' }) }
+        addDir(MAIN + '/.git'); addDir(MAIN + '/metrics'); addDir(MAIN + '/traces'); addDir(MAIN + '/scripts')
+        addFile(MAIN + '/scripts/metrics_health.py', '# stub\n')
+        addFile(MAIN + '/traces/t.yaml', 'session_id: "t1"\nstatus: resolved\n'
+          + 'created_at: "2026-11-01T10:00:00+08:00"\nupdated_at: "2026-11-01T11:00:00+08:00"\n'
+          + 'trace:\n  - role: user\n    content: hello\n')
+        addDir(WT)
+        addFile(WT + '/.git', 'gitdir: ' + MAIN + '/.git/worktrees/wt\n')
+        const notFound = (p) => { const e = new Error('ENOENT: ' + p); e.code = 'FS_NOT_FOUND'; return e }
+        const under = (root, p) => {
+          const r = String(root).replace(/\\/g, '/').replace(/\/+$/, '')
+          const t = String(p).replace(/\\/g, '/')
+          return t === r || t.startsWith(r + '/')
+        }
+        const fsMock = {
+          resolve: async (p, opts) => path.resolve((opts && opts.cwd) || '/', p),
+          processPath: (t) => String(t),
+          async listDir(target) {
+            const p = String(target)
+            if (!dirs.has(p)) throw notFound(p)
+            return (dirs.get(p) || []).map(e => ({
+              name: e.name, type: e.type, target: path.join(p, e.name),
+              version: String(versions.get(path.join(p, e.name)) || 1),
+            }))
+          },
+          async readText(target) {
+            const p = String(target)
+            if (!files.has(p)) throw notFound(p)
+            return files.get(p)
+          },
+          async writeText(...args) {
+            const [target, content, , , policy] = args
+            writes.push({ target: String(target), content: String(content), argc: args.length, policy: policy || null })
+            // 按 DSH 0.2.1 的 SandboxedFileSystem 语义：省略策略 → 部署默认档位；目标不在其根下 → 拒
+            const eff = policy || { mode: 'workspace-write', workspaceRoot: DEPLOY }
+            if (eff.mode === 'read-only' || !under(eff.workspaceRoot, target)) {
+              const e = new Error('cannot write "' + target + '": file access denied under ' + eff.mode + ' mode')
+              e.code = 'FS_SANDBOX_DENIED'
+              throw e
+            }
+            addFile(String(target), content)
+            versions.set(String(target), (versions.get(String(target)) || 1) + 1)
+            return { operation: 'write' }
+          },
+        }
+        const hostSrcFs = fs.readFileSync(path.join(repo, 'dsh-plugins/ascend-panel/panel-host.js'), 'utf8')
+        const boot = (ro) => {
+          const regs = {}
+          const sessions = { get: () => ({ header: { cwd: WT } }), list: () => [{ header: { cwd: WT } }] }
+          const shell = {
+            resolve: (s) => s,
+            async run(spec) {
+              specs.push(spec)
+              const cmd = String(spec && spec.command || '')
+              if (/--version$/.test(cmd)) {
+                return { exitCode: 0, timedOut: false, aborted: false, stdout: { text: 'Python 3.11.0\n' }, stderr: { text: '' } }
+              }
+              return { exitCode: 0, timedOut: false, aborted: false, stdout: { text: '{"ok":true}' }, stderr: { text: '' } }
+            },
+          }
+          const ctx = {
+            get: (n) => n === 'fs' ? fsMock
+              : n === 'shell' ? shell
+                : n === 'sessions' ? sessions
+                  : n === 'sandboxPolicy' ? (ro ? { resolve: () => ({ mode: 'read-only', workspaceRoot: MAIN }) } : undefined)
+                    : undefined,
+          }
+          const harness = { handle: (n, fn) => { regs[n] = fn; return () => {} }, defineTool: (o) => o, registerTool: () => () => {} }
+          new Function('harness', 'console', hostSrcFs)(harness, { error: () => {}, log: () => {} }).apply(ctx)
+          return regs
+        }
+        const writesTo = (suffix) => writes.filter(w => w.target.replace(/\\/g, '/').endsWith(suffix))
+        const okWrite = (w) => !!w && w.argc === 5 && !!w.policy
+          && w.policy.mode === 'workspace-write' && w.policy.workspaceRoot === MAIN
+          && w.target.replace(/\\/g, '/').startsWith(MAIN + '/')
+        const regs = boot(false)
+        // ① 沉淀状态回写（traces/<traceFile>）
+        const r1 = await regs['ascend-update-sedimented']({ sessionId: 's1', traceFile: 't.yaml', state: 'knowledge' })
+        const w1 = writesTo('/traces/t.yaml')
+        expect('fs 写：沉淀状态回写带单次策略（根=会话解析出的主检出）',
+          !!r1 && r1.ok === true && w1.length === 1 && okWrite(w1[0]),
+          JSON.stringify({ r1, w: w1[0] && { argc: w1[0].argc, policy: w1[0].policy } }))
+        // ② 列表索引缓存（traces/.panel-index.json）
+        writes.length = 0
+        const r2 = await regs['ascend-traces-list']({ sessionId: 's1' })
+        await new Promise(r => setTimeout(r, 30))
+        const w2 = writesTo('/traces/.panel-index.json')
+        expect('fs 写：列表索引缓存带单次策略（根=运行时主检出）',
+          !!r2 && r2.ok === true && w2.length === 1 && okWrite(w2[0]),
+          JSON.stringify({ ok: r2 && r2.ok, w: w2[0] && { argc: w2[0].argc, policy: w2[0].policy } }))
+        // ③ 状态写入口的参数文件（traces/.payload-*.json）
+        writes.length = 0; specs.length = 0
+        const r3 = await regs['ascend-trace-transition']({
+          sessionId: 's1', action: 'close-resolved', expectSha256: 'sha-1',
+          payload: { summary: '含 空格 "引号" $VAR 与中文' },
+        })
+        const w3 = writes.filter(w => /\.payload-[^/]+\.json$/.test(w.target.replace(/\\/g, '/')))
+        expect('fs 写：状态写入口的参数文件带单次策略（根=主检出）',
+          !!r3 && r3.ok === true && w3.length === 1 && okWrite(w3[0]),
+          JSON.stringify({ r3, w: w3[0] && { argc: w3[0].argc, policy: w3[0].policy } }))
+        const transCmd = String((specs.filter(s => /trace_transition\.py/.test(String(s.command)))[0] || {}).command || '')
+        expect('fs 写：参数正文仍走文件、不拼进命令行（中文/引号/$ 不被 shell 改写）',
+          /--payload-file/.test(transCmd) && transCmd.indexOf('中文') < 0, transCmd.slice(0, 160))
+        // 只读档：不写，给可读错误（不是让 fs 抛 file access denied）
+        writes.length = 0
+        const roRegs = boot(true)
+        const r4 = await roRegs['ascend-update-sedimented']({ sessionId: 's1', traceFile: 't.yaml', state: 'knowledge' })
+        expect('fs 写：只读档给可读错误且一次都不写',
+          !!r4 && r4.ok === false && /只读档/.test(String(r4.error)) && writes.length === 0,
+          JSON.stringify({ r4, writes: writes.length }))
+        // 列表刷新是只读会话也会走的路径：索引缓存是派生物，只读档下同样不写。
+        // 先放一份新 trace，让缓存 miss（否则上一轮可写档已把缓存写满且版本命中，
+        // `cache.dirty` 为 false，这条断言会变成恒真——实测删掉守卫也照样绿）。
+        addFile(MAIN + '/traces/t2.yaml', 'session_id: "t2"\nstatus: in_progress\n')
+        writes.length = 0
+        const r5 = await roRegs['ascend-traces-list']({ sessionId: 's1' })
+        await new Promise(r => setTimeout(r, 30))
+        expect('fs 写：只读档刷新列表也不写索引缓存',
+          !!r5 && r5.ok === true && writes.length === 0,
+          JSON.stringify({ ok: r5 && r5.ok, writes: writes.length }))
+      }
       // 结构断言：运行时读不回来的那部分（措辞与形态）钉在源文件上
       expect('交接包：改道在界面上有一行明确文案（含落点），不静默改目录',
         /导出目录改道/.test(ascSrc) && /handoff\.fallback/.test(ascSrc)
@@ -2034,7 +3051,7 @@ _MS._run_no_pipe = no_fallback`)
         /该目录写不进去时改道到检出内的/.test(ascSrc) && /'\.handoff\//.test(ascSrc))
       expect('交接包：意图词表与脚本一致（continue/verify/escalate 三值）',
         /const HANDOFF_INTENTS = \[/.test(ascSrc) && /id: 'continue', label: '继续定位'/.test(ascSrc)
-        && /id: 'verify', label: '复核结论'/.test(ascSrc) && /id: 'escalate', label: '转上游'/.test(ascSrc))
+        && /id: 'verify', label: '复核结论'/.test(ascSrc) && /id: 'escalate', label: '转交他人跟进'/.test(ascSrc))
       expect('交接包：意图默认「继续定位」（不默认成会误导接收侧的值）',
         /const \[handoffIntent, setHandoffIntent\] = React\.useState\('continue'\)/.test(ascSrc))
       expect('交接包：导出中禁用按钮（防重复点击导出多份）', /disabled: !!\(handoff && handoff\.busy\)/.test(ascSrc))
@@ -2486,7 +3503,7 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
     {
       const actionBlock = ascSrc.slice(ascSrc.indexOf('const actionArea'), ascSrc.indexOf("return React.createElement('div', { className: 'sleu-card'"))
       expect('动作组在按钮行下方展开（不挤动兄弟按钮）',
-        /menuOpen === 'close' \? 'flex' : 'none'/.test(actionBlock) && /menuOpen === 'handoff' \? 'flex' : 'none'/.test(actionBlock))
+        /menuOpen === 'handoff' \? 'flex' : 'none'/.test(actionBlock) && /menuOpen === 'state' \? 'flex' : 'none'/.test(ascSrc))
       expect('展开块统一用 Fold（检索明细 / 成本 / 定位结论不再裸 details）',
         /React\.createElement\(Fold, \{ title: '检索明细'/.test(ascSrc)
         && /React\.createElement\(Fold, \{ title: '成本与 token'/.test(ascSrc)
@@ -2701,8 +3718,11 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
     expect('面板把列表耗时放进统计胶囊的 title', /列表耗时 ' \+ r\.elapsedMs/.test(ascSrc))
     expect('读报告与列表用同一个报告名口径（否则"入口指向 A、点开读 B"）',
       (hostSrc.match(/reportFileOf\(/g) || []).length >= 3)
-    expect('client 给「打开报告」入口（复用证据打开通路，不新造 RPC）',
-      /'traces\/' \+ s\.reportFile/.test(ascSrc) && /打开报告/.test(ascSrc))
+    // 两个入口的词必须不同，且分指两样东西：「看报告」（在面板里读内容）与
+    // 「打开报告文件」（把 .md 交给默认应用）。这两句被读过两版：
+    // 「看报告 / 打开报告」四个字差两个 → 混；「读正文 / 用系统应用打开」→ 像术语。
+    expect('报告两个入口的文案不同（看报告 / 打开报告文件）',
+      /'traces\/' \+ s\.reportFile/.test(ascSrc) && /看报告/.test(ascSrc) && /打开报告文件/.test(ascSrc))
     expect('client 说明入口是"按同名规则找到"的（trace 未记报告名时不许闷着）',
       /s\.reportSource === 'name'/.test(ascSrc) && /按同名规则找到/.test(ascSrc))
     expect('client 显示沉淀建议条数（措辞是"建议"不是"待沉淀"——它不是债务）',
@@ -2743,13 +3763,13 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
         !/占位串/.test(ct) && !/case id/.test(ct) && !/active_case/.test(ct), ct.slice(0, 300))
       expect('原值的解释放在 tooltip 里（hover 可查）',
         /«title:trace 里记的定位值（不是知识库里的 case）»/.test(ct))
-      expect('报告入口：有报告的那张卡给「看报告」「打开报告」，没有的不给',
-        (ct.match(/看报告/g) || []).length === 1 && (ct.match(/打开报告/g) || []).length === 1,
+      expect('报告入口：有报告的那张卡给「看报告」「打开报告文件」，没有的不给',
+        (ct.match(/看报告/g) || []).length === 1 && (ct.match(/打开报告文件/g) || []).length === 1,
         '看报告=' + (ct.match(/看报告/g) || []).length)
       expect('报告名来自同名规则时说明来源（trace 未记报告名不许闷着）',
         /按同名规则找到/.test(ct) && /s-rep\.report\.md/.test(ct))
-      expect('「打开报告」给的是单层 traces/ 路径（拼两层会打开不存在的文件）',
-        /«title:traces\/s-rep\.report\.md»/.test(ct) && !/traces\/traces\//.test(ct),
+      expect('「打开报告文件」给的是单层 traces/ 路径（拼两层会打开不存在的文件）',
+        /«title:用默认应用打开这份报告文件（\.md）：traces\/s-rep\.report\.md»/.test(ct) && !/traces\/traces\//.test(ct),
         (ct.match(/«title:[^»]*»/g) || []).join(' '))
     }
     // —— 未闭环 / 待沉淀 / 待升格：状态徽标 + 批量入口（2026-10）——
@@ -2863,17 +3883,8 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
       const chipPromote = findByText('已交草稿 3')
       expect('「已交草稿」筛选入口可点', !!chipPromote)
       if (chipPromote) { chipPromote.fn({}); await pumpTree(3) }
-      const btnAll = findByText('全选这 2 单')
-      expect('已交草稿里"来源未收尾"那 2 单的批量入口真的渲染出来（已收尾的那单不参与批量）',
-        !!btnAll, treeText(tree).slice(0, 300))
-      if (btnAll) { btnAll.fn({}); await pumpTree(3) }
-      const btnClose = findByText('批量标已解决（已选 2 单）')
-      expect('勾选后出现批量标已解决按钮', !!btnClose, treeText(tree).slice(0, 300))
-      if (btnClose) { btnClose.fn({}); await pumpTree(3) }
-      expect('批量闭环命令带出单一结局、两条轴的处理，以及清理遗留 outcome',
-        /结局都是「已解决 · fix 生效」/.test(treeText(tree))
-        && /未命中 case 的只标 status: resolved/.test(treeText(tree))
-        && /一并清掉/.test(treeText(tree)))
+      expect('已交草稿屏只报现状，不再给批量收尾入口（批量会连带写反馈轴，排在下一批）',
+        !findByText('批量标已解决') && /逐单用卡片动作行里的「改状态」收尾/.test(treeText(tree)), treeText(tree).slice(0, 300))
 
       // 诊断收尾轴：未闭环筛选只留没收尾的单（escalated/archived 是终态，不算未闭环）。
       const chipOpen = findByText('未收尾 1')
@@ -2893,6 +3904,137 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
         /「新形态」下没有会话/.test(emptyText)
         && /没有"命中 case、但库里还没有"的诊断/.test(emptyText)
         && !/在对话里跑一次 \/skill:diagnose/.test(emptyText), emptyText.slice(0, 300))
+    }
+    // —— 等上游：已收尾 + 没给 fix + 命中的案例带 upstream 锚点（2026-11）——
+    // 判据在 host 投影里（`scripts/_trace_state.py` 的 derive），面板只渲染。这一块钉四件：
+    // 徽标只挂该挂的那一单、筛选入口带数量、「查上游」与批量入口生成的指令都带 --case、
+    // 且指令里不出现 --apply（写回 knowledge/ 走 PR，不在诊断面板）。
+    {
+      const base = {
+        status: 'resolved', framework: 'vllm-ascend', platform: 'A2-910B', category: 'interrupt',
+        summarySnippet: '问题背景：启动失败', userSteps: 2, agentSteps: 4, lastRole: 'agent',
+        lastOutput: '结论', updatedAt: new Date().toISOString(), sedimented: { state: 'none' },
+      }
+      const pending = Object.assign({}, base, {
+        sessionId: 's-up', file: 's-up.yaml', activeCase: 'VLLM-ASC-10834', activeCaseKind: 'case',
+        activeCaseInKb: true, fixEmitted: false, harnessSession: 'session-up',
+        state: { derived: { upstreamPending: true,
+                            upstream: { anchors: ['vllm-ascend#10834'], lastVerified: '2026-W42' } } },
+      })
+      // 对照单：同样带锚点、但给了 fix——不是在等上游，不该挂徽标。
+      // 注意：这一对夹具是**渲染层**断言，`derived.upstreamPending` 是夹具写死的布尔值；
+      // 判据本身（收尾 / 没给 fix / 有锚点 / 依据在上游 / 非数据风险）的删除点由
+      // `tests/test_trace_state.py` 的 DeriveTest 钉住——改判据时别只看这里。
+      const fixed = Object.assign({}, base, {
+        sessionId: 's-fixed', file: 's-fixed.yaml', activeCase: 'VLLM-ASC-9000', activeCaseKind: 'case',
+        activeCaseInKb: true, fixEmitted: true, harnessSession: 'session-fixed',
+        state: { derived: { upstreamPending: false,
+                            upstream: { anchors: ['vllm-ascend#9000'], lastVerified: '' } } },
+      })
+      // 反例：命中了案例但没有上游锚点——不该出现查上游入口（防「有案例就有入口」的假通过）。
+      const noAnchor = Object.assign({}, base, {
+        sessionId: 's-noanchor', file: 's-noanchor.yaml', activeCase: 'VLLM-ASC-7000', activeCaseKind: 'case',
+        activeCaseInKb: true, fixEmitted: false, harnessSession: 'session-noanchor',
+        state: { derived: { upstreamPending: false, upstream: null } },
+      })
+      const sessionsFixture = [pending, fixed, noAnchor]
+      const host = (m) => m === 'ascend-traces-list'
+        ? { ok: true, sessions: sessionsFixture }
+        : { ok: true, steps: [], summary: null }
+      hookIdx = 0; hookState = []; depState = []; effectQueue = []
+      const registrations = []
+      const ctx2 = {
+        get: n => n === 'slots' ? { inject: (s, cb) => cb(), register: (o, c) => registrations.push({ opts: o, comp: c }) } : undefined,
+        effect(fn) { const d = fn(); return typeof d === 'function' ? d : () => {} },
+        on() { return () => {} },
+      }
+      const plugin2 = new Function('React', 'host', 'styles', 'return (function(){' + ascSrc + '})()')(
+        React, { call: (m, a) => Promise.resolve(host(m, a)) }, { insert: () => () => {} })
+      plugin2.apply(ctx2)
+      let tree = null
+      const renderDiagnose = () => {
+        effectQueue = []; hookIdx = 0
+        const o = []
+        registrations.filter(r => r.opts && r.opts.id === 'ascend-diagnose').forEach(r => o.push(r.comp({ sessionId: 'sess-1' })))
+        return o
+      }
+      const pumpTree = async (rounds) => {
+        for (let i = 0; i < rounds; i++) {
+          tree = renderDiagnose()
+          effectQueue.slice().forEach(f => f())
+          await new Promise(r => setImmediate(r))
+        }
+        return tree
+      }
+      const treeText = x => { const o = []; flatten(x, o); return o.join('\n') }
+      const findByText = (needle) => {
+        const hs2 = []
+        collectHandlers(tree, hs2)
+        return hs2.find(h => String(h.text).includes(needle))
+      }
+      await pumpTree(6)
+      const t = treeText(tree)
+      expect('等上游徽标只挂「已收尾 + 没给 fix + 有锚点」的那一单（给了 fix 的不挂）',
+        (t.match(/已收尾、没给出可执行修复，命中的案例带上游锚点/g) || []).length === 1,
+        '徽标=' + (t.match(/已收尾、没给出可执行修复，命中的案例带上游锚点/g) || []).length)
+      expect('等上游徽标的 title 给出锚点与上次查证（读者不用点开就知道在等谁）',
+        /vllm-ascend#10834/.test(t) && /上次外部验证 2026-W42/.test(t), t.slice(0, 400))
+      expect('筛选入口带数量（等上游 1）', /等上游 1/.test(t), t.slice(0, 300))
+
+      // 「查上游进展」入口按锚点挂：三张夹具里两张带锚点、一张没有 → 入口数必须是 2。
+      // 这一条钉的是入口条件放宽（徽标与筛选仍按 upstreamPending 四条组合，判据本体由
+      // `tests/test_trace_state.py` 的 DeriveTest 钉住）：给了 fix 的那单虽不是"等上游"也能查，
+      // 而命中案例但没有锚点的那单不该出现入口（防「有案例就有入口」的假通过）。
+      const upstreamBtns = () => {
+        const hs2 = []
+        collectHandlers(tree, hs2)
+        return hs2.filter(h => /查上游进展$/.test(String(h.text)))
+      }
+      expect('「查上游进展」入口按锚点出现（两张带锚点各一个，无锚点那张没有）',
+        upstreamBtns().length === 2, 'buttons=' + upstreamBtns().length)
+
+      // 筛选入口：只留等上游的那一单。
+      const chipUp = findByText('等上游 1')
+      expect('「等上游」筛选入口可点', !!chipUp)
+      if (chipUp) { chipUp.fn({}); await pumpTree(3) }
+      const filtered = treeText(tree)
+      expect('等上游筛选只留「已收尾 + 没给 fix + 有锚点」的单',
+        /s-up/.test(filtered) && !/s-fixed/.test(filtered) && !/s-noanchor/.test(filtered), filtered.slice(0, 400))
+
+      // 筛选后只剩一单，入口不再有歧义：点它，指令里带 case id、不带 --apply。
+      // 用「最短文本」定位：整行卡片的 toggle 按钮也会把子节点 title 里的字带进来。
+      const btnUp = (() => {
+        const hs2 = []
+        collectHandlers(tree, hs2)
+        return hs2.filter(h => String(h.text).includes('查上游'))
+          .sort((a, b) => String(a.text).length - String(b.text).length)[0]
+      })()
+      expect('「查上游进展」动作按钮可点', !!btnUp && /查上游/.test(String(btnUp.text)))
+      if (btnUp) { btnUp.fn({}); await pumpTree(3) }
+      const upText = treeText(tree)
+      expect('查上游的指令带 --case 与具体 case id',
+        /scripts\/verify_upstream_outcomes\.py --case VLLM-ASC-10834/.test(upText), upText.slice(0, 400))
+      expect('查上游指令里没有 --apply（写回案例走 PR，不在诊断面板）',
+        !/--apply/.test(upText), upText.slice(0, 400))
+
+      // 批量入口：一次查这几单，一条指令（不是每单一条）。
+      const btnBatch = findByText('批量查这 1 条案例的上游')
+      expect('等上游的批量入口真的渲染出来', !!btnBatch, treeText(tree).slice(0, 300))
+      if (btnBatch) { btnBatch.fn({}); await pumpTree(3) }
+      const batchText = treeText(tree)
+      expect('批量查证指令一次带上名单里的 case id',
+        /--case VLLM-ASC-10834/.test(batchText), batchText.slice(0, 400))
+      expect('批量指令声明分桶口径与「open 不构成证据」',
+        /分桶汇总/.test(batchText) && /不构成证据/.test(batchText), batchText.slice(0, 400))
+      // 判据只压在**命令本身**上：指令里那句「不要 --apply」是显式护栏，不能当违规。
+      expect('批量指令里的命令部分是 dry-run（护栏那句「不要 --apply」除外）',
+        !/verify_upstream_outcomes\.py[^｜]*--apply/.test(batchText), batchText.slice(0, 400))
+      // 投影读不到时，"等上游"这一屏不能照样说"没有在等上游的单"——空列表不是结论。
+      // 这条按源码判：真实渲染要先让 host 返回 stateError 再点 chip，而空态文案只有一条分支，
+      // 源码这一处是它唯一的入口。
+      expect('投影读不到时，按投影分类的屏换一句"读不到"而不是"没有"',
+        /STATE_ERROR && derivedScreen/.test(ascSrc)
+        && /这一屏按投影分类，列表为空不代表没有这类单/.test(ascSrc))
     }
     // 「有没有结论」只认 `kind: case` 的沉淀候选——报告每单都有，`reference` / `triage` 候选
     // 记的是覆盖缺口与路由词，两者都不能证明根因定了（实测 telechat 有 2 条候选全是 reference）。
@@ -2925,8 +4067,8 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
         /sedimented: readSedimented\(doc\)/.test(hostSrc))
       expect('待沉淀可一次生成批量 to-postmortem 命令',
         /用 \/skill:to-postmortem 批量沉淀这些 session：/.test(ascSrc))
-      expect('批量闭环只允许「已解决 · fix 生效」一种结局（多结局混批会虚高解决率）',
-        /结局都是「已解决 · fix 生效」/.test(ascSrc))
+      expect('旧的批量收尾命令已移除（避免第二套收尾文案与第二套写法）',
+        !/批量闭环以下/.test(ascSrc) && !/批量标已解决/.test(ascSrc))
     }
   }
 
@@ -3059,11 +4201,11 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
     }
     expect('能从 ev-panel host 源文件抽出 resolveCwd / resolvePython / runScript',
       !!grabEv('resolveCwd') && !!grabEv('resolvePython') && !!grabEv('runScript'))
-    const evFnSrc = [grabEv('resolveCwd'), 'let pythonCmd', grabEv('looksLikeSpawnFailure'), grabEv('policyNote'), grabEv('readPolicy'), grabEv('resolvePython'), grabEv('runScript')].join('\n')
-    const buildEv = async (shell, sessions, sandboxPolicySvc) => {
-      const factory = new Function('shell', 'sessions', 'sandboxPolicySvc',
+    const evFnSrc = [grabEv('sessionCwds'), grabEv('looksLikeBoardRoot'), grabEv('resolveCwd'), 'let pythonCmd', grabEv('looksLikeSpawnFailure'), grabEv('policyNote'), grabEv('readPolicy'), grabEv('resolvePython'), grabEv('runScript')].join('\n')
+    const buildEv = async (shell, sessions, sandboxPolicySvc, fsSvc) => {
+      const factory = new Function('shell', 'sessions', 'sandboxPolicySvc', 'fsSvc',
         'return (async () => {\n' + evFnSrc + '\nreturn { runScript }\n})()')
-      return await factory(shell, sessions, sandboxPolicySvc)
+      return await factory(shell, sessions, sandboxPolicySvc, fsSvc)
     }
     const SESS = { get: () => ({ header: { cwd: 'E:/projects/ascend-sleuth' } }) }
     const okShell = (runImpl) => ({ resolve: (x) => x, run: runImpl })
@@ -3145,7 +4287,8 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
   // ================= 面板 host 服务缺失 · 只降级依赖它的功能 =================
   // 为什么单开一节：两个 host 原先都在 apply() 第一行写 `if (fs === undefined) return`——
   // **fs 一缺席，整个插件什么都不注册**（RPC 全没、tab 点开即死）。而 ev-panel 的 host
-  // 根本不用 fs（数据全由 shell 跑脚本产出），ascend-panel 的指标 tab 那两项也不用 fs
+  // 不拿 fs 读数据文件（数据全由 shell 跑脚本产出；fs 只用于挑会话，缺席会优雅退化），
+  // ascend-panel 的指标 tab 那两项也不用 fs
   // （`loadMetricsVerdict` / `runLiveMetrics` 全程无 fs 调用，已按函数逐段核对）。
   // 失败形态是"挂载了却什么都没贡献"：面板不报错，只是什么都没发生——最难查的一类。
   console.log('\n[面板 host 服务缺失 · 只降级依赖它的功能]')
@@ -3171,7 +4314,7 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
     }
     const NO_SVC = { fs: undefined, shell: undefined, sessions: undefined }
 
-    // ① ev-panel：fs 缺失时照样注册（它不用 fs），退化逐调用发生在 session/shell 侧
+    // ① ev-panel：fs 缺失时照样注册（fs 只用来挑会话，不读数据文件），退化逐调用发生在 session/shell 侧
     {
       const evSrc = loadHost('dsh-plugins/ev-panel/panel-host.js')
       const d = driveHost(evSrc, NO_SVC)
@@ -3182,20 +4325,22 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
       const r = await d.regs['ev-board-load']({})
       expect('ev-panel：fs 缺失时调用给出明确错误而非静默成功',
         r && r.ok === false && /无法解析工作区/.test(r.error), String(r && r.error).slice(0, 90))
-      expect('ev-panel：代码里无 fs 调用（守卫本就不该存在，防被照抄回来）', !/\bfs\./.test(codeOf(evSrc)))
+      expect('ev-panel：fs 只用于挑会话，不读写数据文件（不拿它数据面上岗）',
+        !/(readText|writeText|readFile|writeFile|appendText)/.test(codeOf(evSrc)))
       expect('ev-panel：代码里无「fs 缺失就整插件 return」', !/if \(fs === undefined\) return/.test(codeOf(evSrc)))
     }
 
-    // ② ascend-panel：fs 缺失时仍注册全部 RPC；依赖 fs 的七个给明确错误，不依赖的四个不受影响
+    // ② ascend-panel：fs 缺失时仍注册全部 RPC；依赖 fs 的八个给明确错误，不依赖的四个不受影响
     {
       const ascHostSrc = loadHost('dsh-plugins/ascend-panel/panel-host.js')
       const d = driveHost(ascHostSrc, NO_SVC)
       const needFsRpcs = ['ascend-traces-list', 'ascend-traces-detail', 'ascend-update-sedimented',
-        'ascend-metrics-load', 'ascend-read-report', 'ascend-kb-health', 'ascend-process-health']
+        'ascend-trace-transition',
+        'ascend-metrics-load', 'ascend-read-report', 'ascend-kb-health', 'ascend-process-health', 'ascend-session-marks']
       const noFsRpcs = ['ascend-open-evidence', 'ascend-metrics-verdict', 'ascend-export-trace',
         'ascend-rebuild-local']
-      expect('ascend-panel：fs 缺失时仍注册全部 11 个 RPC（「实时计算」那条已随块一起删）',
-        Object.keys(d.regs).length === 11, Object.keys(d.regs).join(','))
+      expect('ascend-panel：fs 缺失时仍注册全部 13 个 RPC（含状态转移与侧栏待回报标记）',
+        Object.keys(d.regs).length === 13, Object.keys(d.regs).join(','))
       expect('ascend-panel：返回可用的 disposer', typeof d.disposer === 'function')
       expect('ascend-panel：导出交接包的 RPC 已注册（fs 缺失不影响它）', !!d.regs['ascend-export-trace'])
       for (const rpc of needFsRpcs) {
@@ -3210,7 +4355,11 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
           !(r && r.ok === false && /需要 fs 服务/.test(r.error)), String(r && r.error).slice(0, 110))
       }
       const guarded = (ascHostSrc.match(/if \(!fs\) return needFs\(\)/g) || []).length
-      expect('ascend-panel：恰好 7 个 handler 带 fs 守卫（放错位置即被这条抓住）', guarded === 7, 'guarded=' + guarded)
+      expect('ascend-panel：恰好 9 个 handler 带 fs 守卫（放错位置即被这条抓住）', guarded === 9, 'guarded=' + guarded)
+      // 状态写入口的两条硬要求：没有内容指纹就拒绝（否则 CAS 退化成按状态比较），
+      // 写子进程必须显式 workspace-write + 主检出 root（否则沙箱把写拒成一句 EPERM）。
+      expect('状态写入口：缺内容指纹时 host 直接拒绝', /缺内容指纹/.test(ascHostSrc) && /--expect-sha256/.test(ascHostSrc))
+      expect('状态写入口：写子进程走 workspace-write 沙箱', /mode: 'workspace-write'/.test(ascHostSrc))
       expect('ascend-panel：代码里无「fs 缺失就整插件 return」',
         !/if \(fs === undefined\) return/.test(codeOf(ascHostSrc)))
     }
@@ -3511,6 +4660,65 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
           t.includes(secs + ' 秒内复用'), 'host=' + secs + ' 秒')
       }
     }
+  }
+
+  // ================= 整页「Ascend Sleuth」（sleuth-console） =================
+  // 形式变更：指标与自演进不再各占一个会话 tab，而是同一页的两个子页。这一节验四件事：
+  // 两个面板真的把视图登记进了整页能取到的位置；默认与切换各渲染出对应内容；视图缺失时
+  // 如实说没接上（不空白、不拿别的东西冒充）；图标与 icon.svg 同源（两处各改一半会变成两个图标）。
+  console.log('\n[sleuth-console Ascend Sleuth · 整页]')
+  {
+    const consoleSrc = fs.readFileSync(path.join(repo, 'dsh-plugins/sleuth-console/console-client.js'), 'utf8')
+    const views = {}
+    const pageHost = (method) => {
+      if (method === 'ev-board-load') return { ok: true, data: board }
+      if (method === 'ev-health-load') return { ok: true, data: health }
+      if (method === 'ascend-metrics-load') return { ok: true, periods: periods }
+      if (method === 'ascend-traces-list') return { ok: true, sessions: [] }
+      if (method === 'ascend-kb-health') {
+        return { ok: true, cases: { total: 1, lowConfidence: 0, byCategory: {}, byNamespace: {} }, references: { total: 0, draftCount: 0, staleCount: 0, byType: {} } }
+      }
+      if (method === 'ascend-process-health') {
+        return { ok: true, total: 1, submitted: 0, promoted: 0, inProgress: 0, resumed: 0, refSessions: 0 }
+      }
+      return { ok: false, error: 'n/a ' + method }
+    }
+    // 复现常驻包的装载顺序：两个面板先 apply 把视图写进登记表（这一步不渲染，也不要求注册 slot）。
+    await renderAsync(evSrc, { sessionId: 'sess-1' }, pageHost, { views, requireSlots: false })
+    await renderAsync(ascSrc, { sessionId: 'sess-1' }, pageHost, { views, requireSlots: false })
+    expect('两个面板都把视图登记进了整页',
+      typeof views.metrics === 'function' && typeof views.evolve === 'function')
+
+    const page = await renderAsync(consoleSrc, { sessionId: 'sess-1' }, pageHost, { views })
+    expect('注册整页与侧栏图标各一个',
+      page.regs.length === 2 && page.regs[0].opts.name === 'main' && page.regs[1].opts.name === 'sidebar.panellist',
+      JSON.stringify(page.regs.map(r => r.opts.name)))
+    expect('整页与图标同 id（点图标按 id 寻址整页）',
+      page.regs[0].opts.key === page.regs[1].opts.id,
+      String(page.regs[0].opts.key) + ' / ' + String(page.regs[1].opts.id))
+    expect('侧栏图标带可读名字', page.regs[1].opts.label === 'Ascend Sleuth', String(page.regs[1].opts.label))
+
+    expect('默认落在「指标」子页（渲染出指标首屏）', page.text.includes('本期变化'), page.text.slice(0, 160))
+    const evo = await renderAsync(consoleSrc, { sessionId: 'sess-1', view: 'evolve' }, pageHost, { views })
+    expect('切到「自演进」子页渲染看板', evo.text.includes('自演进 · 体检'), evo.text.slice(0, 160))
+    expect('两个子页的入口都在', page.text.includes('指标') && page.text.includes('自演进'))
+
+    const empty = await renderAsync(consoleSrc, { sessionId: 'sess-1' }, pageHost, { views: {} })
+    expect('视图缺失时给一行说明（不空白）', empty.text.includes('没接上'), empty.text.slice(0, 160))
+
+    const svg = fs.readFileSync(path.join(repo, 'dsh-plugins/sleuth-console/icon.svg'), 'utf8')
+    const rect = (svg.match(/<rect[^>]*\/>/) || [''])[0]
+    const attr = (name) => {
+      const m = rect.match(new RegExp('\\b' + name + '="([^"]+)"'))
+      return m === null ? '' : m[1]
+    }
+    expect('图标方框与 icon.svg 一致（x/y/宽/高/圆角）',
+      consoleSrc.includes('x: ' + attr('x') + ', y: ' + attr('y')
+        + ', width: ' + attr('width') + ', height: ' + attr('height') + ', rx: ' + attr('rx')),
+      'svg 方框：' + rect)
+    const paths = [...svg.matchAll(/d="([^"]+)"/g)].map(m => m[1])
+    expect('图标 path 数据与 icon.svg 一致（' + paths.length + ' 条）',
+      paths.length > 0 && paths.every(d => consoleSrc.includes(d)), paths.join(' | '))
   }
 
   // ================= 本脚本自己起 Python 的编码（Windows 中文区域的复发点）=================

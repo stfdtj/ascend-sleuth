@@ -50,7 +50,7 @@ session id 解析到 `traces/<id>.yaml`（`traces/` 锚主检出，用 `python3 
 
 **谁该进这批，先问脚本，别凭记忆**：`python3 scripts/sediment_batch.py` 只读清点——按「已收尾 / 有报告 / 有候选」列出还没沉淀的单，同一问题的多条 session 并成一组，并打印直接可用的批量命令；`--json` 给起草时读（含每组的报告文件名与候选正文，不必重读全部事件）。它不改 `status`、不改 `feedback.outcome`（那两条是诊断侧的事），也不判断该不该入库。
 
-**回写一次做完**：草稿落 inbox 后 `python3 scripts/sediment_batch.py --mark-submitted <session...> --inbox-path <草稿路径> --apply`，一次把这几单的 `sedimented` 置 `submitted`（默认只打印，加 `--apply` 才写；只动 `sedimented` 那一处，不重排其余字段）。
+**回写一次做完**：草稿落 inbox 后逐单跑 `python3 scripts/trace_transition.py <session> --field sedimented --state submitted --inbox-path <草稿路径> --json`，把这几单的 `sedimented` 置 `submitted`。它只动 `sedimented` 与 `updated_at`，不追加收尾记录，也不重排其余字段；写不进去时会返回明确错误码。
 
 **二进制文档（`.docx`/`.doc`/`.pptx`/`.xlsx`/`.rtf`/`.epub`）预处理**：客户报告、排查记录、汇报材料常是这些格式，先取到文本再走上面四种输入。**约束是不变量，不是工具**——只要满足三条：①文本取自原文件（不凭标题或上下文编造）②出处可核验 ③材料不外传（客户/内部文档不上传第三方服务）。工具怎么选、能不能装，都是这三条之下的实现细节。
 
@@ -154,8 +154,9 @@ python -c "import anydoc,sys; print(anydoc.to_markdown(sys.argv[1]))" <file>
 补 case 走本流程。**归纳 reference 不在这一步做**——草稿还在 inbox、没升格，
 `to-reference` 的 `sources[].cases` 会引用一个不存在的 id（groom 拒掉那条草稿后更糟）；
 同族信号只写进报告，等升格后由 `knowledge-groom` 的 R8 提炼（那时 case id 已在 `knowledge/`）。
-只有信号连带要求改**行为面**（triage 分支、skill 步骤、闸门绑定、索引形态）时，才
-`scripts/ev_proposal.py --new` 产卡并自行验证执行（产卡 → golden/S2 验证 → 进攒批）；
+只有信号连带要求改**行为面**（triage 分支、skill 步骤、闸门绑定、索引形态）时，才把观察交给
+`python3 scripts/evolve_intake.py record …`（按部署声明落卡或落台账，别直接调 `ev_proposal.py --new`；
+产卡后接 golden/S2 验证 → 进攒批）；
 无信号则报告加一行"evolve-check：无演进信号"。这是流程默认收尾，**不需要用户另说
 "改进系统"**——演进由数据触发，像人学习。产出与流程报告一并给出。
 
