@@ -1,0 +1,51 @@
+# E2E-AUTOCLOSE-001 —— 自动收尾端到端验证用构造 case（非真实故障知识）
+# 用途：验证 groom 合入后自动收尾、清理与 Ascend Sleuth「自动收尾」/ Copilot 两个面板的联动。
+# 验证完成后按 PR 记录保留，作为回归夹具；不要用于真实诊断路由。
+# 来源：traces/e2e-autoclose-20261110.yaml（构造）
+
+cases:
+  - id: E2E-AUTOCLOSE-001
+    title: "E2E 自动收尾验证：HCCL buffer 不足导致 all_to_all 建链超时（构造样例）"
+
+    category: interrupt
+    tags: [e2e, autoclose, hccl, timeout]
+
+    platforms: ["A3-910C"]
+    compat:
+      - framework: mindspeed-llm
+        ranges: [">=2.4.0"]
+
+    investigation_quality: high
+
+    symptoms:
+      - "E2E 构造样例：训练启动后 all_to_all_single 建链超时（不对应真实现场）"
+      - "world_size >= 64 时更易触发"
+
+    verification:
+      source: engineer-report
+      detail: "端到端验证用构造数据，用于验证自动收尾流程，不作为知识结论"
+
+    quickly_check:
+      primary:
+        command_template: "grep -c 'all_to_all' {{log_path}}"
+        rank_selector: all_failed
+        expected: "regex:^[1-9]"
+      fallback:
+        command_template: "grep -ci 'timeout' {{log_path}}"
+        rank_selector: all_failed
+        expected: "regex:^[1-9]"
+
+    diagnosis:
+      - step: 1
+        command_template: "env | grep HCCL_BUFFSIZE"
+        rank_selector: coordinator
+        expected: ">= 4194304"
+        fix_on_mismatch: "export HCCL_BUFFSIZE=4194304"
+        rollback: "unset HCCL_BUFFSIZE"
+
+    severity: service-affecting
+    fix_side_effects: [requires-restart]
+    fix_type: env-var
+
+    root_cause: "E2E 构造：大 world_size 下 HCCL buffer 不足，all_to_all 建链超时"
+    fix: "export HCCL_BUFFSIZE=4194304 后重启训练"
