@@ -3739,6 +3739,23 @@ namespaces:
       tok: []
       file: knowledge/training/mindspeed-llm/interrupt/E2E-AUTOCLOSE-001.yaml
       hash: 5d8f1a17d8a3
+    - id: E2E-AUTOCLOSE-002
+      title: E2E 自动收尾验证 002：HCCL 建链超时后恢复（构造样例）
+      category: interrupt
+      tags:
+      - e2e
+      - autoclose
+      - hccl
+      - timeout
+      compat: mindspeed-llm >=2.4.0
+      confidence:
+        score: 0.85
+      symptoms:
+      - E2E 构造样例：训练启动后 all_to_all_single 建链超时（不对应真实现场）
+      sig: []
+      tok: []
+      file: knowledge/training/mindspeed-llm/interrupt/E2E-AUTOCLOSE-002.yaml
+      hash: 429f271d632f
     - id: MSLLM-1459
       title: '昇腾环境执行 MindSpeed-LLM 训练脚本启动报 /opt/conda/.../bitsandbytes/libbitsandbytes_cpu.so: cannot
         open shared object file：bitsandbytes 为 CUDA 依赖、NPU 环境不支持，清理环境/用昇腾原生镜像修复'
