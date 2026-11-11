@@ -5,15 +5,19 @@
   </picture>
 </p>
 
+<h1 align="center">昇腾 NPU 训练与推理故障诊断知识库</h1>
+
 <p align="center">
   <a href="https://www.hiascend.com/"><img alt="platform: Ascend NPU" src="https://img.shields.io/badge/platform-Ascend%20NPU-CC0000?logo=huawei&logoColor=white"></a>
   <a href="https://agentskills.io/"><img alt="Agent Skills compliant" src="https://img.shields.io/badge/Agent%20Skills-compliant-8B5CF6.svg"></a>
   <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
 </p>
 
-<p align="center">昇腾 NPU 训练与推理问题的诊断知识库。按症状命中已验证的 case，把每次新定位沉淀回库，同类问题下次直接命中。</p>
+训练或推理在昇腾 NPU 上中断、精度异常、性能退化时，把日志与版本信息交给 agent。它按症状路由，查先验知识（官方文档与已沉淀事实）框定方向，再加载候选 case 逐条验证。未命中时继续深度排查，可按版本拉源码分析。输出定位结论与修复方案。
 
-遵循 [Agent Skills](https://agentskills.io/) 标准，在 pi、Claude Code、Codex、DSH 等支持该标准的 agent 中运行。
+定位结束后，新知识进待审队列，每周例行维护去重、升格为 case，同类问题下次直接命中。共性另归纳成先验知识。系统也按使用记录演进：未命中、执行出错、条目过期都记为改进卡。改动按影响面验证，提 PR 人审。
+
+skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Claude Code、Codex、DeepSeek Harness（DSH）等支持该标准的 agent 中运行。
 
 ## 快速开始
 
@@ -26,6 +30,12 @@ python3 scripts/enable_agent_skills.py
 ```
 
 脚本检测本机已安装的 agent，为它们建项目级 skills 链接（幂等，可重复执行）。Linux 与 macOS 上 DSH 不跑这个脚本也够用：`.dsh/skills` 是仓库跟踪的 symlink，clone 后即可用。`git pull` 更新 SKILL.md 即时生效。
+
+诊断开单会自动同步知识库：`trace_begin.py` 建单时 fetch 远端，条件满足时做一次快进合并。
+
+配置与开关（`sync.remote` / `sync.branch` / `sync.enabled` / `sync.auto_merge` / `sync.check_enabled` / `sync.check_minutes` / `sync.check_full_access`）在 `.local/settings.json`。`sync.enabled` 与 `sync.auto_merge` 只管诊断读侧的自动路径，groom 不受影响；`sync.check_enabled` / `sync.check_minutes` 是诊断状态条的知识库提醒开关与检查间隔（可在「Ascend Sleuth · 知识库」页设置）。没有这个文件时用默认值：`origin`、当前分支上游（取不到用 `main`）、同步开、自动合并开。
+
+当前状态用 `python3 scripts/kb_sync.py --show` 查看（只读，不联网）。
 
 Windows 上 Git 默认不还原 symlink，`.dsh/skills` 会落成一个内容为 `../skills` 的文本文件，agent 发现不了 skills，而 `git status` 此时可能是干净的。脚本会把这条 symlink 建好；自动检测认不出的 agent 用 `--all`。`--check` 只读自检状态（不写盘），`--fix-copy` 把 Git Bash 建出的目录副本换成链接。自检与两条修法见 [windows-setup.md](docs/guide/windows-setup.md)。
 

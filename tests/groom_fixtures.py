@@ -70,6 +70,9 @@ def init_repo(repo: Path, cases=None):
     git(repo, "config", "user.email", "groom@example.com")
     git(repo, "config", "user.name", "Groom Test")
     shutil.copytree(ROOT / "scripts", repo / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+    # 收尾回写 trace 要经 trace_transition.py，它读 trace-status.yaml 校验状态词表；
+    # 临时仓库少了这份会 E_SCHEMA，测出来的失败与收尾逻辑无关。
+    shutil.copy2(ROOT / "trace-status.yaml", repo / "trace-status.yaml")
     # 用真实 .gitignore：inbox 草稿、groom sidecar、traces 等运行时件不该被测试的
     # `git add -A` 扫进提交（否则 reset 会把"本地草稿"一起抹掉，测出一个假缺陷）。
     shutil.copy2(ROOT / ".gitignore", repo / ".gitignore")
@@ -94,11 +97,20 @@ def make_index(repo: Path):
     git(repo, "commit", "-qm", "index")
 
 
-def snapshot_meta(repo: Path, commit=None, authoritative=True, fresh=True):
+def snapshot_meta(repo: Path, commit=None, authoritative=True, fresh=True, ref=None):
+    """快照 meta。`ref` 默认取仓库里真实存在的 origin/main；没有就不写。
+
+    旧夹具不管仓库有没有远端都写 `refs/remotes/origin/main`，等于让评估记录声称一个
+    解析不到的 ref；现在新鲜度会按评估记录的目标 ref 判，这种夹具会让所有草稿假 stale。
+    """
     commit = commit or git(repo, "rev-parse", "HEAD").stdout.strip()
+    if ref is None:
+        candidate = "refs/remotes/origin/main"
+        probe = git(repo, "rev-parse", "--verify", f"{candidate}^{{commit}}", check=False)
+        ref = candidate if probe.returncode == 0 else None
     return {
         "schema": "groom-snapshot/v1", "ok": True, "repo": str(repo),
-        "branch": "main", "remote": "origin", "ref": "refs/remotes/origin/main",
+        "branch": "main", "remote": "origin", "ref": ref,
         "commit": commit, "short": commit[:12], "fresh": fresh,
         "authoritative": authoritative, "worktree": str(repo),
         "index": {"state": "verified", "detail": None},

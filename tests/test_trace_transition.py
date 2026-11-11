@@ -8,11 +8,16 @@
 """
 
 import argparse
+import base64
 import hashlib
+import io
+import json
 import sys
+import contextlib
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -168,6 +173,96 @@ class WriterTest(unittest.TestCase):
             tt.apply_transition(ROOT, self.traces, "s1", args(to="resolved", expect_sha256="deadbeef"))
         self.assertEqual(ctx.exception.code, "E_STATE_CHANGED")
 
+    def test_lock_unavailable_fails_without_writing(self):
+        # log_lock 的契约是 yield True/False。False = 本平台没有可用的互斥原语；
+        # 此时写状态会丢事件。写入口必须拒绝，而不是在无锁状态下写。
+        path = self.make()
+        before = path.read_bytes()
+
+        @contextlib.contextmanager
+        def unavailable(_path):
+            yield False
+
+        with mock.patch.object(tt, "log_lock", unavailable):
+            with self.assertRaises(tt.Fail) as ctx:
+                tt.apply_transition(ROOT, self.traces, "s1", args(to="resolved"))
+        self.assertEqual(ctx.exception.code, "E_IO")
+        self.assertIn("写锁不可用", ctx.exception.message)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_permission_error_message_carries_path_and_system_reason(self):
+        # 面板把这一支说成「当前会话没有写权限」会把人引去查会话档位：文件级拒绝（ACL /
+        # 只读 / 占用）与档位是两回事。这里钉住 message 带路径与系统原因，退出码与 JSON 形状不变。
+        path = str(self.traces / "s1.yaml")
+
+        def deny(*_args, **_kwargs):
+            raise PermissionError(13, "Permission denied", path)
+
+        with mock.patch.object(tt, "apply_transition", deny):
+            rc, out = self.run_main(["s1", "--root", str(ROOT), "--traces", str(self.traces), "--json"])
+        self.assertEqual(rc, 5, out)
+        payload = json.loads(out)
+        self.assertEqual(set(payload), {"ok", "code", "message"}, out)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["code"], "E_PERM")
+        self.assertIn(path, payload["message"])
+        self.assertIn("Permission denied", payload["message"])
+        self.assertIn("文件操作被系统拒绝", payload["message"])
+
+    def test_permission_error_without_filename_keeps_system_reason(self):
+        # 有的平台抛 PermissionError 时 filename 为空：不能因此退回一句「没有写权限」，
+        # 系统原因仍要带出来。
+        def deny(*_args, **_kwargs):
+            raise PermissionError(13, "Access is denied")
+
+        with mock.patch.object(tt, "apply_transition", deny):
+            rc, out = self.run_main(["s1", "--root", str(ROOT), "--traces", str(self.traces), "--json"])
+        self.assertEqual(rc, 5, out)
+        self.assertEqual(json.loads(out)["message"], "文件操作被系统拒绝（Access is denied）")
+
+    def test_fallback_command_shapes_apply(self):
+        # 面板「生成指令」兜底生成的是可直接执行的命令：字段走 --payload-base64，会改变
+        # 校验路径的标志留在命令行。形状错了，读者照抄会得到 E_SCHEMA 或写错字段。
+        def run(payload, flags, sid="s1"):
+            token = base64.b64encode(json.dumps(payload, ensure_ascii=False).encode("utf-8")).decode("ascii")
+            return self.run_main([sid, "--root", str(ROOT), "--traces", str(self.traces),
+                                  "--by", "user", "--source", "panel", "--json",
+                                  "--payload-base64=" + token, *flags])
+
+        self.make()
+        rc, out = run({"to": "resolved", "kind": "root_cause", "summary": "中文摘要 $var 'single'",
+                       "severity": "service-affecting", "fix_emitted": True}, [])
+        self.assertEqual(rc, 0, out)
+        doc = self.load()
+        self.assertEqual(doc["status"], "resolved")
+        self.assertEqual(doc["severity"], "service-affecting")
+        self.assertTrue(doc["fix_emitted"])
+
+        rc, out = run({"reopen": True}, [])
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(self.load()["status"], "in_progress")
+
+        rc, out = run({"to": "escalated", "kind": "handed_off", "handed_to": "张工 · CANN 组"}, [])
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(self.load()["status"], "escalated")
+
+        rc, out = run({"to": "resolved", "kind": "root_cause"}, ["--correct-ending"])
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(self.load()["status"], "resolved")
+        self.assertEqual(self.load()["ending"]["kind"], "root_cause")
+
+        # 补记收尾方式：老单已 resolved 但没有 ending，命令行带 --backfill-ending。
+        self.make("old", status="resolved")
+        rc, out = run({"kind": "root_cause"}, ["--backfill-ending"], sid="old")
+        self.assertEqual(rc, 0, out)
+        old = yaml.safe_load((self.traces / "old.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(old["ending"]["kind"], "root_cause")
+
+        # 沉淀状态：状态由命令行给，payload 是空对象（面板的 sedimented 写就是这样）。
+        rc, out = run({}, ["--field", "sedimented", "--state", "submitted"])
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(self.load()["sedimented"]["state"], "submitted")
+
     def test_cas_token_is_single_use(self):
         path = self.make()
         sha = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -246,9 +341,53 @@ class WriterTest(unittest.TestCase):
     def test_crlf_preserved(self):
         self.make()
         path = self.traces / "s1.yaml"
-        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+        # Windows 上 make() 用 write_text 写出的文件已是 CRLF，直接替换会得到 \r\r\n。
+        # 先归一成 LF，再统一转成 CRLF。
+        raw = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        path.write_bytes(raw.replace(b"\n", b"\r\n"))
         tt.apply_transition(ROOT, self.traces, "s1", args(to="resolved"))
         self.assertIn(b"\r\n", path.read_bytes())
+
+    # ── 复制到任意终端的输入通道：base64 单行 ──────────────────────────────────
+    # 兜底命令要在 bash / zsh / PowerShell / cmd.exe 里原样可粘，所以 payload 只能是一个
+    # 纯 ASCII 单行参数；这里守住「值原样进去、坏 token 不写盘」两件事。
+    def run_main(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            rc = tt.main(argv)
+        return rc, out.getvalue()
+
+    def test_payload_base64_supplies_values(self):
+        self.make()
+        body = {"to": "resolved", "kind": "root_cause", "severity": "service-affecting",
+                "fix_emitted": True,
+                "summary": "中文摘要 $var 'single' 与 \"double\""}
+        token = base64.b64encode(json.dumps(body, ensure_ascii=False).encode("utf-8")).decode("ascii")
+        rc, out = self.run_main(["s1", "--root", str(ROOT), "--traces", str(self.traces),
+                                 "--json", "--payload-base64=" + token])
+        self.assertEqual(rc, 0, out)
+        doc = self.load()
+        self.assertEqual(doc["status"], "resolved")
+        self.assertEqual(doc["summary"], body["summary"])
+
+    def test_payload_base64_bad_tokens_write_nothing(self):
+        # 四种手误分开报：空串 / 不是 base64 / 解出来不是 JSON / 不是对象。以前空串会落到
+        # 转移校验那句「不允许转到该状态」，看不出是参数没带；混成一句读者只能猜。
+        cases = [
+            ("", "base64 参数是空的"),
+            ("这不是base64", "base64 参数解不开"),
+            (base64.b64encode(b"abc").decode("ascii"), "解出来不是 JSON"),
+            (base64.b64encode(b"[1,2]").decode("ascii"), "payload 必须是对象"),
+        ]
+        for token, want in cases:
+            path = self.make()
+            before = path.read_bytes()
+            rc, out = self.run_main(["s1", "--root", str(ROOT), "--traces", str(self.traces),
+                                     "--json", "--payload-base64=" + token])
+            self.assertEqual(rc, 2, out)
+            self.assertIn("E_SCHEMA", out, out)
+            self.assertIn(want, out, out)
+            self.assertEqual(path.read_bytes(), before, token)
 
     def test_field_sedimented_writes_only_that_block(self):
         self.make()
@@ -258,6 +397,20 @@ class WriterTest(unittest.TestCase):
         self.assertEqual(doc["sedimented"]["state"], "submitted")
         self.assertEqual(doc["status"], "in_progress")
         self.assertNotIn("transitions", doc)
+
+    def test_field_sedimented_none_clears_target(self):
+        # 撤回到「未沉淀」时，上一次的 case_id / inbox_path 必须一起清掉：留着它们，
+        # 下游会把这份 trace 算成沉淀过那条 case（`trace_entry_activity.py` 的强度读数）。
+        self.make()
+        tt.apply_transition(ROOT, self.traces, "s1",
+                            args(field="sedimented", state="submitted",
+                                 case_id="VLLM-ASC-1", inbox_path="postmortems/inbox/x.case.yaml"))
+        tt.apply_transition(ROOT, self.traces, "s1",
+                            args(field="sedimented", state="none"))
+        doc = self.load()
+        self.assertEqual(doc["sedimented"]["state"], "none")
+        self.assertEqual(doc["sedimented"]["case_id"], "")
+        self.assertEqual(doc["sedimented"]["inbox_path"], "")
 
 
 if __name__ == "__main__":

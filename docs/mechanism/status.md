@@ -13,10 +13,12 @@
 | 内容流程收尾的伴随演进 | [rsi-mechanism.md](rsi-mechanism.md) 「什么时候会发生演进」 | 已落地 | `ls skills/evolve-check/SKILL.md` |
 | 部署级演进模式声明 `evolution.mode` | 执行参数：[evolve-check/SKILL.md](../../skills/evolve-check/SKILL.md) 第 0 步；归属规则：[git-workflow.md](../guide/git-workflow.md)「每部署一份」 | 已落地 | `python3 scripts/evolve_mode.py` |
 | 诊断续接时的知识库漂移检查（诊断记录里用过的 case 在中断期间变没变） | [diagnosis-trace.md](../../skills/diagnose/references/diagnosis-trace.md) 的 `kb_rev` 与 `last_action` 节 | 已落地 | `python3 scripts/kb_drift.py --session <id>` |
+| 诊断读侧的知识库同步与版本坐标记录（这一单读的版本、远端版本、差多少） | [diagnosis-trace.md](../../skills/diagnose/references/diagnosis-trace.md) 的「顶层知识库同步字段」一节 | 已落地 | `python3 scripts/kb_sync.py --show` |
 | 信号台账（下游部署的收尾交接） | 定义：[signals/README.md](../../proposals/signals/README.md) | 已落地 | `python3 scripts/evolve_signals.py list` |
 | 演进记录入口 `evolve_intake` 与信号生命周期 | 定义：[evolve-check/SKILL.md](../../skills/evolve-check/SKILL.md) 第 3 步；台账：[signals/README.md](../../proposals/signals/README.md) | 已落地 | `python3 scripts/evolve_intake.py record --help`；`python3 scripts/evolve_signals.py mark --help` |
 | 全库体检轮 | [rsi-mechanism.md](rsi-mechanism.md) 「什么时候会发生演进」 | 已落地 | `ls skills/self-evolve/SKILL.md` |
 | 每周批审 | [rsi-mechanism.md](rsi-mechanism.md) 「哪一步需要人，哪一步可以交给 agent」 | 已落地 | `ls skills/knowledge-groom/SKILL.md` |
+| groom 终态决定的收尾：trace 沉淀回写 + 草稿出队 | [agent-groom.md](agent-groom.md) 「收尾：回写沉淀状态与草稿出队（PR 合入后）」 | 已落地 | `python3 scripts/groom_close_draft.py --help` |
 | 改进项的过程档案与可复现预期 | [rsi-mechanism.md](rsi-mechanism.md) 「从触发到落地」 | 已落地 | `python3 scripts/verify_proposals.py --check` |
 | 判定三态：符合、被证伪、无法判定；声明不可度量为合法退化 | [rsi-mechanism.md](rsi-mechanism.md) 「验证怎么闭环」 | 已落地 | `python3 scripts/ev_measure.py --audit` |
 | 判定池的吸收分流与运行期重判 | [rsi-mechanism.md](rsi-mechanism.md) 「验证怎么闭环」 | 已落地 | `grep -n "absorption_rev" scripts/eval_arena.py` |

@@ -105,7 +105,7 @@ Golden-case 回归套件在 `eval/golden/`：公开仓只放构造示例，真�
 1. **改 tracked 文件的活进 worktree**：`git worktree add <路径> <自己的 kb/* 分支>`，禁止在主检出目录修改或提交；同一分支同时只能被一个 worktree 检出。
 2. **未进 git 的运行时件一律锚到主检出**，且**用绝对路径读写**：`python3 scripts/shared_dir.py <名字>` 是唯一入口（exec-log、`src-code/`、`traces/`、`postmortems/inbox/` 草稿、`proposals/{sessions,tasks,reviews,experiments}/`）。
 3. **别写相对路径**：worktree 清理对 gitignore 件无提示、不报错（不是"会被 git 拦住"），而面板/周批/结算脚本读的是主检出那一份——"记录了但没人看得见"与"读不到就当成没有"会同时发生。
-4. **串行与收工**：`ingest-state.json` 的游标更新无锁，必须串行；开工先 `git fetch origin`，收工前提交或 stash，不留未提交改动。
+4. **串行与收工**：`ingest-state.json` 的游标更新无锁，必须串行；开工先 `git fetch <归属仓>`（默认 origin），收工前提交或 stash，不留未提交改动。
 
 完整约定（不隔离的面如何在合流时解决、锁原语、worktree 清理）见 [`docs/guide/git-workflow.md`](docs/guide/git-workflow.md)。
 
@@ -127,6 +127,7 @@ Golden-case 回归套件在 `eval/golden/`：公开仓只放构造示例，真�
 - **Skill self-containment (CI-enforced):** skill files (`skills/**`) must not reference ADR numbers (`ADR-\d{4}`), dates (`20\d\d-\d\d`), or EV card numbers (`EV-\d{4}-\d{3}`) — ADRs get revised/absorbed; a number anchor makes skill behavior look externally defined; dates read as facts; card numbers rot. Behavior rules must be inline; traceability belongs to git/PR/card history.
 - **EV 卡的预测必须可复现 (CI-enforced):** `predicted_effect.measure` 要带一条命令 + 期望（`expect_exit` / `expect_stdout` 至少一项），或如实声明 `reason`（不可度量）。缺它则"评审 30 秒判定"无从执行；产卡骨架的占位 `measure` 会被 CI 拦下。判 `validated` 前先跑一遍自己的 measure。
 - **Check-admission criterion (what deserves CI):** only rules that are ①mechanically checkable, ②have deterministic consequences, ③proven recurrent (failed ≥2×) go into CI. Judgmental norms stay as execution instructions + review spot-checks — never fake-hardened (原则六).
+- **测试跨平台**：`tests/` 下的新增与修改按 `docs/spec/test-portability.md` 判定（显式 UTF-8、路径断言归一、字节级夹具、平台专有 API 跳过、外网用例默认 skip）；对应的静态检查与 Windows 单测已进 CI，判定强度与覆盖边界以那篇 §5 为准。
 - **提交前必跑**：逐条命令以 `.github/workflows/kb-checks.yml` 与 `pr-template.yml` 为准（**不在本文件抄一份**——抄了会腐烂且不报错）。另有更重的端到端演练 `python3 scripts/rehearse_evolve_loop.py`：它在临时副本里真跑一遍闭环、并逐条复跑 CI 命令；**但它自己不进 CI，也不能替代上面逐条 `--check`**。`verify_exec_log.py` 不进 CI（exec-log 是运行时件）。
 - **No more than 2 consecutive failed case attempts** — fall back to human on the third (serial protection against misdiagnosis cascades).
 - **Log clipping is mandatory.** Only paste failed-rank logs + error stack tails into context. Full profiler data overwhelms the ~120K token reasoning sweet spot.

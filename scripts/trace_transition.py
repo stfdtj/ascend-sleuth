@@ -17,18 +17,22 @@ transition 事件；面板、skill、终端都调它。
   python3 scripts/trace_transition.py <sid> --reopen
   python3 scripts/trace_transition.py <sid> --field sedimented --state submitted --inbox-path …
   python3 scripts/trace_transition.py <sid> --to archived --kind withdrawn --expect-sha256 <hex> --json
+  python3 scripts/trace_transition.py <sid> --json --payload-base64 <b64>
+  （`--payload-base64` 是给「复制到任意终端」用的：base64 是纯 ASCII 单行，bash / zsh /
+    PowerShell / cmd.exe 都不用管引号与 here-doc，也就不存在选错 shell 写法的问题）
 
 写入是**默认行为**；`--dry-run` 才只校验不写盘。三个子命令语义一致，不沿用
 `sediment_batch.py` 那套「默认打印、`--apply` 才写」。
 
 退出码：0 成功；2 参数/必填/转移不合法（E_SCHEMA）；3 状态已变（E_STATE_CHANGED）；
-4 写入后校验失败，已回滚（E_IO）；5 主检出不可写（E_PERM）；6 trace 不存在（E_NOT_FOUND）；
-7 脚本版本与词表不匹配（E_SCHEMA_VERSION）。
+4 写入后校验失败，已回滚（E_IO）；5 文件操作被系统拒绝（E_PERM，带路径与系统原因）；
+6 trace 不存在（E_NOT_FOUND）；7 脚本版本与词表不匹配（E_SCHEMA_VERSION）。
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
@@ -192,14 +196,20 @@ def sedimented_block(doc: dict, state: str, case_id: str, inbox_path: str) -> st
     current = doc.get("sedimented") if isinstance(doc.get("sedimented"), dict) else {}
     merged = dict(current)
     merged["state"] = state
-    if case_id:
-        merged["case_id"] = case_id
+    if state == "none":
+        # 「未沉淀 / 已撤回」不能留着上一次的落点：trace_entry_activity 会按 case_id
+        # 把这份 trace 算成沉淀过那条 case；inbox_path 也一样指向一份不存在的草稿。
+        merged["case_id"] = ""
+        merged["inbox_path"] = ""
     else:
-        merged.setdefault("case_id", "")
-    if inbox_path:
-        merged["inbox_path"] = inbox_path
-    else:
-        merged.setdefault("inbox_path", "")
+        if case_id:
+            merged["case_id"] = case_id
+        else:
+            merged.setdefault("case_id", "")
+        if inbox_path:
+            merged["inbox_path"] = inbox_path
+        else:
+            merged.setdefault("inbox_path", "")
     order = ["state", "case_id", "inbox_path"]
     keys = order + [k for k in merged if k not in order]
     body = "".join(f"  {k}: {json.dumps('' if merged.get(k) is None else str(merged.get(k)), ensure_ascii=False)}\n"
@@ -344,7 +354,13 @@ def apply_transition(root: Path, traces: Path, sid: str, args) -> dict:
     """
     if args.dry_run:
         return _apply_locked(root, traces, sid, args)
-    with log_lock(traces / ".transition-write"):
+    with log_lock(traces / ".transition-write") as held:
+        # `log_lock` 的契约是 yield True/False：False 表示本平台连降级原语都没有。
+        # 不加锁写状态会丢事件：两次并发收尾都通过 CAS，后写覆盖前写。
+        # 这里拒绝写入，由调用方按 E_IO 报给用户。
+        if not held:
+            raise Fail("E_IO", "写锁不可用：本机既没有 fcntl 也没有 msvcrt，"
+                              "拒绝在不加锁的情况下写状态")
         return _apply_locked(root, traces, sid, args)
 
 
@@ -552,6 +568,24 @@ def fold_events(events: list[dict], keep: int = MAX_INLINE_TRANSITIONS) -> tuple
     return [summary] + tail, len(head)
 
 
+def _payload_from_base64(token: str):
+    """base64 → JSON 对象。返回 (payload, err)；err 是给人看的一句，三种手误分开说。"""
+    raw = str(token or "")
+    if not raw:
+        return None, "base64 参数是空的"
+    try:
+        body = base64.b64decode(raw, validate=True).decode("utf-8")
+    except Exception as exc:
+        return None, "base64 参数解不开：" + str(exc)
+    try:
+        payload = json.loads(body)
+    except Exception as exc:
+        return None, "base64 解出来不是 JSON：" + str(exc)
+    if not isinstance(payload, dict):
+        return None, "payload 必须是对象，解出来是 " + type(payload).__name__
+    return payload, None
+
+
 def verify_untouched(before: dict, after: dict) -> bool:
     for key, value in before.items():
         if key in TOUCHED:
@@ -597,6 +631,8 @@ def main(argv=None) -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--payload-file", default=None,
                     help="从 JSON 文件读参数（面板写入用：避免把所有值拼进命令行）")
+    ap.add_argument("--payload-base64", default=None,
+                    help="从命令行读 base64 编码的 JSON 参数（复制命令用：单行 ASCII，与 shell 无关）")
     ap.add_argument("--payload-stdin", action="store_true",
                     help="从标准输入读 JSON 参数（复制命令用：here-doc）")
     args = ap.parse_args(argv)
@@ -616,6 +652,16 @@ def main(argv=None) -> int:
                 Path(args.payload_file).unlink()
             except OSError:
                 pass
+    elif args.payload_base64 is not None:
+        # base64 先解成 UTF-8 字节再交给 json：不经过终端编码，中文不会被打成问号。
+        # 三段分开报错——「解不开」「解出来不是 JSON」「不是对象」是三种不同的手误，
+        # 合成一句读者只能猜。空串也走这里（`is not None`，不用真值判断：空串会被跳过，
+        # 最后报成「不允许转到该状态」，看不出是参数没带）。
+        payload, err = _payload_from_base64(args.payload_base64)
+        if err:
+            print(json.dumps({"ok": False, "code": "E_SCHEMA", "message": err}, ensure_ascii=False)
+                  if args.json else err, file=sys.stdout if args.json else sys.stderr)
+            return CODE_EXIT["E_SCHEMA"]
     elif args.payload_stdin:
         try:
             payload = json.loads(sys.stdin.read() or "{}")
@@ -657,12 +703,19 @@ def main(argv=None) -> int:
         else:
             print(exc.message, file=sys.stderr)
         return CODE_EXIT.get(exc.code, 2)
-    except PermissionError:
-        payload = {"ok": False, "code": "E_PERM", "message": "当前会话没有写权限"}
+    except PermissionError as exc:
+        # 文件级 PermissionError 不只来自「写不进去」：读 trace、开锁文件失败也走这里。
+        # 消息说清是文件操作被拒，并带出路径与系统原因，读者才知道该修哪一处；
+        # 面板再按 E_PERM 给「生成指令」兜底（会话里的 shell 可能仍能写）。
+        where = str(exc.filename) if exc.filename else ""
+        reason = exc.strerror or str(exc)
+        message = ("文件操作被系统拒绝：" + where + "（" + reason + "）") if where \
+            else ("文件操作被系统拒绝（" + reason + "）")
+        payload = {"ok": False, "code": "E_PERM", "message": message}
         if args.json:
             print(json.dumps(payload, ensure_ascii=False))
         else:
-            print(payload["message"], file=sys.stderr)
+            print(message, file=sys.stderr)
         return CODE_EXIT["E_PERM"]
     except Exception as exc:  # 未预期错误也要给稳定 code，面板才有一句人话
         payload = {"ok": False, "code": "E_IO", "message": str(exc)}

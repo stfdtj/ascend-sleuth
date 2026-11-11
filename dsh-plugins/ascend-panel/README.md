@@ -297,7 +297,7 @@ node scripts/panel_install.js --remove   # 卸载
 
 1. 侧栏「插件」页 → 添加入口 → 粘贴本仓库 `dsh-plugins/dsh-sleuth-panels` 的绝对路径（粘的是这个包目录，不是上面的面板源目录 `dsh-plugins/ascend-panel/`：后者没有 `package.json`，入口会拒）。该入口也接受包名、Git 地址与压缩包。
 2. 装完看 profile 里的四处记录：`package.json` 的 `dependencies` 与 `dsh.profile.bundles` 各一条 `dsh-sleuth-panels`；`dsh.desktop.generationProjection` 里一条 generationId，形如 `dsh-sleuth-panels+<版本>+<哈希>`；`pnpm.overrides` 里一条指向 `dirname($DSH_PROFILE_DIR)/.generations/live/<generationId>/node_modules/dsh-sleuth-panels` 的 link。界面不给模型可读的 application / warnings，以这四处记录为准。包进了 generation，仓库被移动或 worktree 被清掉都不影响已装的那份。
-3. 在仓库里跑 `node scripts/panel_rpc_probe.js`（退出码 2 = 拿不到地址，或路由没在服务或未授权），再刷新页面：对话视图的 tab 条里应出现「诊断」，左侧栏应出现「Ascend Sleuth」图标（指标 / 自演进在这一页里）。
+3. 在仓库里跑 `node scripts/panel_rpc_probe.js`（退出码 2 = 拿不到地址，或路由没在服务或未授权），再刷新页面：对话视图的 tab 条里应出现「诊断」，左侧栏应出现「Ascend Sleuth」图标（「知识库」「指标」「自演进」在这一页里）。
 4. 卸载也在这个页面做。
 
 桌面版没有 `dsh` 命令，界面提示的 `dsh plugin --profile web install` 与 `dsh --profile web --dump-config` 都用不上。profile 的 `dependencies` 里若有指向没有 `package.json` 的目录的 link 依赖，桌面版启动的 generations 迁移会 defer，之后需要解析这个包的操作报 `cannot resolve profile bundle "<名字>"`；处置是把 `package.json`、`pnpm-lock.yaml`、`node_modules` 里的死链一起删干净。
@@ -360,7 +360,7 @@ node scripts/panel_install.js --remove   # 卸载
 | 关联面 | 每一步"用到/查到了什么"，与「证据」（现场材料）分开、排在它之前：`case`（这一步核验/读到的 case）· `候选`（本轮载入的候选集——"看过但没选"的那一面）· `先验`（取用的词条 id + 消费点人读名）· `甄别`（agent 自己写的取舍理由，全块最值钱的一行——它把"命中"与"有用"分开）· `资料`（知识库**以外**的链接，可点开）· `调用`（工具调用清单，按需展开）。存在性以 `候选 N` / `资料 N` 徽标提到步骤行——**徽标用行的名字，不用"关联/外部"这类伞形词**：前者没说清关联什么，后者更错（先验词条就在库里）；参考层步骤已由「参考层 + 三态」覆盖，不重复给徽标 |
 | 定位结论 | 卡片以结论收尾：轨迹之后单列一块「定位结论」。落点由 trace 的 `conclusion: true` 标出，没有该标记时退到"人读视图里可见的最后一条是 `hit`"这条约定；**不取"文件里最后一个事件"**——真实 trace 的末条常是 report/feedback 这类记录维护动作，人读视图会收起它们。人读视图里该条不再重复出现在轨迹末尾（完整轨迹保留原位置）；一单还没有结论时给一行说明，读者能分辨"还没收尾"与"这单没有结论" |
 | 续接 | 未解决会话生成 resume 指令（复制→对话触发） |
-| 改状态 | 单主线三步：**选结局**（每个动作一张卡，一句「什么时候选它」）→ **补信息**（只渲染该结局要填的字段）→ **确认写入**（「当前 → 目标」预览 + 一个确认按钮）。动作清单、必填与收尾方式全部来自 host 投影（`scripts/trace_state.py` 的 `actions`），面板只排版。高危动作（不再跟进 / 重新打开 / 改收尾到不再跟进）另给琥珀后果说明，勾选「我已了解后果」才写入；常规收尾不加二次确认。「命令兜底」收进折叠块（当前会话没有写权限时默认展开），展开后主复制动作是「复制给 agent」，shell 切换与命令块留在次级位置 |
+| 改状态 | 单主线三步：**选结局**（每个动作一张卡，一句「什么时候选它」）→ **补信息**（只渲染该结局要填的字段）→ **确认写入**（「当前 → 目标」预览 + 一个确认按钮）。动作清单、必填与收尾方式全部来自 host 投影（`scripts/trace_state.py` 的 `actions`），面板只排版。高危动作（不再跟进 / 重新打开 / 改收尾到不再跟进）另给琥珀后果说明，勾选「我已了解后果」才写入；常规收尾不加二次确认。「命令兜底」收进折叠块（当前会话没有写权限时默认展开），展开后主复制动作是「复制给 agent」，「复制命令」与命令块留在次级位置；命令只有一行、与 shell 无关（payload 走 base64），复制后当场给「已复制」 |
 | 等上游 | 已收尾（`status: resolved`）、`fix_emitted: false`、命中案例在 `knowledge/` 里带 `upstream` 锚点、且该案例的 `verification.source` 属 `upstream-` 档（上游修复已合入 / 维护者确认 / 官方文档）的单，收起态挂「等上游」徽标（title 给锚点与上一次外部验证的周）。**「查上游进展」入口挂在锚点上，不挂在这四条上**：只要命中案例带 `upstream` 锚点，动作行就显示按钮并在旁边列出锚点，点开直接给可复制 prompt——存量单基本没记 `fix_emitted`，入口跟着徽标走的话它们一个入口都没有。prompt 仍是 `/skill:resume-diagnosis` 只查上游 → `verify_upstream_outcomes.py --case <id>`（dry-run，读四种结局里的一种并说下一步）。「等上游」筛选里按这一屏一次生成**一条**批量查证指令（名单里每个 case 一个 `--case`，不是每单一条）。**面板不联网、不回写 `knowledge/`**：查证与写回 `validation_record` 都在指令那侧；写回要走 PR。判据在 host 投影（`scripts/_trace_state.py` 的 `derive`）：KB 附加事实（锚点、`last_verified`、`verification.source`）由 `kb_case_meta` 读一次，`derive` 只做组合；面板本身不读 `knowledge/`。徽标不进「待跟进」三数：那些数都是"欠本机一个动作"，等上游的单欠的是上游。这条筛选只对**记过 `fix_emitted`** 的单生效：没记的老单按"不可判"处理，不会出现在这一屏（当前部署的存量trace 就没有记，所以刚升级时这一屏大概是空的，不是没生效）。**与 `escalated` 的旧称「已转上游」区分**：那个是交给人、本机不再跟进；这里是诊断已收尾、等上游给结论。 |
 | 沉淀 | 四状态呈现 + 沉淀指令 copy + 双标记操作（Tier2/Tier3 回写）。**case 与先验候选分家**：上段是本单 case 的沉淀状态（走 to-postmortem），下段是先验知识候选（走 to-reference，与 case 的沉淀状态互不影响）——case 沉淀不产出 reference 词条，混在一处会被读成"reference 也跟着沉淀了"（实测误读）。**「待沉淀」与「待升格」两种状态**：「已收尾 · 待沉淀」「有结论 · 待沉淀」（报告或沉淀候选已产出、但诊断还没标收尾）与「未闭环 · 待升格」在列表上有徽标、可筛选可搜索；前者按筛选结果一次生成批量沉淀命令，后者勾选后批量标已解决（只允许「已解决 · fix 生效」一种结局） |
 | 交接包 | 卡片的「导出交接包」直接产出 `traces/exports/` 下的 zip 与单文件 md（不是复制指令）；该目录不可写时脚本改道到检出内的 `.handoff/`，结果行写明本想去哪、实际落在哪、为什么。面板不改写这个事实，也不做脱敏（`含原始证据` 徽标只标注） |
@@ -470,8 +470,8 @@ node scripts/panel_install.js --remove   # 卸载
   「锚点非空就有入口」。
 - **状态编辑器**：三种形态（进行中给三条收尾 / 缺收尾方式的终态给补记 / 有收尾方式的终态给改收尾）
   的动作逐个点开都不许崩，且分别出现「确认收尾 / 确认补记 / 确认改收尾 / 确认重新打开」；兜底命令
-  按所选动作与所选 shell 换内容（点「PowerShell」后是 `@'` + `python`，切回 bash 是 here-doc），
-  参数正文只出现在命令块、不拼进命令行；高危动作必须勾选「我已了解后果」才允许写入。判据是
+  按所选动作换 payload（命令只有一行、与 shell 无关：payload 走 `--payload-base64=`，解释器名按
+  host 报的平台选 win32→`python`、其余→`python3`），参数正文只出现在命令块、不拼进命令行；高危动作必须勾选「我已了解后果」才允许写入。判据是
   「真点击 + 跑真投影」，不是匹配源码字符串。
 - **fs 写**：host 的三处 `fs.writeText`（沉淀回写 / 索引缓存 / 状态写入参数文件）都带单次沙箱策略
   （`mode: workspace-write` + 该次写入对应的主检出）。判据用按 DSH 围栏语义实现的 mock fs 真跑三条
@@ -479,6 +479,22 @@ node scripts/panel_install.js --remove   # 卸载
 
 ## 版本
 
+- 2026-11-10 · 知识库页新增「后台检查用完全权限」开关（`sync.check_full_access`，默认开）：
+  后台提醒检查默认以完全权限跑 `scripts/kb_sync.py --check`，受限档位里拿不到 git 凭据的机器
+  也能自动检查；关闭后跟随部署默认沙箱档位（不是完全权限时 `workspace-write` + 主检出）。
+  只影响这一条后台检查，其他脚本仍按会话档位解析。面板包 0.10.2 → 0.10.3，状态条 0.22.4 → 0.22.5。
+- 2026-11-10 · 知识库页的失败横幅按来源分开：上次失败来自后台提醒检查时写「上次后台检查失败」，
+  不再和用户的「上次同步失败」混成同一句。`credential` 原因（认不出凭据）显示 ssh / git 自己的
+  原因行（如 `Host key verification failed.`），并给终端核对命令。提醒检查关掉后，这条失败降级成
+  灰色说明。新脚本配未重启 DSH 的旧面板时，旧面板读到 `credential` 会显示「本机脚本报错」并丢掉
+  原文；重启后换新文案。面板包 0.10.1 → 0.10.2。
+- 2026-11-09 · 同步代码后「要不要重启 DSH」变成可见状态。诊断 tab 顶部在仓库 package.json 的版本
+  高于已加载版本时给一行「面板有新版 vX（重启后生效）」，版本相等时不出现；重启后仍在，从插件页
+  装的要用同一路径重装，随仓库装的检查产物是否重建。这个提示从带它的版本开始才有：升级到它之前
+  装的旧面板不会给提示，合并后重启一次即可。
+- 2026-11-09 · 知识库页的「落后 N 个提交」与同步成功提示按本次合并的改动面补一句面板代码更新
+  （改动面由 `scripts/kb_sync.py` 统计：`knowledge/`、`triage-tree*`、`references/`、`skills/`、
+  `dsh-plugins/` 各计一条）。面板包 0.9.2 → 0.9.3。
 - 2026-11-03 · 两件：①**状态编辑改成单主线三步**（选结局 → 补信息 → 确认写入）。旧版把一排
   外观相同的「确认收尾」动作、表单、主按钮与常驻的「命令兜底」平铺在一块，命令块还带 bash /
   PowerShell 两个切换与一整段 JSON 背景，占掉编辑器一半高度（实测 513px）。现在每个结局是一张卡

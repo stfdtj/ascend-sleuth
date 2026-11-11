@@ -6,7 +6,7 @@
 
 本文说明 groom 如何在**确定的远端知识版本**上，用子 agent 比较本地草稿与现有 case，把评估写成本地状态，并在合入前检查评估是否过期。读者是维护知识库、会改 groom 流程或审这类 PR 的人；只跑诊断、不沉淀的人不必读。
 
-范围：`postmortems/inbox/` 到 `knowledge/` 升格之间的 intake 段，以及 PR 合入前的复核。不覆盖 diagnose 的候选检索、reference 维护段与发布流程。
+范围：`postmortems/inbox/` 到 `knowledge/` 升格之间的 intake 段，以及 PR 合入前的复核。不覆盖 diagnose 的候选检索、先验知识层（`references/`）那一节、发布流程。
 
 ## 1 解决什么问题
 
@@ -37,7 +37,7 @@ python3 scripts/groom_candidates.py --snapshot <snapshot.json> --all --out <work
 python3 scripts/groom_record.py --snapshot <snapshot.json> --work-orders <work-orders.json> --results-dir <results/>
 ```
 
-产物是 `postmortems/inbox/.groom/assessments/<key>.yaml` 一份本地评估状态。人用 `groom_status.py` 看一屏，用 `groom_decide.py` 写决定；提 PR 时把 `groom_record.py --pr-marker` 的输出贴进 body。
+产物是 `postmortems/inbox/.groom/assessments/<key>.yaml` 一份本地评估状态。人用 `groom_status.py` 看一屏，用 `groom_decide.py` 写决定；提 PR 时把 `groom_record.py --pr-marker` 的输出贴进 body。终态决定落盘、PR 合入后跑 `python3 scripts/groom_close_draft.py --all --apply`，回写来源 trace 的沉淀状态并把草稿移出队列（见 3.7）。没有 PR 的部署仍在落盘复核后直接收尾。
 
 三个概念贯穿全文：
 
@@ -71,7 +71,15 @@ python3 scripts/groom_record.py --snapshot <snapshot.json> --work-orders <work-o
 
 meta 用 `checkout: {mode, paths, requested, missing}` 记录这次物化了什么。复用前除了比 `HEAD` 与工作区改动，还要比对检出范围：稀疏下「没检出」与「没改」在 `git status` 里长得一样，只看工作区会让范围悄悄漂移。快照因此不是「该 commit 的完整表示」，读它的人不该把缺目录当成内容缺失。
 
-**用完即删，但按草稿删**：groom 收尾先跑 `groom_recheck`，通过后跑 `groom_cleanup.py --pr-body-file <body>`（默认直接执行，`--dry-run` 只看计划；由 agent 按脚本会核的判据决定跑不跑）——它先核对 marker 与本地评估是同一次评估（`assessment_id` / 内容哈希 / 人决定），执行阶段持**目录级清理锁**（与 `write_assessment` 共用；写侧拿不到锁会报错、不落盘），对得上的 sidecar 在单文件锁内**直接删除**（拿不到锁/锁打不开就不删；锁文件保留），快照只在「没有任何现存 sidecar 再引用该 commit、且不是 30 分钟内刚建的那份」时才删；读不出评估视为引用未知、不删快照；非终态决定与 `approval_stale` 一律保留。单条失败只保留该项并继续；非预期异常折成 `internal-error`，报告照出、退出 2。顺带清两类可弃中间件：`.groom/runs/` 下超过 1 天的工作单目录（可重生成，1 天是为了避开在途 run），以及「对应 sidecar 已不存在且超过 7 天」的残锁（有 sidecar 的锁一律保留，`.guard.lock` 不清）。但要如实标明**可能部分完成**：sidecar/快照先删、日志最后写，日志写失败时删除不可回滚。`--dry-run` 是计划，执行只会比计划少删（unlink 被占用会让对应快照也保留）。清理不碰 `latest.json`（约 2 KB，记 `cleaned_at`），因为它是"上一次比的是哪个 commit"的唯一记录。清理必须放在收尾而不是开头：`groom_record` 还要用这份检出。评估的过期判定只比较 git 里的 commit（`assessed_commit` vs 目标），不读这份目录，所以清理不影响 `groom_status` / `groom_recheck`。
+**用完即删，但按草稿删**：PR 合入后收尾，先跑 `groom_close_draft.py`，再跑 `groom_cleanup.py --pr-body-file <body> --post-merge --base <merge>^1 --head <merge>`（默认直接执行，`--dry-run` 只看计划；由 agent 按脚本会核的判据决定跑不跑）——
+
+它先核对 marker 与本地评估是同一次评估（`assessment_id` / 内容哈希 / 人决定），执行阶段持**目录级清理锁**（与 `write_assessment` 共用；写侧拿不到锁会报错、不落盘），对得上的 sidecar 在单文件锁内**直接删除**（拿不到锁/锁打不开就不删；锁文件保留），快照只在「没有任何现存 sidecar 再引用该 commit、且不是 30 分钟内刚建的那份」时才删；读不出评估视为引用未知、不删快照；非终态决定与 `approval_stale` 一律保留。单条失败只保留该项并继续；非预期异常折成 `internal-error`，报告照出、退出 2。
+
+顺带清两类可弃中间件：`.groom/runs/` 下超过 1 天的工作单目录（可重生成，1 天是为了避开在途 run），以及「对应 sidecar 已不存在且超过 7 天」的残锁（有 sidecar 的锁一律保留，`.guard.lock` 不清）。
+
+但要如实标明**可能部分完成**：sidecar/快照先删、日志最后写，日志写失败时删除不可回滚。`--dry-run` 是计划，执行只会比计划少删（unlink 被占用会让对应快照也保留）。
+
+清理不碰 `latest.json`（约 2 KB，记 `cleaned_at`），因为它是"上一次比的是哪个 commit"的唯一记录。清理必须放在收尾而不是开头：`groom_record` 还要用这份检出。评估的过期判定只比较 git 里的 commit（`assessed_commit` vs 目标），不读这份目录，所以清理不影响 `groom_status` / `groom_recheck`。
 
 注意 `sedimented`（none / submitted / knowledge / archived）描述的是**知识沉淀到哪一步**，清理状态描述的是**本地产物还能不能删**；两者相关但不等同——例如 `covered` 决定之后，postmortem 转正与 case 归档是两件事，别用前者的状态直接推后者。
 
@@ -181,6 +189,7 @@ human_decision_valid: true | false
 human_decision_history: [...]
 provenance:
   compared_against_commit: <sha>
+  target_ref: refs/remotes/<remote>/<branch>
   snapshot_fresh: true | false
   snapshot_authoritative: true | false
   work_order_id: <工作单哈希>
@@ -200,7 +209,8 @@ history: [...]
   `assessment_id` 与 `content_binding.sha256` 都对得上时 `human_decision_valid` 才为 true。对不上时
   标 `approval-stale` 并阻塞升格，等人重新确认；旧批准进 `human_decision_history`。
 - **草稿字节不变**：评估写本地评估状态文件（sidecar），不写回 `case.yaml`；永久 Case ID 只在升格时由人确认。
-- **过期检测**：`groom_status.py` 比较 `compared_against_commit` 与当前目标 commit，并检查 `knowledge/` 是否变化、草稿指纹是否变化；任一变化标 `STALE`。
+- **过期检测**：`groom_status.py` 按每份评估的 `provenance.target_ref` 解析当前目标 commit，再检查 `knowledge/` 是否前进、草稿指纹是否变化。评估是目标祖先且知识确有前进时，报「知识库在评估后前进了 N 个文件」。
+- **目标问题也标 STALE，但原因分开**：ref 不可用、评估 ref 与当前配置目标不一致、目标落后于评估基准、两边无法比较，都会阻塞升格，报告分别写原因。目标未配置或 ref 不可用时显式说明，不用 `origin/main` 静默替换。`groom_recheck.py` 仍用 PR 的实际 base 做合入前门禁。
 
 ### 3.6 PR provenance 与合入前复核
 
@@ -216,6 +226,7 @@ case_id: DRAFT-A
 submitted_case_id: CASE-001
 category: interrupt
 assessed_commit: <sha>
+target_ref: refs/remotes/<remote>/<branch>
 assessment_id: <sha>
 assessed_content_sha256: <sha>
 proposed_novelty: covered
@@ -241,9 +252,52 @@ approval_stale: false
 
 退出码：0 通过；2 需要重跑/复核；3 参数或 git 不可用。`--advisory` 只报告、不改变退出码，供人工试跑。
 
-### 3.7 合入后
+`--base` 省略时读主检出 `.local/settings.json` 的 `target`，与提 PR 目标一致；没有配置目标时退回 `origin/main` 并说明。marker 里可选带 `target_ref`，用于回溯这次评估对着哪条 ref。
 
-合入后由主干 job 重建索引（`build_index.py` 的覆盖检查必须通过）；没有该 job 的部署按既有纪律在 main 上重建。`groom_recheck.py --post-merge` 可以在本地跑同一道覆盖检查。
+### 3.7 收尾：回写沉淀状态与草稿出队（PR 合入后）
+
+结论：终态决定之后还有两件事必须落地，由 `groom_close_draft.py` 一次做完；它是本地收尾动作，不进 CI。
+
+有 PR 的草稿，这两件事放在 PR 合入之后。合入前跑收尾会把「待合入」提前写成「已升格」，PR 被拒时人的决定与评估证据也已经被清理。`groom_close_draft.py` 读 PR 台账，同 key 的 PR 不是 merged（含 open / unknown / closed）时拒绝执行；确实要提前收尾时用 `--allow-open-pr`。没有 PR 的部署（本地沉淀）仍在落盘复核后直接收尾。
+
+两件事以前只写在 SKILL 的一句中文指令里：把来源 trace 的 `sedimented` 从 `submitted` 改成 `knowledge` 或 `archived`，把已处理的草稿移出 inbox（下称出队）。漏做都不报错——面板的沉淀漏斗（诊断数 → 沉淀数 → 转正数）停在"已提交待升格"，草稿下一轮又按"没有 sidecar 先补跑比对"被评一遍。
+
+脚本先取落盘证据（case 或 postmortem 文件是否已就位）、再写状态（不声称没发生的沉淀）：
+
+| 决定 | 落点证据（不满足就拦下） | `sedimented` | `case_id` |
+|---|---|---|---|
+| `covered`（含 agent 判 `duplicate`） | postmortem 已在 `postmortems/<季>/`（Tier 3） | `archived` | 覆盖它的 case |
+| `new_pattern` | 对应 case 已在 `knowledge/` | `knowledge` | 升格后的 case（改过 id 用 `--case-id`） |
+| `variant` | 合并后的 case 已在 `knowledge/` | `knowledge` | 被并入的 case |
+
+几条边界：写状态走 `trace_transition.py`（按 `trace-status.yaml` 校验状态词表；`sediment_batch.py` 另有直接写路径，收尾不用它）；草稿移进 `postmortems/inbox/.done/`，移动不删除、移回即复活；外部来源没有 trace 时只出队、不回写；trace 文件不存在时只出队并记 `trace-missing`；`reject` 与 `defer` 不是终态，不动 trace、不出队。`reject` 没有对应的 `sedimented` 状态——草稿确实提交过、没有转正，改回 `none` 等于抹掉事实。
+
+**为什么不做成 PR 门**：`traces/` 与 `postmortems/inbox/` 是 `.gitignore` 的运行时件，PR 与 CI 的检出里没有它们，marker 也不带 session id（指针在草稿头注释里）。塞进 `groom_recheck.py` 只能读到空目录，检查会退化成永远通过。这道检查只能落在本地，靠收尾顺序保证：先 `groom_recheck`，开 PR，合入后跑本步，最后 `groom_cleanup --post-merge`（清理会删 sidecar，而本步要读它）。`--post-merge` 跳过过期判定：合入后无法再对旧 base 重跑 groom，再过一次 stale 只会永远拦住清理；marker、内容绑定与索引检查仍照跑。
+
+### 3.7.1 撤销一次不成立的沉淀
+
+`scripts/sediment_undo.py --draft-key <key> [--apply]` 处理「草稿选错了」。默认只打印计划，`--apply` 才写。它做四件事，最后一件只在 PR 记录已关闭（`closed`）时执行：
+
+- 把还在 inbox、PR 记录不存在或已关闭的草稿移进 `postmortems/inbox/.undone/`。移动不删除，移回即复活。
+- 删掉它的评估状态文件（`.groom/assessments/<key>.yaml`）。
+- 把来源 trace 的 `sedimented` 改回 `none`。trace 缺失或外部来源时跳过这一步；`--keep-trace` 时也不写。`--keep-trace` 仍会读 trace：已升格（`knowledge` / `archived`）的草稿照样拒绝，来源 session 有多个时也拒绝。
+- 清掉台账里那条已关闭的 PR 记录（PR 的编号与地址写进 `.groom/undo-log.jsonl` 与 `.undone/` 里的 `.undo.json`），PR 本身在平台上不动。
+
+PR 记录已关闭时要清掉它：这次提交已经撤回；留着这条记录，之后把草稿移回 inbox 重新沉淀时，队列会把旧 PR 当现行状态，显示「PR 已关闭」。
+
+清记录走 `pr_status.py --forget`（只删 `closed`，写前比对台账文件字节，防并发覆盖）。清记录失败时，草稿已经移到 `.undone/`、trace 未改或已回 `none`，PR 的编号与地址留在 `.undo.json`。按报错给的原因处理后，用 `python3 scripts/pr_status.py --root . --forget --draft <key>` 收工；记录已被别的进程清掉时不算失败。
+
+诊断状态（`status`）不动：撤销还原 case 的沉淀状态，已收尾的单仍是收尾状态；想继续定位时，在诊断面板用「重新打开」。
+
+批量时重复给 `--draft-key`，脚本逐份建计划、逐份执行；某份被拒不会拦下其他份。撤销成功后往 `.groom/undo-log.jsonl` 逐份追加一行：评估 id、人决定的 `decision` / `by` / `at`、决定历史条数与草稿去向。评估正文（候选、理由）不留。`.undone/` 没有保留期，确认不再需要后手工删。
+
+它和 `reject` / `defer` 不是一回事：那两个是「认真看过但不采纳」，草稿与评估状态文件留在队列里，`submitted` 仍是事实。撤销是这份草稿本身被撤回，重新沉淀会从头开始，`none` 才是撤完的状态。
+
+PR 记录还没关闭（`open` / `unknown` / `merged`）的草稿不撤销：PR 是外部事实，先在平台上处理它。`unknown` 先跑 `pr_status.py --check --draft <key>` 确认；`merged` 的落点已经进 `knowledge/`。来源 trace 已写成 `knowledge` / `archived` 的也拒绝：升格已经发生，牵动知识库与 PR，走知识库变更流程。
+
+### 3.8 合入后
+
+合入后由主干 job 重建索引（`build_index.py` 的覆盖检查必须通过）；没有该 job 的部署按既有纪律在 main 上重建。`groom_recheck.py --post-merge` 可以在本地跑同一道覆盖检查。收尾与清理也在这一步：先 `groom_close_draft.py` 出队并回写 trace，再对每份 PR 用合入提交与它的第一个父提交跑 `groom_cleanup.py --post-merge`。
 
 ## 4 边界与失败模式
 
@@ -264,6 +318,8 @@ approval_stale: false
 | 两个 PR 并发 | 后合入方 base 前进 → recheck 报过期；新 case 撞字面量 → 报可能重复 | 不保证语义判重 |
 | 离线 | 非权威快照；`promotion_gate` 阻塞 `stale-snapshot` | 否 |
 | 旧状态文件损坏 | 备份成 `.corrupt-<时间>` 后重写 | 否：报告里提示 |
+| covered 的 postmortem 还没转正 | 收尾脚本拦下，不写 `archived`、不出队，退出 2 | 否 |
+| 来源 trace 文件不在本机 | 收尾脚本只出队、不写状态，记 `trace-missing` | 否：报告与日志写明 |
 
 不能保证的事：语义等价的召回率、不同措辞/缺失证据下的判断正确率、所有并发草稿都被看见、agent 结论等同于事实。`assessment_id` 是内容与来源的声明，不是签名——有写权限的人可以复制一份真实评估的 id；它防的是"内容/证据与声明不一致"，不是伪造声明。子 agent 的"只读"是提示词与流程约束，不是沙箱；真正的写权限由 Harness/平台控制，本流程只读取它返回的 JSON。合成夹具上的数字不是生产准确率。
 
@@ -271,9 +327,9 @@ approval_stale: false
 
 ### 已落地
 
-- 快照、候选、记录、决定、状态、合入前复核六个脚本。
-- 确定性测试：快照/离线/索引重建、候选有界、记录校验与聚合、幂等、损坏恢复、人决定保留、过期检测、并发 PR、两个独立 inbox、端到端 A 先合入 B 过期再重跑。
-- 验证命令：`python3 -m unittest tests.test_groom_snapshot tests.test_groom_candidates tests.test_groom_record tests.test_groom_status tests.test_groom_recheck tests.test_groom_workflow tests.test_groom_binding`。
+- 快照、候选、记录、决定、状态、合入前复核、收尾、清理八个脚本。
+- 确定性测试：快照/离线/索引重建、候选有界、记录校验与聚合、幂等、损坏恢复、人决定保留、过期检测、并发 PR、两个独立 inbox、端到端 A 先合入 B 过期再重跑、收尾的证据前置与出队。
+- 验证命令：`python3 -m unittest tests.test_groom_snapshot tests.test_groom_candidates tests.test_groom_record tests.test_groom_status tests.test_groom_recheck tests.test_groom_workflow tests.test_groom_binding tests.test_groom_close_draft`。
 
 ### 蓝图
 
@@ -300,6 +356,8 @@ approval_stale: false
 | `scripts/groom_decide.py:30` | 写人决定 |
 | `scripts/groom_status.py:56` | 状态与新鲜度 |
 | `scripts/groom_recheck.py:449` | PR 合入前复核 |
+| `scripts/groom_close_draft.py` | 终态决定的收尾：trace 沉淀回写 + 草稿出队 |
+| `scripts/sediment_undo.py` | 撤销一次不成立的沉淀（支持批量）：草稿出队 + 评估状态文件清理 + trace 沉淀状态回 none |
 | `scripts/groom_common.py` | 草稿发现、状态读写、git 工具 |
 | `skills/knowledge-groom/SKILL.md` | 流程与判断规则 |
 | `skills/knowledge-groom/references/subagent-prompts.md` | 子 agent 提示词与返回格式 |

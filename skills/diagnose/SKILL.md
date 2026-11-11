@@ -49,6 +49,22 @@ description: >
 
 > 每步只写「做什么 + 何时用」；**子步骤与判定细节**见 `references/diagnosis-procedure.md` 对应「步骤 N」。核心循环 = 收集 →（数据缺口则取采集面）→ 路由 →（键触发 + 背景：证据里的码/签名/名/平台组件词当场查）→ 两阶段加载+2.5 reference → 验证 → (未命中)深度排查 → 产出。
 
+> **开单先同步知识基线**（诊断读知识库的那一版 commit 坐标）：`trace_begin.py` 建单时读 `.local/settings.json` 的 `sync` 段，fetch 远端知识库（超时 10 秒）。
+>
+> 落后时按五条条件试 ff-only 合并：
+>
+> - 当前分支 = 配置 `branch`；
+> - HEAD 是远端祖先；
+> - `git status --porcelain -uno` 为空；
+> - 无进行中 merge / rebase / cherry-pick；
+> - `sync.auto_merge` 开着（关掉只检查、不合并）。
+>
+> worktree 与 detached HEAD 不自动合并。
+>
+> 合并成功、落后未合并、首次 fetch 失败各打印一行；已是最新、失败缓存期内（10 分钟）、同步关闭或部署声明离线时不打印。
+>
+> 失败不阻塞开单；一次合并对 `knowledge/` 立即生效，对 `skills/` 下次会话生效。合并带进 `dsh-plugins/` 下的面板代码时，重启 DSH 后生效。
+
 > **先验 trace 相似检测**（收集症状后、路由前）：扫 `traces/*.yaml`（**全部 status**——进行中+已闭环都留在 `traces/`），按症状里的模型/框架/配置名/category 对每个 state 文件的 `summary`/`detected_framework`/`detected_category` 做**词法 grep 匹配**。
 > - **陈述，不提问**：命中就**说一句**——"本地有 `<session_id>`，停在 <哪一步 / 结论一行>"——然后**在同一条消息里继续按本次问题往下走**。工程师回"就是这个"再切 `/skill:resume-diagnosis`。**不要写成"要续接吗？"**：那是把判断推给一个手上没有上下文的人，还把新问题卡在路由之前等答复。
 > - **有判据才提**：命中单的 `summary` 为空、或 trace 只有寥寥几步（裸 stub）时不提——念一个没有内容的 session，等于让工程师替你判断哪一单。
@@ -196,7 +212,7 @@ reference 由流程里的**缺口**触发（**不是第四检索层**：不参�
   模板 `diagnosis_state.yaml.example` 顶层已列出该字段；更早的历史漏写单用不带 `--session-id` 的跑法（它去会话日志里认名字，几十秒）。
 - **每条 agent 事件必带 `output`**（哪怕一句）：核验了谁 / 用什么判据 / 结果 pass|fail|conflict。只写 `reason` 的人读视图是空白（`reason` 只在完整轨迹里显示）。
 - **`hit` 的 `case` 只写真 case id**：未命中、上游定案、跨队案例这类说明写进 `output`，不要写成 `case: "上游案在：#19191（…）"`——面板与条目使用记录都会把它当成 case id。
-- **agent 事件**：`{role: agent, step, action: triage|load_index|quickly_check|load_full|run_check|hit|miss|tier3|feedback|reference_lookup|triage_semantic|source_analysis|attribution|resume|procedure_follow|report, output, reason, ...}`。`output` 给用户（可精简）、`reason` 记决策依据（**关键决策必写**）；`triage` 必带 `routed`（未命中写 `[]`）；`source_analysis` 必记 `tool_calls`；`attribution` 执行错可加 `component`；`report` 记 `report_file`（人读报告产出，**全路**步骤 6 必写一条；快路不产报告、也不写这条，但证据落盘与 `reason` 照旧必写）；`reference_lookup` 记 `purpose`（collect / signature / fix / background / procedure）与 **`outcome`（hit / miss / skipped，`skipped` 必写理由）**：三态缺一，"没查"就与"查了没命中"同形；`parallel_group` 记同批并发标记（同一次并行展开的几个动作共用一个值，串行不写）；`load_full` / `load_index` 记 `considered_candidates`（候选全集：筛选时看过的候选 id，含没取全文的）。
+- **agent 事件**：`{role: agent, step, action: triage|load_index|quickly_check|load_full|run_check|hit|miss|tier3|feedback|reference_lookup|triage_semantic|source_analysis|attribution|resume|procedure_follow|report, output, reason, ...}`。`output` 给用户（可精简）、`reason` 记决策依据（**关键决策必写**）；`triage` 必带 `routed`（未命中写 `[]`）；`source_analysis` 必记 `tool_calls`，取源码时另记 `repo`（org/repo）、`ref`、`fetch_exit`（`src_fetch.py` 退出码整数）、`verify`（hit / miss / skipped）；`attribution` 执行错可加 `component`；`report` 记 `report_file`（人读报告产出，**全路**步骤 6 必写一条；快路不产报告、也不写这条，但证据落盘与 `reason` 照旧必写）；`reference_lookup` 记 `purpose`（collect / signature / fix / background / procedure）与 **`outcome`（hit / miss / skipped，`skipped` 必写理由）**：三态缺一，"没查"就与"查了没命中"同形；`parallel_group` 记同批并发标记（同一次并行展开的几个动作共用一个值，串行不写）；`load_full` / `load_index` 记 `considered_candidates`（候选全集：筛选时看过的候选 id，含没取全文的）。
 - **user 事件**：`{role: user, step, content, evidence}`——`content` 摘要（短）+ `evidence` 完整证据（`inline` 原文 / `files` 相对路径 / `sources` URL / `missing` 缺口）。
 - **`last_action`（每次提问后更新）**：以提问结束的一轮，顶层 `last_action` 写一句话，说明在等哪份材料、哪个决定或哪条命令输出。下一轮拿到回答后改写或清空。
 - 面板与续接按 `last_action` 判断「等什么」，不按事件顺序推断。`evidence.missing` 只记那一轮缺的材料，历史事件不改写。
@@ -216,18 +232,26 @@ reference 由流程里的**缺口**触发（**不是第四检索层**：不参�
 报错签名指向框架代码/算子名/量化描述表（如 `fault kernel_name=QuantBatchMatMulV3`、`modelslim_config.py` 相关 KeyError）且 Tier 3 未覆盖时：
 
 1. **先定"哪个仓"，再向其确认版本**（源码分析依赖对应版本，不要猜）：
-   - 已知表里有 → 直接用（`python3 scripts/src_fetch.py --list`：vllm-ascend / torch-npu / mindspeed-* / verl / CANN 常用层如 `cann/ops-nn`、`cann/hccl`、`cann/ge`）。
-   - 已知表里没有 → **枚举组织仓给候选，不要直接问人要地址**：`python3 scripts/src_fetch.py --find "<报错签名>" --ref <版本>`（命令与退出码展开见 `references/src-fetch.md`）。脚本按签名里的接口前缀与算子名给带理由的候选（默认 3 个），并**逐个试该版本**：只有一个候选能解析就自动取回（exit 0）；多个就 exit 3 交回候选表。候选 ≥2 时按闸表 `source-location` 的那一句问工程师（"这个报错在你们那的 CANN 安装目录里落在哪个子目录？"，让他回候选编号）——**别猜仓**：取错仓产出的是错版本的证据，比不取更糟。CANN 各仓共用同一套 CANN 发布号，所以"tag 能解析"不构成定位证据。
-   - **两条例外**：①签名只命中公共前缀（`aclnn xxx` 没有算子名）时候选是**兜底**的，脚本仍 exit 3——补上算子名/接口名再试，或问一句；②已确认是哪个仓时把它写在签名后面（`--find "<签名>" cann/ops-nn`）以它为准，别让候选盖掉你的判断。断网现场加 `--offline`：只给候选、绝不联网。
-2. **获取源码（统一走 `scripts/src_fetch.py` 确定性入口——按版本取，不是"本地有什么用什么"）**：`python3 scripts/src_fetch.py <repo> --ref <tag>`（`--list` 看已知仓库与 host：vllm-ascend=GitHub、mindspeed-*=GitCode、torch-npu=GitCode、verl=GitHub、CANN=gitcode 的 cann 组织；私有/未知 → `--url`；`--list-versions` 看本地已有版本；改过匹配表后跑 `--self-test`）。缓存**按版本平铺**在 `src-code/<org>/<repo>/<tag>/`（缓存根在主检出、跨 worktree 共读；各版本目录互不干扰，并发诊断各读各版本），命中即复用、该版本缺失即按已知 host 拉取。
-   **退出码就是契约，别只看输出里的路径**：`0` = 该版本已在本地产出**并核对通过**（stdout 末行 = 路径）；`3` = tag 解析不了（多半 tag 名不同，输出里有可用 tag 示例）**或候选 ≥2 未定仓**（输出里有候选表 → 按闸表 `source-location` 问一句）；`4` = 拉取失败（网络/私网）；`5` = 本地该版本目录核对不通过（确认要它才 `--force` 重拉）。**非零退出 = 没拿到这个版本的源码**——不要拿本地其他版本的目录去读（那是错版本的证据），也不要拿 web 搜索结果当源码（搜上游 issue/PR 状态是步骤 5 的事，不是源码来源）。
+   - 已知表里有 → 直接用（`python3 scripts/src_fetch.py --list` 看全表：按层列出标准仓名 `org/repo`、别名与 host）。
+   - 已知表里没有 → **按发现顺序找，不要直接问人要地址**（命令与退出码展开见 `references/src-fetch.md`）：
+     ① **候选表**：`python3 scripts/src_fetch.py --find "<报错签名>" --ref <版本>`。脚本按签名里的接口前缀与算子名给带理由的候选（默认 3 个），并**逐个试该版本**：只有一个候选能解析就自动取回（exit 0）；多个都能解析、只命中兜底或零候选就 exit 3。
+     ② **可枚举组织**：`--list-orgs` 看有哪些组织、哪个可枚举；`--list-org-repos cann` 现枚举该组织的仓与说明。GitCode 组织匿名可枚举，不需要账号。
+     ③ **搜仓名**：上面两步没有目标仓时，用 `gh search repos <关键词>` 或 web 搜索报错里的接口名、算子名、库名，得到 `org/repo` 形态的仓名。
+     ④ **取回并验证**：`python3 scripts/src_fetch.py <org/repo> --ref <版本> --verify "<签名>"`。
+   - 验证不过或版本定不下来才问工程师，按闸表 `source-location` 的那一句（"这个报错在你们那的 CANN 安装目录里落在哪个子目录？"，让他回候选编号）。**别猜仓**：取错仓产出的是错版本的证据，比不取更糟。CANN 各仓共用同一套 CANN 发布号，所以"tag 能解析"不构成定位证据。
+   - **两条例外**：①签名只命中公共前缀（`aclnn xxx` 没有算子名）时候选是**兜底**的，脚本仍 exit 3，补上算子名/接口名再试；②已确认是哪个仓时把它写在签名后面（`--find "<签名>" cann/ops-nn`）以它为准，别让候选盖掉你的判断。
+   - **断网现场**：加 `--offline`。它只复用本地已有版本、只给候选，不联网。
+2. **获取源码（统一走 `scripts/src_fetch.py` 确定性入口，按版本取，不是"本地有什么用什么"）**：`python3 scripts/src_fetch.py <repo> --ref <tag> --verify "<签名>"`（私有/未知 → `--url`；`--list-versions` 看本地已有版本；换仓目录用 `--catalog`）。缓存**按版本平铺**在 `src-code/<org>/<repo>/<tag>/`（缓存根在主检出、跨 worktree 共读；各版本目录互不干扰，并发诊断各读各版本），命中即复用、该版本缺失即按已知 host 拉取。
+   **验证是收尾动作**：仓名与 tag 都是弱证据（CANN 各仓共用发布号），签名出现在树里才算证据。`--verify` 未命中时写「不能证明是这个仓或版本」，不写「不是这个仓」；签名可能只在二进制里（编译产物或驱动包），这种情况要说明局限（展开见 `references/src-fetch.md`）。
+   **退出码就是契约，别只看输出里的路径**：`0` = 该版本已在本地产出**并核对通过**（带 `--verify` 时还要签名命中；stdout 末行 = 路径）；`3` = tag 解析不了（多半 tag 名不同，输出里有可用 tag 示例）**或候选定不下仓**（按上面的发现顺序继续）；`4` = 拉取失败（网络/私网）；`5` = 本地该版本目录核对不通过（确认要它才 `--force` 重拉）；`6` = 取到了树，但 `--verify` 的签名没出现在里面（不能证明是它）。**非零退出 = 不能把这棵树当证据**：不要拿本地其他版本的目录去读（那是错版本的证据），也不要拿 web 搜索结果当源码（搜上游 issue/PR 状态是步骤 5 的事，不是源码来源）。
    **镜像或 fork 现场**（仅 vllm-ascend / vllm）：官方 tag 的源码不是现场那份代码。工具目录里有 `vllm_kb_code` 就按镜像或分支查；没有就回 `src_fetch.py`，不拿别的版本顶替。判读与降级见 procedure 步骤 5 的「vllm-kb」一节。
    **「不落库」= 源码不随仓库提交、也不写进知识库**；分析仍要保留源码（`src-code/` 本地缓存），知识库只记 `source_ref` 代码指针。
+   **源码仓目录**：`source-catalog.d/<层>.yaml` 是已知表与签名候选表的唯一来源。补仓只改数据：在层文件 `repos` 加一条；报错签名会点到它时再加 `discover` 与 `self_test`。不改 `scripts/`，改完跑 `python3 scripts/src_fetch.py --self-test`。诊断中发现缺仓**不在诊断里直接改**：先用 `python3 scripts/evolve_intake.py record …` 记信号。
 3. **grep 定位**：搜报错签名/算子名/函数名（如 `grep -rn "QuantBatchMatMulV3" vllm_ascend/`）→ 读相关文件片段 → 分析根因。
 4. **追问用户验证**：对照预期/复现/补环境信息，验证根因假设。
 5. **follow-up**：查知识库是否已覆盖；`gh search issues/prs` 看上游是否已修复——**「已修复」不是结论、是待验证的假设**：上游有 PR / issue 已 closed 都不等于**你的部署版本里有这个修复**（PR 可能只进主干未 backport；镜像 / fork / 定制构建不能按版本号推断）。给「升级即可」之前必须做**落地实证**：从修复 PR 提取修复特征行 → 在你部署的那份代码里确认它在（做法、反证规则与结论分档见 `references/diagnosis-procedure.md` 步骤 5 的「上游修复的落地实证」）。未修复→根因+workaround；联网不可达→诚实说明无法查证。
 6. **多层级**：根因指向更底层开源仓（torch-npu、CANN 各层）→ 同样流程分析其源码（`source_ref` 指向该仓）。CANN 已开源（gitcode 的 cann 组织，常用层与定位判据见 `references/software-facts/cann-source-location.yaml`），所以"未开源"不再是结论；**闭源的只有商业发布形态的二进制/驱动包**——那种情况下**承认局限**，给方向 + 建议联系华为。
-7. **沉淀**：根因清楚且知识库未覆盖 → `/skill:to-postmortem` 记 `source_ref: {repo, ref, file, line}`；**顺手**沉淀跨事故稳定的结构事实 → `/skill:to-reference`（software-fact / env-var-table / compat-matrix，判据："6 个月后/跨版本是否仍成立"）。
+7. **沉淀**：根因清楚且知识库未覆盖 → `/skill:to-postmortem` 记 `source_ref: {repo, ref, file, line}`（`repo` 写 `org/repo`，与 `src_fetch.py` 同一写法，且要能在 `source-catalog.d/` 解析到）；**顺手**沉淀跨事故稳定的结构事实 → `/skill:to-reference`（software-fact / env-var-table / compat-matrix，判据："6 个月后/跨版本是否仍成立"）。
 
 ## 不要做
 

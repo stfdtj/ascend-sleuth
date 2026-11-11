@@ -1,7 +1,7 @@
 /* eslint-disable */
 // 生成物 —— 勿手改。由 `node scripts/build_panel_bundle.js` 从下列源文件拼出：
-//   dsh-plugins/ascend-panel/panel-host.js  (sha256:96e6404e6893)
-//   dsh-plugins/ev-panel/panel-host.js  (sha256:dcef157b7468)
+//   dsh-plugins/ascend-panel/panel-host.js  (sha256:f4370ba16031)
+//   dsh-plugins/ev-panel/panel-host.js  (sha256:27f2d4423c8d)
 // 校验：`node scripts/build_panel_bundle.js --check`（源文件改了没重跑生成器即红）。
 //
 // 面板源码是动态插件方言（文件是函数体，靠沙箱提供的 harness 通信）；这里原文嵌入常驻
@@ -105,7 +105,7 @@ const PANELS = [
     id: 'ascend-panel',
     build(harness) {
       return (function () {
-// ---- dsh-plugins/ascend-panel/panel-host.js (sha256:96e6404e6893) 原文开始 ----
+// ---- dsh-plugins/ascend-panel/panel-host.js (sha256:f4370ba16031) 原文开始 ----
 return {
   apply(ctx) {
     const fs = ctx.get('fs')
@@ -114,6 +114,11 @@ return {
     // 会话的沙箱档位由 sandbox-policy 服务解析（显式授予 > 会话最后一条 sandbox/mode 事件 > 部署默认）。
     // 服务缺席时下面退回写死的 workspace-write，行为与改动前一致。
     const sandboxPolicySvc = ctx.get('sandboxPolicy')
+
+    // 本插件加载时的那一版面板包版本。构建常驻包时生成器把占位符换成 package.json 的 version；
+    // 热加载路直接读源文件，占位符不会被替换，这时按"版本未知"处理，不据此判新旧。
+    const PANEL_VERSION = '0.10.3'
+    const PANEL_VERSION_KNOWN = /^\d+\.\d+/.test(PANEL_VERSION)
 
     // fs 缺失时**只降级依赖它的功能**，不再让整个插件静默不注册。
     //
@@ -344,6 +349,41 @@ return {
       if (!raw) return raw
       const main = await mainCheckoutOf(raw)
       return main || raw
+    }
+
+    // 已加载的面板包与主检出里那份的版本差。诊断 tab 据此提示"有新版、重启后生效"：
+    // 面板是进程启动时装载的，git 同步后磁盘上的代码已经更新，但运行中的那一份要重启才换。
+    // 主检出的 package.json 是 link 安装的链接目标；快照安装时它是仓库那份，用来判仓库是否前进。
+    // 读不到或版本未知时返回 null，界面不提示——不拿猜测冒充版本事实。
+    // 边界：link 的链接目标不一定就是主检出（路由三允许在 worktree 里装 link），那种形态下
+    // 比的是主检出的版本，可能漏报或误报；不为此加路径解析，按常见形态取。
+    // 版本号比较只按下发版号（x.y.z）的整数段比；仓库历史版本都是纯数字，`-rc` 形式当等号处理。
+    function versionNewer(a, b) {
+      const pa = String(a || '').split('.').map(x => parseInt(x, 10))
+      const pb = String(b || '').split('.').map(x => parseInt(x, 10))
+      for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const na = Number.isFinite(pa[i]) ? pa[i] : 0
+        const nb = Number.isFinite(pb[i]) ? pb[i] : 0
+        if (na !== nb) return na > nb
+      }
+      return false
+    }
+    async function panelBuildInfo(cwd) {
+      if (!fs || !cwd || !PANEL_VERSION_KNOWN) return null
+      let repoVersion = ''
+      try {
+        const text = await fs.readText(await fs.resolve('dsh-plugins/dsh-sleuth-panels/package.json', { cwd: cwd }))
+        const manifest = JSON.parse(String(text || ''))
+        if (manifest && typeof manifest.version === 'string') repoVersion = manifest.version
+      } catch (e) {
+        return null
+      }
+      if (!/^\d+\.\d+/.test(repoVersion)) return null
+      return {
+        loaded_version: PANEL_VERSION,
+        repo_version: repoVersion,
+        drift: versionNewer(repoVersion, PANEL_VERSION),
+      }
     }
 
     async function openEvidence(sessionId, path) {
@@ -2792,9 +2832,18 @@ return {
           r.capabilities = proj.capabilities
         } else if (proj && proj.ok === false) stateError = proj.message || proj.code
       } catch (e) { stateError = String(e && e.message || e) }
+      // `host.platform` 给客户端选兜底命令的解释器（Windows 上没有 `python3`）。Web GUI 可能
+      // 开在另一台机器上，命令却要在 host 这台机器上跑，所以平台由 host 报，不靠浏览器猜。
+      const hostPlatform = (typeof process !== 'undefined' && process && process.platform)
+        ? String(process.platform) : ''
+      // 加载版本与主检出里那份的差：客户端据此在诊断 tab 顶部提示"有新版、重启生效"。
+      // 版本读不到时给 null，界面不提示。
+      let build = null
+      try { build = await panelBuildInfo(cwd) } catch (e) { build = null }
       return { ok: true, sessions: r.sessions, inboxDrafts: r.inboxDrafts || [], elapsedMs: r.elapsedMs,
                parsed: r.parsed, cached: r.cached, skipped: r.skipped,
-               vocab: r.vocab || null, capabilities: r.capabilities || null, stateError: stateError }
+               vocab: r.vocab || null, capabilities: r.capabilities || null,
+               host: { platform: hostPlatform }, stateError: stateError, build: build }
     })
 
     const detailDisposer = harness.handle('ascend-traces-detail', async (args) => {
@@ -3007,10 +3056,12 @@ return {
     id: 'ev-panel',
     build(harness) {
       return (function () {
-// ---- dsh-plugins/ev-panel/panel-host.js (sha256:dcef157b7468) 原文开始 ----
+// ---- dsh-plugins/ev-panel/panel-host.js (sha256:27f2d4423c8d) 原文开始 ----
 // ev-panel host —— 自演进看板数据服务（EV 卡 / 容量 / 归因聚合 / timeline）
 // 用法：cordis_define kind:new → code.host 用本文件全文；code.client 用 panel-client.js 全文。
 // host 侧通过 shell 跑 scripts/ev_board_data.py 汇总 JSON（确定性逻辑在脚本，遵循原则二）。
+// 同一张 RPC 分发表也承载整页「Ascend Sleuth」知识库子页的三条端点
+// （`ascend-kb-sync-*`）：它们与自演进同属全库读数，数据同样全由脚本产出。
 return {
   apply(ctx) {
     // **没有 fs 守卫**：本插件不读数据文件——数据全由 `shell` 跑 Python 脚本产出
@@ -3259,6 +3310,348 @@ return {
       return runScript(sessionId, BOARD_SCRIPT, '--detail ' + id)
     }
 
+    // ── 知识库子页：同步源、同步状态与同步动作 ──────────────────────────────
+    //
+    // 整页「Ascend Sleuth」的第三个子页（知识库）。与自演进同一取舍：读数全由脚本产出
+    // （`scripts/kb_sync.py` / `scripts/pr_status.py`），本插件不读数据文件、不改 git。
+    // 打开页面只跑 `--show` 与两条只读查询（都不联网）；点「立即同步」才跑 `--merge`。
+    // 配置写 `.local/settings.json`，经 `pr_status.py --set-sync` 落盘。
+    const KB_SYNC_SCRIPT = 'scripts/kb_sync.py'
+    const PR_STATUS_SCRIPT = 'scripts/pr_status.py'
+
+    // 仓库根：判据取 `scripts/pr_status.py`（本机已有），**不拿 kb_sync.py 当判据**——
+    // 同步脚本还没落地时仍要能列出远端、并给出「脚本缺失」的降级，而不是把整页报成
+    // "解析不到工作区"（那会把缺一个文件说成缺一个会话）。
+    async function looksLikeSleuthRoot(dir) {
+      if (!fsSvc || !dir) return false
+      try {
+        const entries = (await fsSvc.listDir(await fsSvc.resolve('scripts', { cwd: dir }))) || []
+        return entries.some(e => e && e.name === 'pr_status.py')
+      } catch (e) {
+        return false
+      }
+    }
+    async function resolveSyncCwd(sessionId) {
+      let direct
+      if (sessions && sessionId) {
+        let s = null
+        try { s = sessions.get(sessionId) } catch (e) { s = null }
+        if (s && s.header && s.header.cwd) direct = String(s.header.cwd)
+      }
+      if (direct && await looksLikeSleuthRoot(direct)) return direct
+      const list = sessionCwds()
+      for (const c of list) {
+        if (c !== direct && await looksLikeSleuthRoot(c)) return c
+      }
+      return direct || (list.length ? list[0] : undefined)
+    }
+
+    function syncStr(v) {
+      return v === null || v === undefined ? '' : String(v)
+    }
+    function syncNum(v) {
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
+    // 脚本可能把 JSON 夹在别的输出里（git 自己的提示、Python 的告警），取最外层对象。
+    function syncJsonOf(text) {
+      const s = String(text || '').trim()
+      if (!s) return null
+      try { return JSON.parse(s) } catch (e) { /* 继续找最外层对象 */ }
+      const start = s.indexOf('{')
+      const end = s.lastIndexOf('}')
+      if (start < 0 || end <= start) return null
+      try { return JSON.parse(s.slice(start, end + 1)) } catch (e) { return null }
+    }
+    // 进程级失败（非 0 退出、超时、输出非 JSON）按原因分类。业务失败另由 syncReasonOf 分。
+    function syncFailureOf(scriptName, text, exitCode, timedOut) {
+      const t = String(text || '')
+      const head = t.trim().split(/\r?\n/).filter(Boolean)[0] || ''
+      if (timedOut) return { code: 'E_TIMEOUT', message: '脚本 ' + scriptName + ' 超时' }
+      if (/can't open file|No such file or directory/i.test(t)
+        && t.indexOf(scriptName.replace(/^scripts\//, '')) >= 0) {
+        return { code: 'E_NO_SCRIPT', message: '脚本 ' + scriptName + ' 不存在' }
+      }
+      if (/not a git repository/i.test(t)) return { code: 'E_NOT_GIT', message: '当前目录不是 git 检出' }
+      if (/unrecognized arguments|invalid choice|the following arguments are required|error: argument/i.test(t)) {
+        return { code: 'E_UNSUPPORTED', message: '脚本 ' + scriptName + ' 不支持这次调用的参数' }
+      }
+      if (/permission denied|operation not permitted|EPERM|EACCES/i.test(t)) {
+        return { code: 'E_PERM', message: '当前会话不能写仓库' }
+      }
+      return { code: 'E_SCRIPT', message: '脚本 ' + scriptName + ' 退出码 ' + String(exitCode) + (head ? '：' + head.slice(0, 200) : '') }
+    }
+
+    // 跑一条同步脚本：工作目录 = 仓库根；只读与写动作都跟随会话自己的沙箱档位
+    // （与自演进同一取舍：写死 workspace-write 会在受限令牌 runner 上把子进程挡在启动前）。
+    async function runSyncScript(sessionId, scriptName, argv, timeoutMs) {
+      const cwd = await resolveSyncCwd(sessionId)
+      if (!cwd) return { ok: false, code: 'E_NO_CWD', message: '解析不到仓库目录', cwd: null }
+      if (!shell) return { ok: false, code: 'E_SHELL', message: 'shell 服务不可用', cwd: cwd }
+      const policy = readPolicy(sessionId)
+      const py = await resolvePython(cwd, policy)
+      if (!py) {
+        return { ok: false, code: 'E_PYTHON', message: '找不到 Python 3 解释器', cwd: cwd,
+          detail: resolvePython.lastError ? String(resolvePython.lastError).slice(0, 400) : '' }
+      }
+      const command = py + ' ' + scriptName + (argv ? ' ' + argv : '')
+      let r
+      try {
+        r = await shell.run(shell.resolve({
+          command: command,
+          workdir: cwd,
+          timeoutMs: timeoutMs || 20000,
+          stdoutMaxBytes: 4 * 1024 * 1024,
+          env: { PYTHONIOENCODING: 'utf-8' },
+          ...(policy ? { sandboxPolicy: policy } : {}),
+        }))
+      } catch (e) {
+        return { ok: false, code: 'E_SCRIPT', message: '脚本执行失败', cwd: cwd, command: command,
+          detail: String(e && e.message || e).slice(0, 400) }
+      }
+      const stdout = r && r.stdout && typeof r.stdout.text === 'string' ? r.stdout.text : ''
+      const stderr = r && r.stderr && typeof r.stderr.text === 'string' ? r.stderr.text : ''
+      const failed = !r || r.timedOut || r.aborted || Number(r.exitCode) !== 0
+      if (failed) {
+        const why = syncFailureOf(scriptName, (stderr || stdout), r && r.exitCode, !!(r && r.timedOut))
+        // 脚本的参数错误也用 JSON 信封，只是退出码非 0（如 pr_status 的 _arg_fail）：
+        // 信封里的 code / message 比按 stderr 猜更准，照它给面板的失败码。
+        const envelope = syncJsonOf(stdout)
+        const envErr = envelope && envelope.ok === false
+          && envelope.error && typeof envelope.error === 'object' ? envelope.error : null
+        return {
+          ok: false,
+          code: envErr ? String(envErr.code || why.code) : why.code,
+          message: envErr ? String(envErr.message || why.message) : why.message,
+          cwd: cwd, command: command,
+          exitCode: r && r.exitCode, detail: String(stderr || stdout || '').trim().slice(0, 600),
+        }
+      }
+      const data = syncJsonOf(stdout)
+      if (data === null) {
+        return { ok: false, code: 'E_BAD_OUTPUT', message: '脚本输出不是 JSON', cwd: cwd, command: command,
+          detail: String(stdout || stderr).trim().slice(0, 400) }
+      }
+      return { ok: true, data: data, cwd: cwd, command: command }
+    }
+    function syncDocOf(result) {
+      if (!result || result.ok !== true) return null
+      const raw = result.data
+      if (!raw || typeof raw !== 'object') return null
+      return raw.data && typeof raw.data === 'object' ? raw.data : raw
+    }
+    // 脚本把失败写在 JSON 信封里（exit 0 + {ok:false,error:{code,message}}）也算失败。
+    function syncEnvelopeError(doc) {
+      if (!doc || typeof doc !== 'object' || doc.ok !== false) return null
+      const err = doc.error && typeof doc.error === 'object' ? doc.error : null
+      if (!err) return null
+      return { code: String(err.code || 'E_SCRIPT'), message: String(err.message || '脚本报错') }
+    }
+    // kb_sync 的业务失败写在 `reason` 里（脚本一律 exit 0）：这些取值 → 面板的失败码。
+    function syncReasonOf(reason) {
+      const r = String(reason || '')
+      if (!r) return null
+      if (r === 'timeout') return { code: 'E_TIMEOUT', message: 'fetch 超时' }
+      if (r === 'network') return { code: 'E_NETWORK', message: '连不上远端（网络或代理）' }
+      // 认不出凭据（403 / SSH publickey / known_hosts）：和网络分开，否则读者去查代理。
+      if (r === 'credential') {
+        return { code: 'E_CREDENTIAL', message: '拿不到 git 凭据（SSH 主机密钥校验失败或密钥不可用，或 https 认证失败）' }
+      }
+      if (r === 'lock') return { code: 'E_LOCK', message: '远端的引用锁被占用' }
+      if (r === 'no-remote') return { code: 'E_NO_REMOTE', message: '配置的远端不存在' }
+      if (r === 'not-a-repo') return { code: 'E_NOT_GIT', message: '当前目录不是 git 检出' }
+      if (r === 'disabled') return { code: 'E_DISABLED', message: '同步已关闭（个人设置）' }
+      if (r === 'offline') return { code: 'E_OFFLINE', message: '离线部署（deployment.yaml）' }
+      if (r === 'dirty') return { code: 'E_DIRTY', message: '工作区有未提交改动' }
+      if (r === 'not-ff' || r === 'not-ancestor') return { code: 'E_NOT_FF', message: '本地提交不能快进' }
+      if (r === 'branch-mismatch') return { code: 'E_BRANCH', message: '当前不在配置分支上' }
+      if (r === 'merge-in-progress') return { code: 'E_MERGE_IN_PROGRESS', message: '上一次合并还没结束' }
+      if (r === 'auto-merge-off') return { code: 'E_AUTO_MERGE_OFF', message: '自动合并已关闭' }
+      if (r === 'same-repo') return { code: 'E_SAME_REPO', message: '同步源与归属仓不同源' }
+      if (r === 'identity-unresolved') {
+        return { code: 'E_IDENTITY', message: '归属仓解析不到，未自动合并' }
+      }
+      if (r === 'status-failed') return { code: 'E_SCRIPT', message: 'git status 读取失败' }
+      if (/^exit-\d+$/.test(r)) return { code: 'E_FETCH', message: 'fetch 退出码 ' + r.slice(5) }
+      return { code: 'E_SCRIPT', message: '同步脚本报错：' + r }
+    }
+    // 同步状态分两种结局：读不到（ok=false），与读到了但状态是关闭 / 离线 / 失败（state）。
+    // 后者仍带着本机读数（本机版本、落后数），页面不该因此整块空白。
+    //
+    // 状态以 `--show --json` 的真实字段为准：`enabled`（bool）、`offline`（bool）、
+    // `reason`（串）。关闭与离线都是**状态**（脚本回 ok=false），不是读不到：
+    //   enabled:false → ok:false, reason:"disabled"
+    //   offline:true  → ok:false, offline:true, reason:"offline"
+    // 面板不自己拼这两条输出，只读脚本给的取值；`reason` 仍用于超时 / 无远端 / 非检出等失败。
+    function syncStatusOf(result) {
+      if (!result || result.ok !== true) {
+        return { ok: false, code: (result && result.code) || 'E_SCRIPT',
+          message: (result && result.message) || '读不到同步状态',
+          detail: result && result.detail ? String(result.detail) : '' }
+      }
+      const doc = syncDocOf(result)
+      if (!doc) return { ok: false, code: 'E_BAD_OUTPUT', message: '同步状态不是对象', detail: '' }
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, detail: '' }
+      const reason = syncStr(doc.reason)
+      if (doc.ok === false && reason === 'not-a-repo') {
+        return { ok: false, code: 'E_NOT_GIT', message: '当前目录不是 git 检出', detail: '' }
+      }
+      // 脚本的真实字段；旧脚本没带这两个字段时按"开"处理，不把缺字段读成关闭。
+      const enabled = doc.enabled !== false && doc.enabled !== 'false'
+      let offline = doc.offline === true || doc.offline === 'true'
+        || (doc.offline !== null && typeof doc.offline === 'object' && doc.offline.declared === true)
+      // 兼容只给 reason 的旧脚本：这些字段缺席时，reason 是唯一能判断状态的来源。
+      if (reason === 'offline') offline = true
+      const offlineSource = offline ? 'deployment.yaml' : ''
+      const sameRepoRaw = doc.same_repo
+      const sameRepo = sameRepoRaw === true ? true : (sameRepoRaw === false ? false : null)
+      const data = {
+        remote: syncStr(doc.remote),
+        branch: syncStr(doc.branch),
+        local_rev: syncStr(doc.local_rev),
+        remote_rev: syncStr(doc.remote_rev),
+        behind: syncNum(doc.behind),
+        ahead: syncNum(doc.ahead),
+        skipped: doc.skipped === true,
+        last_checked: syncStr(doc.last_checked) || syncStr(doc.last_ok_at) || syncStr(doc.attempted_at) || null,
+        last_reason: syncStr(doc.last_reason) || reason,
+        last_error: syncStr(doc.last_error),
+        // 上次尝试是谁发起的（kb_sync 记的 check / manual / auto）：页面据此说「后台检查
+        // 失败」还是「同步失败」，不把后台提醒检查的失败冒充成用户的同步失败。
+        last_source: syncStr(doc.last_source),
+        last_failure: null,
+        enabled: enabled,
+        offline: offline,
+        offline_source: offlineSource,
+        reason: reason,
+        same_repo: sameRepo,
+        // 归属仓四项：`--show` 直接给的字段名原样带出（旧脚本没有时留空/null，面板如实说读不到）。
+        identity_remote: syncStr(doc.identity_remote),
+        identity_url: syncStr(doc.identity_url),
+        identity_explicit: doc.identity_explicit === true,
+        identity_resolved: doc.identity_resolved === true ? true
+          : (doc.identity_resolved === false ? false : null),
+        // 改动面计数（含 dsh-plugins/ 的 panel）：面板据此在「落后 N 个提交」里预告这次合并
+        // 会带进面板代码、要重启 DSH。旧脚本没有这一项时给 null，面板不说。
+        surface: doc.surface && typeof doc.surface === 'object' ? doc.surface : null,
+        config: null,
+      }
+      // 上一次 fetch 的失败（脚本从状态文件读出 last_reason / last_error）：页面重新打开后
+      // 也要能看到失败原因，不能只靠点击那一下的 flash。
+      data.last_failure = data.last_reason
+        ? (syncReasonOf(data.last_reason) || { code: 'E_SCRIPT', message: '同步失败' })
+        : null
+      if (offline) {
+        return { ok: true, data: data, state: 'offline',
+          error: { code: 'E_OFFLINE', message: '离线部署（deployment.yaml）' } }
+      }
+      if (!enabled) {
+        return { ok: true, data: data, state: 'disabled',
+          error: { code: 'E_DISABLED', message: '同步已关闭（个人设置）' } }
+      }
+      if (doc.ok !== false) {
+        return { ok: true, data: data, state: 'ok', error: null }
+      }
+      // `--show` 在"没配远端"与"远端分支还没 fetch 过"时也回 ok=false，但 reason 是空的：
+      // 这两种是状态（不是故障），页面仍要显示本机读数与下一步。
+      if (!reason) {
+        if (!data.remote) return { ok: true, data: data, state: 'no-remote', error: null }
+        if (!data.remote_rev) return { ok: true, data: data, state: 'unfetched', error: null }
+      }
+      const why = syncReasonOf(reason) || { code: 'E_SCRIPT', message: '同步状态读取失败' }
+      if (why.code === 'E_OFFLINE') {
+        data.offline = true
+        data.offline_source = 'deployment.yaml'
+        return { ok: true, data: data, state: 'offline', error: why }
+      }
+      if (why.code === 'E_DISABLED') {
+        data.enabled = false
+        return { ok: true, data: data, state: 'disabled', error: why }
+      }
+      return { ok: true, data: data, state: 'error', error: why }
+    }
+    // `pr_status.py --json`（无 flag 时是 status）：settings 段里的 sync 与配置来源。
+    function syncSettingsOf(result) {
+      if (!result || result.ok !== true) {
+        return { ok: false, code: (result && result.code) || 'E_SCRIPT',
+          message: (result && result.message) || '读不到本机设置',
+          detail: result && result.detail ? String(result.detail) : '' }
+      }
+      const doc = syncDocOf(result)
+      if (!doc) return { ok: false, code: 'E_BAD_OUTPUT', message: '设置不是对象', detail: '' }
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, detail: '' }
+      const settings = doc.settings && typeof doc.settings === 'object' ? doc.settings : null
+      if (!settings) return { ok: false, code: 'E_BAD_OUTPUT', message: '设置段不存在', detail: '' }
+      const sync = settings.sync && typeof settings.sync === 'object' ? settings.sync : null
+      const target = settings.target && typeof settings.target === 'object' ? settings.target : null
+      return { ok: true, data: {
+        config: syncStr(settings.config) || 'default',
+        problem: syncStr(settings.problem),
+        path: syncStr(settings.path),
+        sha256: syncStr(doc.settings_sha256),
+        sync: sync ? {
+          remote: syncStr(sync.remote),
+          branch: syncStr(sync.branch),
+          enabled: sync.enabled !== false,
+          auto_merge: sync.auto_merge !== false,
+          check_enabled: sync.check_enabled !== false,
+          check_minutes: Number(sync.check_minutes) || 30,
+          // 后台检查是否用完全权限：缺字段按脚本默认（开），不把旧设置读成受限档。
+          check_full_access: sync.check_full_access !== false,
+        } : null,
+        target: target ? { remote: syncStr(target.remote), base: syncStr(target.base) } : null,
+      } }
+    }
+    // 四个开关与配置来源：优先本机设置（`pr_status.py --json`），脚本自带 config 对象也认。
+    function syncConfigOf(settingsPart, syncData) {
+      if (settingsPart && settingsPart.ok === true && settingsPart.data.sync) {
+        const cfgSync = settingsPart.data.sync
+        return {
+          auto_check: cfgSync.enabled !== false,
+          auto_merge: cfgSync.auto_merge !== false,
+          // 提醒检查与间隔：缺字段按脚本的默认值（开、30 分钟），不把旧设置读成关闭。
+          check_enabled: cfgSync.check_enabled !== false,
+          check_minutes: Number(cfgSync.check_minutes) || 30,
+          // 后台检查的沙箱档位：缺字段按默认（完全权限）。
+          check_full_access: cfgSync.check_full_access !== false,
+          source: settingsPart.data.config === 'file' ? 'personal' : 'default',
+          path: settingsPart.data.path || '.local/settings.json',
+        }
+      }
+      const raw = syncData && syncData.config
+      if (raw && typeof raw === 'object') return raw
+      return null
+    }
+    function syncTargetsOf(result) {
+      if (!result || result.ok !== true) {
+        return { ok: false, code: (result && result.code) || 'E_SCRIPT',
+          message: (result && result.message) || '读不到远端列表',
+          detail: result && result.detail ? String(result.detail) : '' }
+      }
+      const doc = syncDocOf(result)
+      if (!doc) return { ok: false, code: 'E_BAD_OUTPUT', message: '远端列表不是对象', detail: '' }
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, detail: '' }
+      const remotes = Array.isArray(doc.remotes) ? doc.remotes.map(r => ({
+        name: syncStr(r && r.name),
+        url: syncStr(r && r.url),
+        host: syncStr(r && r.host),
+        base: syncStr(r && r.base),
+        last_used: r && r.last_used ? String(r.last_used) : '',
+        platform: syncStr(r && r.platform),
+        platform_name: syncStr(r && r.platform_name),
+      })).filter(r => r.name) : []
+      const target = doc.target && typeof doc.target === 'object'
+        ? { remote: syncStr(doc.target.remote), base: syncStr(doc.target.base) } : null
+      return { ok: true, data: { remotes: remotes, target: target, recommendation: doc.recommendation || null } }
+    }
+    // 远端名、分支名与 CAS 令牌会拼进命令行：只放行不含空白与 shell 元字符的取值。
+    function syncSafeRef(value) {
+      return /^[^\s'"`$;&|<>\\]{1,120}$/.test(String(value || ''))
+    }
+
     const handleDisposer = harness.handle('ev-board-load', async (args) => {
       const sessionId = args && args.sessionId ? String(args.sessionId) : null
       return cached('board|' + (await resolveCwd(sessionId) || '?'), !!(args && args.refresh === true),
@@ -3281,10 +3674,178 @@ return {
       return { ok: true, idea: payload.idea }
     })
 
+    // 一次读全：同步状态 + 本机设置 + 远端清单。三段各自成败——kb_sync.py 缺失时
+    // 仍要能列远端、读到四个开关，而不是整页只剩一句"读不到"。
+    const kbShowDisposer = harness.handle('ascend-kb-sync-show', async (args) => {
+      const sessionId = args && args.sessionId ? String(args.sessionId) : null
+      const syncRaw = await runSyncScript(sessionId, KB_SYNC_SCRIPT, '--show --json', 20000)
+      const settingsRaw = await runSyncScript(sessionId, PR_STATUS_SCRIPT, '--json', 20000)
+      const targetsRaw = await runSyncScript(sessionId, PR_STATUS_SCRIPT, '--list-targets --json', 20000)
+      const settingsPart = syncSettingsOf(settingsRaw)
+      const syncPart = syncStatusOf(syncRaw)
+      if (syncPart.ok === true) syncPart.data.config = syncConfigOf(settingsPart, syncPart.data)
+      return {
+        ok: true,
+        cwd: syncRaw.cwd || settingsRaw.cwd || targetsRaw.cwd || null,
+        config_path: (settingsPart.ok === true && settingsPart.data.path) || '.local/settings.json',
+        settings_sha256: settingsPart.ok === true ? settingsPart.data.sha256 : '',
+        sync: syncPart,
+        settings: settingsPart,
+        targets: syncTargetsOf(targetsRaw),
+      }
+    })
+
+    // 「立即同步」：只有这一个动作会碰远端（fetch + 条件合并都在脚本里，面板不拼 git）。
+    // 手动同步要能立刻重试：失败缓存只该挡自动同步，所以这里带 `--force`。
+    // 旧检出里的脚本不认 `--force`（argparse 报 unrecognized arguments → E_UNSUPPORTED），
+    // 退回不带它再跑一次，不把版本错位当成同步失败。
+    async function runMergeSync(sessionId) {
+      const first = await runSyncScript(sessionId, KB_SYNC_SCRIPT, '--merge --json --force', 180000)
+      if (first.ok || first.code !== 'E_UNSUPPORTED') return first
+      return runSyncScript(sessionId, KB_SYNC_SCRIPT, '--merge --json', 180000)
+    }
+
+    const kbMergeDisposer = harness.handle('ascend-kb-sync-merge', async (args) => {
+      const sessionId = args && args.sessionId ? String(args.sessionId) : null
+      const r = await runMergeSync(sessionId)
+      if (!r.ok) return { ok: false, code: r.code, message: r.message, cwd: r.cwd || null, detail: r.detail || '' }
+      const doc = syncDocOf(r) || {}
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, cwd: r.cwd || null, detail: '' }
+      // 旧脚本被失败缓存挡下时没有真的 fetch：这不是同步失败，要说清本次没有重试。
+      if (doc.skipped === true) {
+        return { ok: false, code: 'E_SKIPPED', message: '10 分钟内的失败还在缓存里，本次没有重试',
+          cwd: r.cwd || null, detail: syncStr(doc.fetch_error) }
+      }
+      if (doc.ok === false) {
+        const why = syncReasonOf(doc.reason) || { code: 'E_SCRIPT', message: '同步失败' }
+        return { ok: false, code: why.code, message: why.message, cwd: r.cwd || null,
+          offline: why.code === 'E_OFFLINE', detail: syncStr(doc.fetch_error) }
+      }
+      const merged = String(doc.merge || '') === 'ff-only'
+      const blocked = merged ? null : syncReasonOf(doc.reason)
+      // 本次合并带进来的改动面（kb_sync 在 ff-only 成功后保留合并前的差值）：面板据此提示
+      // "面板代码也更新了，重启 DSH 后生效"。没有合并时为空。
+      const surface = doc.surface && typeof doc.surface === 'object' ? doc.surface : null
+      return {
+        ok: true,
+        cwd: r.cwd || null,
+        merged: merged,
+        merged_rev: merged ? syncStr(doc.local_rev) : '',
+        previous_rev: merged ? syncStr(doc.local_rev_before) : '',
+        behind: merged ? syncNum(doc.behind_before) : syncNum(doc.behind),
+        reason_code: blocked ? blocked.code : '',
+        reason_text: blocked ? blocked.message : '',
+        surface: surface,
+      }
+    })
+
+    // 「保存」：写 `.local/settings.json` 的 sync 段（远端 / 分支 / 四个开关与检查间隔）。
+    // 开关在脚本里的名字：自动检查更新 = `sync.enabled`（--enable / --disable），
+    // 自动合并 = `sync.auto_merge`（--auto-merge on|off），提醒检查 = `sync.check_enabled`
+    // （--check-reminders on|off），后台检查用完全权限 = `sync.check_full_access`
+    // （--check-full-access on|off）；检查间隔 = `sync.check_minutes`（--check-minutes N）。
+    // CAS 令牌用读到的那份设置指纹。
+    const kbSaveDisposer = harness.handle('ascend-kb-sync-save', async (args) => {
+      const sessionId = args && args.sessionId ? String(args.sessionId) : null
+      const remote = args && args.remote ? String(args.remote).trim() : ''
+      const branch = args && args.branch ? String(args.branch).trim() : ''
+      const expect = args && args.expectSha256 ? String(args.expectSha256).trim() : ''
+      if (!remote) return { ok: false, code: 'E_ARGS', message: '没有选远端' }
+      if (!syncSafeRef(remote) || (branch && !syncSafeRef(branch))) {
+        return { ok: false, code: 'E_ARGS', message: '远端或分支名含不支持的字符' }
+      }
+      if (expect && !/^[0-9a-f]{64}$/i.test(expect)) {
+        return { ok: false, code: 'E_ARGS', message: '设置指纹不是 64 位十六进制' }
+      }
+      const autoCheck = args && args.autoCheck === true
+      const autoMerge = args && args.autoMerge === true
+      // 提醒检查默认开；间隔默认 30 分钟，落到脚本接受的 5..720 区间。
+      const checkEnabled = !(args && args.checkEnabled === false)
+      // 后台检查的权限：调用方没传这一项时不带参数，保留设置文件里的现值——浏览器缓存的
+      // 旧客户端保存其它设置时，不能把用户已经关掉的完全权限又打开。只有显式布尔值才写。
+      const checkFullAccess = args && typeof args.checkFullAccess === 'boolean'
+        ? args.checkFullAccess
+        : null
+      const minutesArg = args && args.checkMinutes !== undefined && args.checkMinutes !== null
+        ? Number(args.checkMinutes)
+        : NaN
+      const checkMinutes = Number.isFinite(minutesArg)
+        ? Math.min(720, Math.max(5, Math.round(minutesArg)))
+        : 30
+      const argv = ['--set-sync', '--remote', remote]
+      if (branch) argv.push('--branch', branch)
+      argv.push(autoCheck ? '--enable' : '--disable')
+      argv.push('--auto-merge', autoMerge ? 'on' : 'off')
+      argv.push('--check-reminders', checkEnabled ? 'on' : 'off')
+      if (checkFullAccess !== null) argv.push('--check-full-access', checkFullAccess ? 'on' : 'off')
+      argv.push('--check-minutes', String(checkMinutes))
+      if (expect) argv.push('--expect-sha256', expect)
+      argv.push('--json')
+      const r = await runSyncScript(sessionId, PR_STATUS_SCRIPT, argv.join(' '), 20000)
+      if (!r.ok) return { ok: false, code: r.code, message: r.message, cwd: r.cwd || null, detail: r.detail || '' }
+      const doc = syncDocOf(r) || {}
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, cwd: r.cwd || null, detail: '' }
+      // 回带给面板的权限值以脚本返回的规范化 sync 为准（没传这一项时就是文件现值）。
+      const docSync = doc.sync && typeof doc.sync === 'object' ? doc.sync : {}
+      const savedFullAccess = typeof docSync.check_full_access === 'boolean'
+        ? docSync.check_full_access
+        : (checkFullAccess === null ? true : checkFullAccess)
+      return {
+        ok: true,
+        cwd: r.cwd || null,
+        config_path: syncStr(doc.settings) || '.local/settings.json',
+        settings_sha256: syncStr(doc.sha256),
+        saved: {
+          remote: remote, branch: branch, auto_check: autoCheck, auto_merge: autoMerge,
+          check_reminders: checkEnabled, check_minutes: checkMinutes,
+          check_full_access: savedFullAccess,
+        },
+      }
+    })
+
+    // 「设为归属仓」：写 `.local/identity.remote`，走 `pr_status.py --set-identity`。
+    // 与保存同一条写边界（设置文件 + CAS 指纹）；面板不自己改 git 远端。
+    const kbIdentityDisposer = harness.handle('ascend-kb-sync-identity', async (args) => {
+      const sessionId = args && args.sessionId ? String(args.sessionId) : null
+      const remote = args && args.remote ? String(args.remote).trim() : ''
+      const expect = args && args.expectSha256 ? String(args.expectSha256).trim() : ''
+      if (!remote) return { ok: false, code: 'E_ARGS', message: '没有选远端' }
+      if (!syncSafeRef(remote)) return { ok: false, code: 'E_ARGS', message: '远端名含不支持的字符' }
+      if (expect && !/^[0-9a-f]{64}$/i.test(expect)) {
+        return { ok: false, code: 'E_ARGS', message: '设置指纹不是 64 位十六进制' }
+      }
+      const argv = ['--set-identity', '--remote', remote]
+      if (expect) argv.push('--expect-sha256', expect)
+      argv.push('--json')
+      const r = await runSyncScript(sessionId, PR_STATUS_SCRIPT, argv.join(' '), 20000)
+      if (!r.ok) return { ok: false, code: r.code, message: r.message, cwd: r.cwd || null, detail: r.detail || '' }
+      const doc = syncDocOf(r) || {}
+      const env = syncEnvelopeError(doc)
+      if (env) return { ok: false, code: env.code, message: env.message, cwd: r.cwd || null, detail: '' }
+      const id = doc.identity && typeof doc.identity === 'object' ? doc.identity : null
+      return {
+        ok: true,
+        cwd: r.cwd || null,
+        identity: {
+          remote: id ? syncStr(id.remote) || remote : remote,
+          url: id ? syncStr(id.url) : '',
+          explicit: id ? id.explicit !== false : true,
+          resolved: id ? id.resolved !== false : true,
+        },
+        sha256: syncStr(doc.sha256),
+      }
+    })
+
     return () => {
       if (handleDisposer) handleDisposer()
       if (healthDisposer) healthDisposer()
       if (detailDisposer) detailDisposer()
+      if (kbShowDisposer) kbShowDisposer()
+      if (kbMergeDisposer) kbMergeDisposer()
+      if (kbSaveDisposer) kbSaveDisposer()
+      if (kbIdentityDisposer) kbIdentityDisposer()
     }
   },
 }

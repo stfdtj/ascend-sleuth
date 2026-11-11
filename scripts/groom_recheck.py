@@ -20,6 +20,7 @@
 #   submitted_case_id: <final id>
 #   category: interrupt
 #   assessed_commit: <sha>
+#   target_ref: refs/remotes/<remote>/<branch>
 #   assessment_id: <sha>
 #   assessed_content_sha256: <sha>
 #   proposed_novelty: covered
@@ -33,6 +34,7 @@
 #
 # 用法：
 #   python3 scripts/groom_recheck.py --pr-body-file /tmp/pr.md --base origin/main --head HEAD
+#   python3 scripts/groom_recheck.py --pr-body-file /tmp/pr.md            # --base 省略：用配置目标
 #   python3 scripts/groom_recheck.py --pr-body-file /tmp/pr.md --enforce   # 缺 marker 也算失败
 #   python3 scripts/groom_recheck.py --pr-body-file /tmp/pr.md --advisory  # 只报不拦（CI 过渡）
 #   python3 scripts/groom_recheck.py --post-merge --pr-body-file /tmp/pr.md
@@ -399,8 +401,10 @@ def _check(body, repo: Path, base_ref: str, head_ref: str, enforce_marker: bool,
             add("error", "decision-does-not-authorize",
                 f"人的决定是 {human}，不授权任何内容提交。")
 
-    # stale：对每个有效 marker 检查 relevant knowledge 是否在评估后变化
-    for marker in valid_markers:
+    # stale：对每个有效 marker 检查 relevant knowledge 是否在评估后变化。
+    # 合入后这一步没有可执行的动作：PR 已经进 main，本 PR 的改动本身就会落在 assessed..base 里。
+    # 保留 marker、内容绑定、授权与索引检查；只跳过过期判定。
+    for marker in ([] if post_merge else valid_markers):
         assessed_resolved = marker["_assessed_resolved"]
         category = marker.get("category") or ""
         candidate = marker.get("candidate_case") or ""
@@ -435,7 +439,8 @@ def _check(body, repo: Path, base_ref: str, head_ref: str, enforce_marker: bool,
     possible = compare_new_cases(
         repo, valid_markers[0]["_assessed_resolved"] if valid_markers else base, base, head)
     for item in possible:
-        add("error", "possible-duplicate-after-merge",
+        # 合入后这条已经没有可执行的动作：它拦的是合入前复核，不是清理。
+        add("warning" if post_merge else "error", "possible-duplicate-after-merge",
             f"PR 新增 {item['pr_case']} 与 base 期间新增 {item['main_case']} 有共同字面量 "
             f"{item['token_overlap']}——人复核是否同一问题（本检查不判重）。",
             detail=item)
@@ -455,17 +460,33 @@ def check(body, repo: Path, base_ref: str, head_ref: str, enforce_marker: bool,
             "base": base_ref, "head": head_ref}
 
 
+def default_base(root: Path) -> str:
+    """未传 --base 时的比较基准：`pr_status.effective_base` 的三段顺序。
+
+    lazy import pr_status：正常带 --base 的调用不加载平台适配器。读不出配置时按未配置处理，
+    退回 origin/main，不因配置文件损坏让复核不可用。
+    """
+    try:
+        from pr_status import effective_base
+        return effective_base(root)
+    except Exception:
+        return "origin/main"
+
+
 def main():
     pin_utf8_stdio()
     ap = argparse.ArgumentParser(description="Groom 合入前复核（stale assessment / 并发 PR）")
     ap.add_argument("--repo", default=None)
     ap.add_argument("--pr-body-file", default=None)
     ap.add_argument("--pr-body", default=None)
-    ap.add_argument("--base", default="origin/main")
+    ap.add_argument("--base", default=None,
+                    help="比较基准 ref（默认读 settings 的 target，未配置按归属仓默认分支，"
+                         "解析不到用 origin/main）")
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--enforce", action="store_true", help="缺 marker / 未决也失败")
     ap.add_argument("--advisory", action="store_true", help="只报告，不改变退出码（CI 过渡用）")
-    ap.add_argument("--post-merge", action="store_true", help="另跑索引覆盖检查")
+    ap.add_argument("--post-merge", action="store_true",
+                    help="合入后模式：跳过过期判定，另跑索引覆盖检查")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -477,7 +498,10 @@ def main():
     else:
         body = sys.stdin.read()
 
-    findings, ctx = check(body, root, args.base, args.head, args.enforce, args.post_merge)
+    base = args.base or default_base(root)
+    if args.base is None:
+        print(f"未传 --base，使用配置目标 {base}", file=sys.stderr)
+    findings, ctx = check(body, root, base, args.head, args.enforce, args.post_merge)
     blocking = [f for f in findings if f["severity"] == "error"]
     markers = ctx.get("markers") or []
     result = {
@@ -485,6 +509,8 @@ def main():
         "checked_at": now_iso(),
         "repo": str(root),
         "base": ctx.get("base"),
+        "base_ref": base,
+        "base_defaulted": args.base is None,
         "head": ctx.get("head"),
         "markers": markers,
         "marker": markers[0] if len(markers) == 1 else None,

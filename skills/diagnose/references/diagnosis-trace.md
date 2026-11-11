@@ -196,6 +196,12 @@ case 错 / 执行错判）——让 `component_tally.py` 能聚合出"被跟随�
 - 判据：这条外部事实是否**进入了本次诊断结论的推理链**——是 → 记；纯背景、未用 → 不必记。
 - **别与 `user.evidence` 混**：外部是 agent 查到的、可再查证（记来源+事实即可）；用户**提供**的现场证据是跨 agent 必须自包含的（走 `inline`/`file`）。
 
+### `source_analysis` 的取用字段（源码取用读数）
+
+记一条 `source_analysis` 时，除 `tool_calls` 外，把这次取源码的事实写进同一事件：`repo`（`org/repo`，与 `source-catalog.d` 同一写法）、`ref`（版本）、`fetch_exit`（`src_fetch.py` 的退出码整数）、`verify`（hit / miss / skipped）。
+
+`fetch_exit` 与 `verify` 不写时读数按"未记录"分字段计，不回填；两值越界由 `trace_metrics.py` 报违规，不中断整张表。仓与版本按原值计数，别名不合并：同一仓写成两种名字就算两种写法，要合并先在 `source_catalog` 统一写法再记。汇总入口：`python3 scripts/trace_metrics.py --source-usage`（只进人读输出与 `--json`，不进 `--emit-yaml` 快照）。
+
 ## agent 事件分两层（output 给用户 / reason 记决策依据，缺一不可）
 
 - `output`：给用户看的内容（可精简）——透明性的呈现层。
@@ -272,7 +278,13 @@ harness 侧的会话号（DSH 里是 `$DSH_SESSION_ID`）。**用途有两个**�
 **缺了两边都停摆**：面板只能说「未记会话号」（它只看得见字段缺失，分不出是建会话时漏写还是旧单——所以文案不猜年纪）；侧栏的行首记号与「待回报」标记也挂不上。补的时候给已知会话号最快：
 `python3 scripts/link_harness_sessions.py --trace <文件名> --session-id "$DSH_SESSION_ID" --apply`（不扫日志，秒级）；历史单不给 `--session-id`，脚本去会话日志里按名字认。
 
-**它还是「从轨迹跳到那次会话」的唯一依据**：`session_id` 不是 DSH 的会话号，面板的「打开会话」与侧栏「诊断记录」都只认这个字段，没有它就只能显示「未记会话号」。历史轨迹缺这一栏时用 `python3 scripts/link_harness_sessions.py --apply` 补：按「会话时间窗覆盖 `created_at`、且会话开始时间离它最近」判定是谁写的那一单；只补空，只有弱证据（命中次数）的默认不写，`--allow-weak` 才写。**诊断会话的名字（`session_id`）与 harness 会话号是两套**：前者是这次诊断自己起的（形如 `<日期>-<issue 号>-<短名>`），后者是 harness 分配的。汇总脚本不写这个字段时按 `session_id` 试一次。
+**它还是「从轨迹跳到原始会话」的依据**：`session_id` 不是 DSH 的会话号，面板的「打开会话」与侧栏「诊断记录」都只认这个字段；没有它时面板显示「未记原始会话号」。
+
+**续接不覆盖这个顶层字段**：每次 `resume` 事件带 `harness_session: "$DSH_SESSION_ID"`，插件按续接链把当前会话标成续接归属；顶层字段仍只做原始会话与成本 / 工具归因。所以没有顶层字段但有 `resume` 事件时，面板仍能显示续接会话，只是原始会话显示未记。
+
+历史轨迹缺这一栏时用 `python3 scripts/link_harness_sessions.py --apply` 补：按「会话时间窗覆盖 `created_at`、且会话开始时间离它最近」判定是谁写的那一单；只补空，只有弱证据（命中次数）的默认不写，`--allow-weak` 才写。显式给 `--session-id "$DSH_SESSION_ID"` 时允许把空值（`harness_session: ""`）补上，非空值不覆盖。
+
+**诊断会话的名字（`session_id`）与 harness 会话号是两套**：前者是这次诊断自己起的（形如 `<日期>-<issue 号>-<短名>`），后者是 harness 分配的。汇总脚本不写这个字段时按 `session_id` 试一次。
 
 ## 顶层 `external_evidence`（会话级，一次写定）
 
@@ -283,9 +295,9 @@ harness 侧的会话号（DSH 里是 `$DSH_SESSION_ID`）。**用途有两个**�
 
 没有它，"没有 `external_lookup` 事件"分不清是没开还是没用到——这正是 `reference_lookup` 要分 `skipped` 的理由。**开了但服务挂了仍写 `on`**：那是事件级 `skipped` 加 `reason: probe-failed` 的事，两者不要混。
 
-## 顶层 `kb_rev`（会话级，一次写定）
+## 顶层 `kb_rev`（知识基线：会话级，一次写定）
 
-建 session 时把当时那份 `knowledge/` 的版本写进去（`python3 scripts/kb_rev.py` 的末行 = 检出 HEAD 短 sha），**之后不改**。两个用途：
+建 session 时把当时那份 `knowledge/` 的版本写进去——知识基线是诊断读知识库的那一版 commit 坐标（`python3 scripts/kb_rev.py` 的末行 = 检出 HEAD 短 sha），**之后不改**。两个用途：
 
 - **跨机接手**：一单在一台机器上做到一半、换到另一台继续时（更多日志在另一台），接手方要拿这个值比对本机知识库版本。不一致意味着 `excluded_cases` 里的 id 可能不存在、同一条 case 的排序分数不同、甚至那条 case 当时还没沉淀出来——接手方会复现出一套**与上家不同的候选集而不自知**。口径与工具见 `docs/guide/handoff.md`。
 - **事后归因**：判"当时为什么没命中"要能回答"当时库里有什么"，只看今天的库会把"库里当时没有"读成"检索没找到"。
@@ -295,6 +307,22 @@ harness 侧的会话号（DSH 里是 `$DSH_SESSION_ID`）。**用途有两个**�
 工作区有未提交的已跟踪改动时，`trace_begin.py` 另写顶层 `kb_rev_dirty: true`。`kb_rev` 的 sha
 只标识提交，不能单独指认脏工作区里的规则；续接时的漂移检查会把未提交改动一并算入。
 
+远端版本与落后数不写进 `kb_rev`：下一节的同步字段记「这一单同步到哪、差多少」。
+
+## 顶层知识库同步字段（建单时由 `trace_begin.py` 写定）
+
+`trace_begin.py` 在建单时同步一次知识库，并把结果写进下表的六个字段；顺序是校验 → 同步 → 写文件，参数校验不过时不联网、也不落 trace。`kb_rev` 的语义不变：它仍是这一单**实际读的那份工作区 HEAD**，下表只记**同步动作**，两者不要互相替代。
+
+| 字段 | 记什么 |
+|---|---|
+| `kb_remote` | 同步源远端名与分支，如 `origin/main`；取不到时留空 |
+| `kb_remote_rev` | 本机 `remote/branch` 引用的短 sha；fetch 未成功或本机没有这个引用时写 `unknown` |
+| `kb_behind` | `HEAD..远端分支` 的提交数，或 `unknown`；与 `kb_rev` 一起回答「读的哪版、差多少」 |
+| `kb_sync` | 同步结果：`ok` / `failed` / `off` / `skipped`（`ok` 只表示 fetch 成功，合没合看 `kb_merge`；`off` = 同步关闭、部署声明离线或建单时显式不联网；`skipped` = 失败缓存期内） |
+| `kb_sync_reason` | 没同步、同步失败或没合并的原因，如超时 / 网络不通（含代理不可达）/ 无远端 / 非检出 / 撞 ref 锁（git fetch 并发更新引用时的锁冲突，按失败降级、不重试）/ 工作区有改动 / 分支不符；没有原因时留空 |
+| `kb_merge` | 这一单有没有动过检出：`ff-only`（做了快进合并）/ `none`（没有合并） |
+
+一次合并同时更新知识与流程：`knowledge/` 在运行时读取立即生效，`skills/` 要下一次会话才重新加载。自动合并只在这四条同时成立时发生：当前分支 = 配置 `branch`、HEAD 是远端分支的祖先、`git status --porcelain -uno` 为空、无进行中 merge / rebase / cherry-pick；worktree 与 detached HEAD 不自动合并。
 
 ## 顶层 `last_action`（当前在等什么，提问后更新）
 

@@ -7,17 +7,17 @@ name: kb-checks
 #   ② `changes` job = **细网**，算出这次改了哪一面，各 job 用 `if:` 自取所需。
 # 两个事件的触发面不同：`push` 只在 `main` 上起，`pull_request` 在改了下列 `paths` 的 PR 上起。
 # 开发分支的推送不再单独起一轮——PR 事件以主干为基线算改动，文件清单准确。改前这些推送会另起一轮：
-# 新建分支首次推送退化成全量，其后每次推送只是把 PR 那轮的大部分 job 重跑一遍（其中 `unit-tests` 是 wall clock
-# 最长的一条）。`main` 的 push 必须留：PR 验的是当次合并预演（`refs/pull/N/merge`），主干前进后最终
+# 新建分支首次推送退化成全量，其后每次推送只是把 PR 那轮的大部分 job 重跑一遍（其中 `unit-tests`
+# 与分片后的 `unit-tests-windows` 单片是实际耗时最长的一对）。`main` 的 push 必须留：PR 验的是当次合并预演（`refs/pull/N/merge`），主干前进后最终
 # 合入的树没有别处验。收窄 `push` 的代价是未开 PR 时推送没有任何 CI。
 # 为什么不拆成多个 workflow 文件：被 `paths:` 过滤掉的 workflow 根本不上报 check，将来开分支
 # 保护会让 PR 永远等一个不会出现的 Expected。单文件 + job 级 `if:` 下，跳过的 job 照常上报 skipped。
 on:
   push:
     branches: [main]
-    paths: ["knowledge/**", "references/**", "skills/**", "metrics/**", "proposals/**", "eval/**", "tests/**", "docs/**", "README.md", ".gitattributes", "triage-tree.yaml", "triage-tree.d/**", "dsh-plugins/**", "scripts/**", "trace-status.yaml", "deployment.yaml", ".github/workflows/**", ".github/actions/**"]
+    paths: ["knowledge/**", "references/**", "skills/**", "metrics/**", "proposals/**", "eval/**", "tests/**", "docs/**", "README.md", ".gitattributes", "triage-tree.yaml", "source-catalog.d/**", "triage-tree.d/**", "dsh-plugins/**", "scripts/**", "trace-status.yaml", "deployment.yaml", ".github/workflows/**", ".github/actions/**"]
   pull_request:
-    paths: ["knowledge/**", "references/**", "skills/**", "metrics/**", "proposals/**", "eval/**", "tests/**", "docs/**", "README.md", ".gitattributes", "triage-tree.yaml", "triage-tree.d/**", "dsh-plugins/**", "scripts/**", "trace-status.yaml", "deployment.yaml", ".github/workflows/**", ".github/actions/**"]
+    paths: ["knowledge/**", "references/**", "skills/**", "metrics/**", "proposals/**", "eval/**", "tests/**", "docs/**", "README.md", ".gitattributes", "triage-tree.yaml", "source-catalog.d/**", "triage-tree.d/**", "dsh-plugins/**", "scripts/**", "trace-status.yaml", "deployment.yaml", ".github/workflows/**", ".github/actions/**"]
 
 jobs:
   # ── 细网：这次改了哪一面 ──────────────────────────────────────────────────────
@@ -35,7 +35,9 @@ jobs:
   #   docs-index           ← docs（含 README；skill 名单取自 docs/_manifest.yaml，不扫 skills/）、code
   #   holdout-integrity    ← eval、code
   #   eval-scorecard       ← eval、knowledge（case↔夹具的负载类型覆盖算在 case 上）、code
-  #   unit-tests           ← scripts、tests（触发面不变；跑哪些测试按改动选，见强度让步）
+  #   unit-tests           ← scripts、tests、source-catalog.d（跑哪些测试按改动选，见强度让步）
+  #   test-portability     ← tests（被扫对象）、scripts（检查器自身）
+  #   unit-tests-windows   ← scripts、tests、source-catalog.d（与 unit-tests 同一份选择，分 4 片）
   #   panel-checks         ← dsh-plugins、scripts、metrics、skills、docs、trace-status.yaml
   #   skill-self-contained ← skills（只 grep skills/，不执行脚本，故不吃 code）
   #   arena-gate-rule      ← scripts（跑的是 --self-test，用合成样本）
@@ -59,6 +61,10 @@ jobs:
   #     反向闭包算出要跑的模块。改 `.github/**`、改 tests 的共享助手/夹具、基线不可比、脚本
   #     解析失败时回退全量。强度：选中的测试红即挡 merge；「选得全不全」是约定——测试用
   #     动态表达式拼脚本路径时静态扫描会漏（残余与修法写在脚本头注）。
+  #   · unit-tests-windows 与 unit-tests 跑同一份测试选择，强度相同（选中即挡 merge）。它同样先
+  #     重建生成物（源改了没重建会让 test_build_triage_tree 这类「当前树与生成物一致」断言假红），
+  #     外网用例默认 skip（判定口径见 docs/spec/test-portability.md 的 R7）。测试模块按 `--shard`
+  #     轮转切成 4 片并行跑：只保证不重不漏、不按耗时均衡，空片照常成功。
   #   · panel-checks 不算 knowledge：panel_render_check.js 读 knowledge/ 只做「索引非空、case
   #     文件非空」两条 >0 断言，新鲜度由 index-freshness 管。
   #   · panel-checks 吃 docs 与 trace-status.yaml：它读 docs/spec/writing-norms.md 并断言「文案共用
@@ -143,7 +149,7 @@ jobs:
           emit proposals  '^proposals/'
           emit eval       '^eval/'
           emit skills     '^skills/'
-          emit code       '^scripts/|^tests/'
+          emit code       '^scripts/|^tests/|^source-catalog\.d/'
           emit panels     '^dsh-plugins/|^trace-status\.yaml$'
 
           # unit-tests 用这份列表按改动选测试（映射算法与回退条件在 scripts/select_unit_tests.py）。
@@ -433,6 +439,9 @@ jobs:
         env:
           ALL: ${{ needs.changes.outputs.all }}
           CODE_FILES: ${{ needs.changes.outputs.code_files }}
+          # Linux 作业有出网：网络用例在这里保持覆盖。Windows 作业不设它（默认 skip），
+          # 避免把可移植性判定绑到外网可达性上。见 docs/spec/test-portability.md 的 R7。
+          ASCEND_SLEUTH_NETWORK_TESTS: "1"
         run: |
           set -eu
           echo "改动文件（来自 changes job）："
@@ -452,6 +461,76 @@ jobs:
             printf '%s\n' "$selected" | sed -e 's/^/  /'
             python3 -m unittest $selected
           fi
+
+  # 测试可移植性静态检查：编码、路径分隔符、字节级换行夹具、平台专有 API、解释器字面量。
+  # 这些写法在 Linux 上不触发失败，只会在 Windows 上暴露；Linux 单测没有 Windows 执行环境，
+  # 此前只能等维护者在 Windows 上手动跑。编码类（R2）已有 tests/test_subprocess_encoding.py
+  # 在 scripts/ 与 tests/ 两面钉住；本 job 在 tests/ 面补 R1、R3–R6（R2 与它重复覆盖）。
+  # 判定口径见 docs/spec/test-portability.md。
+  # 准入判据（CLAUDE.md）：①机械可判（AST 扫描，不联网、不装包）②后果确定（命中即红；误报靠
+  # 行内豁免逐条处理）③复发（Windows 上编码/路径类问题已出现两轮）。
+  test-portability:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # 只读 AST，不装 pyyaml、不联网。
+      - run: python3 scripts/check_test_portability.py
+
+  # Windows 单测：同一份测试选择在 windows-latest 上再跑一遍。Linux 全绿而新增用例依赖 POSIX
+  # 路径、换行或 locale 时，只有这里会红。差异与强度写在头注「强度让步」。
+  #
+  # 分 4 片并行：同一批模块轮转切分，单片只跑自己那一片。全量回退时串行要 16 分钟（实测
+  # 1246 条：Windows 951 秒 vs Linux 290 秒），切 4 片后单 job 约 4–6 分钟，PR 的等待从
+  # 「最慢的那条 16 分钟」降到「最慢的那片 5 分钟左右」。代价是 runner 分钟数与 job 数变多
+  # （公开仓标准 runner 免费），以及切完可能有的片为空——空片照常上报成功。
+  unit-tests-windows:
+    name: unit-tests-windows (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        # 值同时用于 job 名与 --shard 参数，分母只在这里定义一次，避免两处改岔。
+        shard: ["1/4", "2/4", "3/4", "4/4"]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Windows 上 setup-python 提供 python.exe；下面统一用 python，不写 python3。
+      - run: python -m pip install pyyaml
+      # 与 unit-tests 同前置：源改了没重建时，test_build_triage_tree 这类「当前树与生成物一致」
+      # 的断言会假红，与可移植性无关。rebuild_generated.py 内部用 sys.executable，跨平台。
+      - name: 重建生成物
+        shell: bash
+        run: python scripts/rebuild_generated.py
+      # 不设 ASCEND_SLEUTH_NETWORK_TESTS：外网用例默认 skip。
+      - name: 按改动选单元测试并运行（Windows 第 ${{ matrix.shard }} 片）
+        shell: bash
+        env:
+          ALL: ${{ needs.changes.outputs.all }}
+          CODE_FILES: ${{ needs.changes.outputs.code_files }}
+        run: |
+          set -eu
+          echo "改动文件（来自 changes job）："
+          printf '%s\n' "$CODE_FILES" | sed -e '/^$/d' -e 's/^/  /'
+          extra=""
+          if [ "$ALL" = "true" ]; then extra="--all"; fi
+          # `--shard` 恒输出模块列表（全量会先展开再切），因此这里不再有 ALL 分支。
+          selected=$(printf '%s\n' "$CODE_FILES" | python scripts/select_unit_tests.py $extra --shard ${{ matrix.shard }})
+          if [ -z "$selected" ]; then
+            echo "本片没有测试模块——跳过（改动不在 Python 测试面，或选中数少于分片数）"
+            exit 0
+          fi
+          echo "本片选择："
+          printf '%s\n' "$selected" | sed -e 's/^/  /'
+          python -m unittest $selected
 
   # 面板：两个面板的渲染、文案、色语与数据口径契约都由 `panel_render_check` 与
   # `check_panel_tokens` 守着，但这两个脚本**此前不在任何 CI 里**（paths 不含 dsh-plugins/**），
@@ -493,7 +572,7 @@ jobs:
       # 装包脚本自测：自带假服务器把八条判定各走一遍（装好 / 已装改使能 / spec 被拒 / 安装失败 /
       # 查状态 / 卸载 / /api 没认领端点 / 拿不到地址），不需要真 DSH；真机那一次要 DSH 在跑，不进 CI。
       - run: node scripts/panel_install.js --selftest
-      # 桌面版临时实例验证的自测：自带假 dsh 把四条判定各走一遍（全通 / dump 缺层 / 未登记 / 登记不完整），
+      # 桌面版临时实例验证的自测：自带假 dsh 把五条判定各走一遍（全通 / canvas-only / dump 缺层 / 未登记 / 登记不完整），
       # 不需要真 DSH；真机那一次要桌面版安装目录自带的命令行，不进 CI。
       - run: node scripts/verify_panel_desktop.js --selftest
       # 现状快检的自测：各平台的应用包内命令行相对位置（macOS 在 Contents 下）、日志地址归属、
@@ -503,6 +582,25 @@ jobs:
       # 输出截断、5xx 映射、可用性三态与缓存，以及配置路由的鉴权/解析/探测/404。
       # 全部打桩（进程内假服务替代真接口），不需要 DSH，也不需要内网实例；真机那一次按插件 README 走。
       - run: node scripts/check_vllm_kb.js
+      # 诊断状态条（独立包）的两层冒烟：
+      # ① 浏览器半用最小 React 替身跑四个面、收起偏好、写入参数与台账键盘；
+      # ② Host 半走真实 shell → Python → JSON，写操作只在临时目录的 trace 副本上做，仓库不被改。
+      # CI 里没有 gh，上游能力位会报未就绪——冒烟只断言它是布尔值，不依赖本机登录态。
+      # 整页包的知识库子页：状态、同步源、两个开关、保存与失败降级（假 ctx，不联网）。
+      - run: node dsh-plugins/dsh-sleuth-panels/test/knowledge-tab-smoke.mjs
+      - run: node dsh-plugins/dsh-sleuth-copilot/test/render-smoke.mjs
+      - run: node dsh-plugins/dsh-sleuth-copilot/test/host-smoke.mjs
+      # 独立整页包 canvas：client 半是 `build.mjs` 从 client-src 拼出的生成物，先判产物与源一致；
+      # 四条测试覆盖 host 读 traces（YAML 解析、路径穿越拒绝、RPC 信封）、布局引擎、页面渲染
+      # 与注册面（main 的 key `sleuth-canvas` + sidebar.panellist 同 id）。不需要 DSH。
+      - run: node dsh-plugins/dsh-sleuth-canvas/build.mjs --check
+      - run: node dsh-plugins/dsh-sleuth-canvas/test/host.test.mjs
+      - run: node dsh-plugins/dsh-sleuth-canvas/test/engine.test.mjs
+      - run: node dsh-plugins/dsh-sleuth-canvas/test/ui.test.mjs
+      - run: node dsh-plugins/dsh-sleuth-canvas/test/artifact.test.mjs
+      # fixtures 的源（trace-samples/）与生成物（JSON）必须一致：重跑生成器后不得留下 diff。
+      - run: python3 dsh-plugins/dsh-sleuth-canvas/fixtures/build-fixtures.py
+      - run: git diff --exit-code -- dsh-plugins/dsh-sleuth-canvas/fixtures
 
   skill-self-contained:
     needs: changes

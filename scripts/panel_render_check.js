@@ -495,17 +495,23 @@ async function main() {
   expect('排版：中文基准行高 ≥ 1.6', /--lh-base:1\.6/.test(evSrc))
   expect('排版：与「指标」面板同档位值域（两面板同一套刻度）',
     tDecl['--t-base'] === 14.5 && tDecl['--t-tiny'] === 11.5 && tDecl['--t-sm'] === 12.5)
-  // 空态断言必须**跟着数据走**：tally 为空（干净检出）时应出现一行说明；tally 有非零计数
-  // （工作检出里已有真实归因）时应渲染表格、且**不该**再出现空态文案。写死成"永远期待空态"
-  // 会让这条断言只在干净检出里成立——本地复跑必红，红的原因却不是回归（实测代价：
-  // 端到端演练因此常年一红，7 张以演练为判据的卡跟着一直 FAIL）。
+  // 空态断言必须**跟着数据走**：tally 没有任何非零计数（干净检出，或有归因事件但无硬归因）
+  // 时应出现一行说明；有非零计数（工作检出里已有真实归因）时应渲染表格、且**不该**再出现
+  // 空态文案。写死成"永远期待空态"会让这条断言只在干净检出里成立——本地复跑必红，红的原因
+  // 却不是回归（实测代价：端到端演练因此常年一红，7 张以演练为判据的卡跟着一直 FAIL）。
+  // 全 0 行由面板客户端按同一判据过滤（见 dsh-plugins/ev-panel/panel-client.js 的 TallySection）。
+  // 源码层钉住 tally 渲染：全 0 行过滤与 mis 字段名只在有数据的分支才执行，CI 的干净检出
+  // 走不到；用源文件断言防止回退成「按 tally.length 占位」或读不存在的 misdiagnoses 字段。
+  expect('tally 行按非零计数过滤，mis 读 trace_mis',
+    /const tallyRows = \(tally \|\| \[\]\)\.filter\(c => \(c\.trace_mis \|\| 0\) > 0 \|\| \(c\.s2_candidate \|\| 0\) > 0\)/.test(evSrc) &&
+    /'mis=' \+ \(c\.trace_mis \|\| 0\)/.test(evSrc))
   const tallyRows = (board && board.tally) || []
   const tallyHasSignal = tallyRows.some(r => (r.trace_mis || 0) > 0 || (r.s2_candidate || 0) > 0)
   if (tallyHasSignal) {
     expect('tally 有归因 → 渲染表格、不出现空态文案',
       !/尚无归因事件/.test(ev.text) && tallyRows.some(r => ev.text.includes(r.id)))
   } else {
-    expect('空区块不占位（tally 空 → 一行说明）', /尚无归因事件/.test(ev.text))
+    expect('空区块不占位（tally 无非零计数 → 一行说明）', /尚无归因事件/.test(ev.text))
   }
   expect('收起态不泄露完整决策链（长文本仅在展开后）', !/三项验证均通过/.test(ev.text))
   // 默认筛选是「待办优先」：只出实验中的卡 + 有缺口的卡，不含无缺口的已采纳卡。
@@ -852,6 +858,34 @@ async function main() {
   expect('注册两个 tab', ascTabs.length === 2)
   expect('诊断 tab id', ascTabs[0].opts.id === 'ascend-diagnose')
   expect('指标 tab id', ascTabs[1].opts.id === 'ascend-metrics')
+
+  // ================= 版本漂移提示（同步代码后要不要重启 DSH）=================
+  // 面板是进程启动时装载的：仓库 package.json 的版本比已加载的高（link 安装的链接目标就是主检出；
+  // 快照安装时主检出是仓库那份），说明磁盘上的面板代码已更新、运行中的旧副本要重启才换。
+  // 这里钉两件事：漂移时给一行可读提示且指向重启；版本相等时不出现，避免常态噪音。
+  console.log('\n[ascend-panel 版本漂移提示]')
+  {
+    const driftHost = (method) => {
+      if (method === 'ascend-traces-list') {
+        return { ok: true, sessions: [], build: { loaded_version: '0.9.2', repo_version: '0.9.3', drift: true } }
+      }
+      return ascHost(method)
+    }
+    const drift = await renderAsync(ascSrc, { sessionId: 'sess-1' }, driftHost)
+    expect('漂移时给「面板有新版」并指向重启',
+      drift.text.includes('面板有新版') && drift.text.includes('重启'), drift.text.slice(0, 200))
+    const sameHost = (method) => {
+      if (method === 'ascend-traces-list') {
+        return { ok: true, sessions: [], build: { loaded_version: '0.9.3', repo_version: '0.9.3', drift: false } }
+      }
+      return ascHost(method)
+    }
+    const same = await renderAsync(ascSrc, { sessionId: 'sess-1' }, sameHost)
+    expect('版本相等（drift=false）时不提示有新版', !same.text.includes('面板有新版'), same.text.slice(0, 160))
+    const noBuild = await renderAsync(ascSrc, { sessionId: 'sess-1' }, ascHost)
+    expect('旧 host 不带 build 字段时照常渲染、不提示', !noBuild.text.includes('面板有新版')
+      && noBuild.text.includes('诊断状态'), noBuild.text.slice(0, 160))
+  }
 
   // ================= 会话行「待回报」标记（L1 悬停卡一行 + L2 行首空心点）=================
   // 为什么单开一节：这两处是侧栏的全局座位，取数是共享的一条瘦 RPC（N 行只读一次）。
@@ -2178,15 +2212,29 @@ _MS._run_no_pipe = no_fallback`)
     expect('诊断 tab：旧收尾文案已从界面移除（不跟了 / 转上游 / 已解决 · fix 生效 / 没解决）',
       !dt.includes('不跟了') && !dt.includes('转上游') && !dt.includes('已解决 · fix 生效') && !dt.includes('没解决'))
     expect('诊断 tab：改状态入口与命令兜底都在（有状态投影时）',
-      ascSrc.includes('改状态') && ascSrc.includes('--payload-stdin') && ascSrc.includes('命令兜底'))
+      ascSrc.includes('改状态') && ascSrc.includes('--payload-base64') && ascSrc.includes('命令兜底'))
     const skillToPostmortem = fs.readFileSync(path.join(repo, 'skills/to-postmortem/SKILL.md'), 'utf8')
     // 改状态入口必须在卡片动作行里（行按钮之外、按普通流排），不能是卡片角上的绝对定位小按钮：
     // 那种定位压住同一右端的 token 列与展开箭头，被压住的两处点不到（实测反馈）。
     const actionSrc = ascSrc.slice(ascSrc.indexOf('const actionArea'), ascSrc.indexOf("return React.createElement('div', { className: 'sleu-card'"))
     expect('面板：改状态入口在动作行里（不绝对定位压住 token 列与箭头）',
       /'aria-label': '直接修改这一单的状态'/.test(actionSrc) && !/right: 26, top: 8/.test(ascSrc))
-    expect('面板：命令兜底支持 bash 与 PowerShell 两种写法',
-      /manualCmd\(cmdShell\)/.test(ascSrc) && /'PowerShell'/.test(ascSrc) && /payload-stdin/.test(ascSrc))
+    // 兜底命令必须与 shell 无关：旧版按 bash / PowerShell 分两套写法，要人手选，选错那套就是
+    // ParserError（Windows 上默认那套还是错的）。现在 payload 走 base64 单行，四种终端都能粘。
+    expect('面板：命令兜底不再要人挑 shell 写法（payload 走 base64 单行）',
+      /--payload-base64=/.test(ascSrc) && /function b64json/.test(ascSrc)
+      && !/cmdShell/.test(ascSrc) && !/payload-stdin/.test(ascSrc))
+    // `darwin` 里含 "win"：用子串匹配会把 macOS 判成 Windows，兜底命令写成 `python`（实测踩过）。
+    // 这里直接跑源码里那个纯函数，把三平台钉住。
+    {
+      const i = ascSrc.indexOf('function pythonFor(platform) {')
+      const j = ascSrc.indexOf('\n    }\n', i)
+      const pythonFor = new Function(ascSrc.slice(i, j + 7) + '; return pythonFor')()
+      expect('面板：解释器按精确平台名选（darwin 不是 win32）',
+        pythonFor('win32') === 'python' && pythonFor('Win32') === 'python'
+        && pythonFor('darwin') === 'python3' && pythonFor('linux') === 'python3' && pythonFor('') === 'python3',
+        'win32→' + pythonFor('win32') + ' darwin→' + pythonFor('darwin') + ' linux→' + pythonFor('linux'))
+    }
     expect('面板：命令兜底可以交给 agent 执行（同一脚本，不是旁路）',
       /const agentPrompt =/.test(ascSrc) && /'复制给 agent'/.test(ascSrc)
       && /请执行下面这条命令/.test(ascSrc))
@@ -2289,14 +2337,23 @@ _MS._run_no_pipe = no_fallback`)
           ui.clickExact('补记收尾方式'); await ui.pump(2)
           const t1 = ui.text()
           expect('命令兜底：补记收尾方式给的是同一条写入口，payload 只带 kind、不带 to',
-            /trace_transition\.py s-noend/.test(t1) && /"kind": "root_cause"/.test(t1) && !/"to":/.test(t1),
-            t1.slice(-400))
-          ui.clickExact('PowerShell'); await ui.pump(2)
-          const t2 = ui.text()
-          expect('命令兜底：切到 PowerShell 后命令真的换写法（状态接上了，不只是按钮变色）',
-            /@'/.test(t2) && /python scripts\/trace_transition\.py/.test(t2), t2.slice(-400))
-          ui.clickExact('bash'); await ui.pump(2)
-          expect('命令兜底：切回 bash 后是 here-doc 写法', /<<'JSON'/.test(ui.text()), ui.text().slice(-400))
+            /trace_transition\.py s-noend/.test(t1) && /--payload-base64=/.test(t1)
+            && !/"to":/.test(t1) && !/<<'JSON'/.test(t1) && !/cd <仓库根目录>/.test(t1), t1.slice(-500))
+          // 以前这里要人挑 bash / PowerShell，选错那套就是 ParserError（Windows 上默认那套还是错的）。
+          // 现在 payload 走 base64 单行，命令与 shell 无关，界面上不该再有写法开关。
+          expect('命令兜底：命令一行、与 shell 无关（没有要人手选的写法开关）',
+            /一行命令，PowerShell \/ cmd \/ bash 都能粘/.test(t1) && !/写法/.test(t1), t1.slice(-500))
+          // 命令里的 token 必须能解回 payload：只断文案的话，编码坏了也照样"通过"。
+          const tok = (t1.match(/--payload-base64=([A-Za-z0-9+/=]+)/) || [])[1] || ''
+          let decoded = null
+          try { decoded = JSON.parse(Buffer.from(tok, 'base64').toString('utf8')) } catch (e) { decoded = null }
+          expect('命令兜底：命令里的 base64 解回的就是这份 payload（不是拼给人看的假 token）',
+            !!decoded && decoded.kind === 'root_cause' && !decoded.to, tok.slice(0, 48))
+          // 点复制必须当场有反馈。渲染检查里没有可用剪贴板（document 桩没有 createElement），
+          // 所以断言的是失败那一支：它同样要出现在按钮旁边，而不是几步之外的提示位。
+          ui.clickExact('复制命令'); await ui.pump(3)
+          expect('命令兜底：点复制就地给反馈（失败也写在按钮旁并带目录）',
+            /复制失败：在仓库根目录手动选中下面的命令/.test(ui.text()), ui.text().slice(-300))
         }
         // 必填没填就点确认：给字段提示、不写盘（转交他人的 "转交给" 是硬必填）。
         {
@@ -2921,8 +2978,17 @@ _MS._run_no_pipe = no_fallback`)
         const writes = []
         const specs = []
         const mkdir = (p) => { if (!dirs.has(p)) dirs.set(p, []); return dirs.get(p) }
-        const addDir = (p) => { mkdir(p); const e = mkdir(path.dirname(p)); const n = path.basename(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'directory' }) }
-        const addFile = (p, c) => { files.set(p, c); const e = mkdir(path.dirname(p)); const n = path.basename(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'file' }) }
+        // 本段的路径字面量都是 POSIX（Linux/macOS 的路径规范）形态（'/mock/repo'、'/deploy/workspace'）。Windows 上
+        // path.resolve('/mock/repo') 会补盘符（如 D:\mock\repo），under() 与 mock 的目录键就永远
+        // 对不上，写入全被沙箱判据拒掉。这里固定用 path.posix（结果跨平台一致），入参只做
+        // 分隔符归一 + 剥盘符前缀；「目标不在有效根下 → 拒绝」的判据不放宽。
+        const toPosix = (p) => String(p).replace(/\\/g, '/').replace(/^[A-Za-z]:/, '')
+        const pdir = (p) => path.posix.dirname(toPosix(p))
+        const pbase = (p) => path.posix.basename(toPosix(p))
+        const pjoin = (a, b) => path.posix.join(toPosix(a), toPosix(b))
+        const presolve = (p, opts) => path.posix.resolve(toPosix((opts && opts.cwd) || '/'), toPosix(p))
+        const addDir = (p) => { mkdir(p); const e = mkdir(pdir(p)); const n = pbase(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'directory' }) }
+        const addFile = (p, c) => { files.set(p, c); const e = mkdir(pdir(p)); const n = pbase(p); if (!e.some(x => x.name === n)) e.push({ name: n, type: 'file' }) }
         addDir(MAIN + '/.git'); addDir(MAIN + '/metrics'); addDir(MAIN + '/traces'); addDir(MAIN + '/scripts')
         addFile(MAIN + '/scripts/metrics_health.py', '# stub\n')
         addFile(MAIN + '/traces/t.yaml', 'session_id: "t1"\nstatus: resolved\n'
@@ -2937,14 +3003,14 @@ _MS._run_no_pipe = no_fallback`)
           return t === r || t.startsWith(r + '/')
         }
         const fsMock = {
-          resolve: async (p, opts) => path.resolve((opts && opts.cwd) || '/', p),
+          resolve: async (p, opts) => presolve(p, opts),
           processPath: (t) => String(t),
           async listDir(target) {
             const p = String(target)
             if (!dirs.has(p)) throw notFound(p)
             return (dirs.get(p) || []).map(e => ({
-              name: e.name, type: e.type, target: path.join(p, e.name),
-              version: String(versions.get(path.join(p, e.name)) || 1),
+              name: e.name, type: e.type, target: pjoin(p, e.name),
+              version: String(versions.get(pjoin(p, e.name)) || 1),
             }))
           },
           async readText(target) {
@@ -2967,6 +3033,16 @@ _MS._run_no_pipe = no_fallback`)
             return { operation: 'write' }
           },
         }
+        // Windows 形态回归：这份 mock 的根是无盘符字面量，Windows 宿主会补盘符
+        // （path.resolve('/mock/repo') → D:\mock\repo）。下面用 Windows 输入字符串直接判：
+        // 反斜杠要归一成 `/` 且仍落在有效根下；归一后的仓外目标仍要被 under() 拒掉。
+        // 输入是 Windows 形态，所以在任何平台上跑都能抓到「退回 path.resolve」的回归。
+        expect('fs 写：盘符/反斜杠入参归一到有效根（解析不随平台补盘符）',
+          presolve('traces\\t.yaml', { cwd: MAIN }) === MAIN + '/traces/t.yaml',
+          String(presolve('traces\\t.yaml', { cwd: MAIN })))
+        expect('fs 写：归一后的仓外目标仍被拒（判据未放宽）',
+          under(MAIN, presolve('D:\\outside\\x', { cwd: MAIN })) === false,
+          String(presolve('D:\\outside\\x', { cwd: MAIN })))
         const hostSrcFs = fs.readFileSync(path.join(repo, 'dsh-plugins/ascend-panel/panel-host.js'), 'utf8')
         const boot = (ro) => {
           const regs = {}
@@ -4698,12 +4774,20 @@ print(json.dumps([{'role': s(t.get('role')), 'step': s(t.get('step')), 'action':
       String(page.regs[0].opts.key) + ' / ' + String(page.regs[1].opts.id))
     expect('侧栏图标带可读名字', page.regs[1].opts.label === 'Ascend Sleuth', String(page.regs[1].opts.label))
 
-    expect('默认落在「指标」子页（渲染出指标首屏）', page.text.includes('本期变化'), page.text.slice(0, 160))
+    // 顺序从 tab 按钮自己的标记取，不用整页文本找词：副标题里也有「知识库」「指标」，
+    // 按词序断言拦不住「知识库排第二位」这种回归（预核反例实测）。flatten 对每个元素先输出
+    // «cls:…»，tab 按钮的下一行就是标签文字。
+    const tabLabels = (page.text.match(/«cls:sleu-console-tab»\n([^\n]+)/g) || [])
+      .map(s => s.split('\n')[1].trim())
+    expect('子页顺序 知识库 / 指标 / 自演进',
+      tabLabels.join(' / ') === '知识库 / 指标 / 自演进', tabLabels.join(' / ') || '没取到 tab')
+    expect('默认落在第一个 tab「知识库」子页（渲染出知识库首屏）',
+      page.text.includes('同步源'), page.text.slice(0, 160))
     const evo = await renderAsync(consoleSrc, { sessionId: 'sess-1', view: 'evolve' }, pageHost, { views })
     expect('切到「自演进」子页渲染看板', evo.text.includes('自演进 · 体检'), evo.text.slice(0, 160))
-    expect('两个子页的入口都在', page.text.includes('指标') && page.text.includes('自演进'))
 
-    const empty = await renderAsync(consoleSrc, { sessionId: 'sess-1' }, pageHost, { views: {} })
+    // 缺视图的那一页要显式点名：默认子页由整页自己登记，拿它验不出「没接上」。
+    const empty = await renderAsync(consoleSrc, { sessionId: 'sess-1', view: 'metrics' }, pageHost, { views: {} })
     expect('视图缺失时给一行说明（不空白）', empty.text.includes('没接上'), empty.text.slice(0, 160))
 
     const svg = fs.readFileSync(path.join(repo, 'dsh-plugins/sleuth-console/icon.svg'), 'utf8')
