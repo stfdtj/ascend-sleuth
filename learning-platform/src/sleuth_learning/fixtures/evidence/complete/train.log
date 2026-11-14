@@ -1,0 +1,4 @@
+2026-11-14T09:15:03+08:00 INFO  starting training job mindspeed-llm ep64
+2026-11-14T09:22:10+08:00 INFO  step 1000 loss=2.31
+rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps
+2026-11-14T09:22:41+08:00 ERROR rank1: [ERROR] 507057 all_to_all_single stalled

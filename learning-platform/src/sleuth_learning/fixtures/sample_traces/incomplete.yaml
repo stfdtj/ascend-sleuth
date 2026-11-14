@@ -1,0 +1,34 @@
+# Synthetic fixture -- tests teaching_class=incomplete for an in-progress
+# session with no hit case yet.
+session_id: "demo-incomplete"
+status: in_progress
+summary: "Synthetic demo: still waiting on the engineer to paste the full error stack."
+created_at: "2026-11-12T10:00:00+08:00"
+updated_at: "2026-11-12T10:05:00+08:00"
+detected_framework: vllm-ascend
+detected_platform: A3-910C
+detected_category: interrupt
+stop_reason: ""
+feedback: {case: "", outcome: "", confirmed_at: ""}
+active_case: null
+excluded_cases: []
+last_action: "waiting for the full error stack trace"
+trace:
+  - role: user
+    step: 1
+    content: "Inference server crashes on startup, only have a one-line error so far."
+    evidence:
+      inline: "RuntimeError: NPU out of memory"
+      files: []
+      sources: []
+      missing: "full stack trace"
+  - role: agent
+    step: 2
+    action: triage
+    workload_type: inference
+    workload_type_source: framework
+    branch: interrupt
+    category: interrupt
+    routed: [inference/vllm-ascend/]
+    output: "Routed to vllm-ascend interrupt candidates; need the full stack trace to narrow further."
+    reason: "Framework name maps directly; symptom is too generic (OOM) to pick a candidate yet."

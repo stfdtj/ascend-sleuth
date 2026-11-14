@@ -1,0 +1,31 @@
+# Synthetic fixture -- same hit case as complete.yaml, but on a platform the
+# test's platform registry does not list for that case, so applicability
+# should come out "conflicting" rather than being auto-upgraded to matched.
+session_id: "demo-conflicting-reference"
+status: resolved
+summary: "Synthetic demo: hit case recorded, but on a platform not covered by known applicability facts."
+created_at: "2026-11-13T09:00:00+08:00"
+updated_at: "2026-11-13T09:30:00+08:00"
+detected_framework: mindspeed-llm
+detected_platform: A3-910C
+detected_category: interrupt
+stop_reason: resolved_confirmed
+feedback: {case: MSLLM-EP-HANG-001, outcome: resolved, confirmed_at: "2026-11-13"}
+active_case: MSLLM-EP-HANG-001
+excluded_cases: []
+trace:
+  - role: user
+    step: 1
+    content: "Same hang signature as usual, but this cluster is on A3-910C, not the usual A5-950."
+    evidence:
+      inline: "rank2: HCCL timeout waiting for all_to_all completion"
+      files: []
+      sources: []
+      missing: null
+  - role: agent
+    step: 2
+    action: hit
+    case: MSLLM-EP-HANG-001
+    confidence: 0.5
+    output: "Hit MSLLM-EP-HANG-001 by symptom match."
+    reason: "Symptom matches, but this case's known-good platform list does not include A3-910C."

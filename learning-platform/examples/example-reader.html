@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Case Reader</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Arial,sans-serif;margin:0;background:#0f1115;color:#e6e6e6}
+header{padding:16px 24px;border-bottom:1px solid #2a2d35;position:sticky;top:0;background:#0f1115}
+h1{font-size:18px;margin:0 0 4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;margin-right:6px}
+.b-draft{background:#3a3310;color:#e0c050}
+.b-published{background:#123a1c;color:#5bd17a}
+.b-withdrawn{background:#3a1212;color:#e06060}
+.b-generated{background:#123a1c;color:#5bd17a}
+.b-failed{background:#3a1212;color:#e06060}
+.b-synthetic{background:#1a2a3a;color:#6fb0e0}
+main{padding:16px 24px;max-width:960px}
+.tabs{display:flex;gap:8px;margin:12px 0}
+.tab{padding:6px 12px;border:1px solid #2a2d35;border-radius:6px;cursor:pointer;background:#181a20}
+.tab.active{background:#23262e;border-color:#4a7dff}
+.view-pane{display:none}
+.view-pane.active{display:block}
+.step{border:1px solid #2a2d35;border-radius:8px;padding:10px 14px;margin:10px 0;background:#15171c}
+.step .role{font-size:11px;text-transform:uppercase;color:#9aa0ac;letter-spacing:.05em}
+.kv{color:#9aa0ac;font-size:12px}
+.card{border-left:3px solid #4a7dff;padding:6px 10px;margin:6px 0;background:#121722}
+.origin{font-size:11px;color:#8aa0cc}
+.evidence{border:1px dashed #2a2d35;border-radius:6px;padding:8px;margin:6px 0;font-size:13px}
+.integrity-mismatch{color:#e06060}
+.integrity-unavailable{color:#9aa0ac}
+.integrity-quote-matched{color:#5bd17a}
+.missing{color:#e0a060}
+.finding-error{color:#e06060}
+.finding-review{color:#e0c050}
+.finding-warning{color:#9aa0ac}
+pre{white-space:pre-wrap;word-break:break-word;margin:4px 0}
+abbr{text-decoration:underline dotted;cursor:help}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="case-title"></h1>
+  <div id="badges"></div>
+</header>
+<main>
+  <section id="overview"></section>
+  <h2>Validation findings</h2>
+  <section id="findings"></section>
+  <h2>Diagnostic steps</h2>
+  <div class="tabs" id="tabs"></div>
+  <div id="panes"></div>
+  <h2>Evidence</h2>
+  <section id="evidence"></section>
+</main>
+<script id="case-data" type="application/json">{"schema_version": "learning-case/1", "id": "9462c8b1-baf4-5d3b-8c21-8e785422c17f", "revision": 1, "snapshot_hash": "sha256:1596653076b209b054d2729b987ad3d2567a87e93af18dd557e97251d9def651", "source_identity": {"origin_id": "40ad3258-dba4-464f-bbc9-95650e66ea63", "session_id": "demo-2026-11-14-ep-hang", "lineage_id": null}, "generator": {"mode": "mock", "version": "1", "prompt_hash": "sha256:be92b7c4053f8c62b7b3a4c6d356bf57d413e318e17855dec766fa530ea619a3", "model_id": "mock-template-v1", "parameters_hash": "sha256:1f2bfcd4d851132e61108597918f2ee32fcf55f6fbc32a76014efa05f4f61829", "dependency_hashes": []}, "title": "Synthetic demo: training hang reported during large-scale EP all_to_all; HCCL buffer undersize confirmed and fixed.", "applicability": {"platforms": ["A5-950"], "versions": [], "assessment": "matched", "basis": [{"file_id": "trace", "json_pointer": "/detected_platform", "lines": null}, {"file_id": "trace", "json_pointer": "/active_case", "lines": null}]}, "diagnosis": {"source_status": "resolved", "feedback_outcome": "resolved", "stop_reason": "resolved_confirmed", "teaching_class": "success-reported", "basis": [{"file_id": "trace", "json_pointer": "/status", "lines": null}, {"file_id": "trace", "json_pointer": "/feedback/outcome", "lines": null}]}, "steps": [{"id": "s-0", "source_index": 0, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/0", "lines": null}, "role": "user", "action": null, "output": "Training hung during large-scale EP dispatch; log excerpt attached.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [{"evidence_id": "e-0-inline", "relation": "explicit", "basis": []}, {"evidence_id": "e-0-file-0", "relation": "explicit", "basis": [{"file_id": "ev-0", "json_pointer": null, "lines": null}]}, {"evidence_id": "e-0-quote-0", "relation": "explicit", "basis": [{"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}]}], "case_refs": [], "missing": []}, {"id": "s-1", "source_index": 1, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/1", "lines": null}, "role": "agent", "action": "triage", "output": "Classified as a training-side interrupt; loading mindspeed-llm and common candidates.", "reason": "Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -> interrupt.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-2", "source_index": 2, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/2", "lines": null}, "role": "agent", "action": "load_index", "output": "Loaded candidate index.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-3", "source_index": 3, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/3", "lines": null}, "role": "agent", "action": "quickly_check", "output": "Candidate 1 passed its primary check.", "reason": "grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-4", "source_index": 4, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/4", "lines": null}, "role": "agent", "action": "quickly_check", "output": "Candidate 7 only passed its fallback check.", "reason": "Primary pattern did not match; fallback matched too broadly to trust alone.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-5", "source_index": 5, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/5", "lines": null}, "role": "agent", "action": "hit", "output": "Hit MSLLM-EP-HANG-001: HCCL internal buffer insufficient for EP all_to_all at this world_size.", "reason": "Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-6", "source_index": 6, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/6", "lines": null}, "role": "agent", "action": "report", "output": "Wrote up the finding.", "reason": "Trace records the replay-able process; this note is for completeness.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}, {"id": "s-7", "source_index": 7, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/7", "lines": null}, "role": "user", "action": null, "output": "Applied export HCCL_BUFFSIZE=4194304 and restarted; training now completes past step 1000.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": []}], "evidence": [{"id": "e-0-inline", "file_id": null, "pointer": null, "quote": "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps", "lineage": {"original_lines": null, "transformed": false}, "integrity": "unavailable", "support": "observation-only", "access_class": "internal"}, {"id": "e-0-file-0", "file_id": "ev-0", "pointer": {"file_id": "ev-0", "json_pointer": null, "lines": null}, "quote": null, "lineage": {"original_lines": null, "transformed": false}, "integrity": "unchecked", "support": "observation-only", "access_class": "internal"}, {"id": "e-0-quote-0", "file_id": "ev-0", "pointer": {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}, "quote": "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps", "lineage": {"original_lines": {"start": 3, "end": 3}, "transformed": false}, "integrity": "quote-matched", "support": "observation-only", "access_class": "internal"}], "views": [{"style": "replay", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": null, "explanation": null, "question": null, "origin": "recorded-human", "citations": [{"file_id": "ev-0", "json_pointer": null, "lines": null}, {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}], "applicability": null}, {"step_id": "s-1", "purpose": null, "explanation": "Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -> interrupt.", "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-2", "purpose": null, "explanation": null, "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-3", "purpose": null, "explanation": "grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-4", "purpose": null, "explanation": "Primary pattern did not match; fallback matched too broadly to trust alone.", "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-5", "purpose": null, "explanation": "Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-6", "purpose": null, "explanation": "Trace records the replay-able process; this note is for completeness.", "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-7", "purpose": null, "explanation": null, "question": null, "origin": "recorded-human", "citations": [], "applicability": null}]}, {"style": "agent", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": "[SYNTHETIC-MOCK] The engineer supplies new information at this step.", "explanation": null, "question": null, "origin": "reconstructed", "citations": [{"file_id": "ev-0", "json_pointer": null, "lines": null}, {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}], "applicability": null}, {"step_id": "s-1", "purpose": "[SYNTHETIC-MOCK] Decide which knowledge-base namespaces are worth checking first.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -> interrupt.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-2", "purpose": "[SYNTHETIC-MOCK] Load the index for the routed namespaces to find candidate cases.", "explanation": null, "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-3", "purpose": "[SYNTHETIC-MOCK] Cheaply test a candidate case before paying to load its full body.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-4", "purpose": "[SYNTHETIC-MOCK] Cheaply test a candidate case before paying to load its full body.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Primary pattern did not match; fallback matched too broadly to trust alone.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-5", "purpose": "[SYNTHETIC-MOCK] Confirm which candidate case the evidence actually supports.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-6", "purpose": "[SYNTHETIC-MOCK] Write up the finding so it can be recalled without replaying the session.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Trace records the replay-able process; this note is for completeness.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-7", "purpose": "[SYNTHETIC-MOCK] The engineer supplies new information at this step.", "explanation": null, "question": null, "origin": "reconstructed", "citations": [], "applicability": null}]}, {"style": "engineer", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": "[SYNTHETIC-MOCK] The engineer supplies new information at this step.", "explanation": "[SYNTHETIC-MOCK] What happened at this step, restated for teaching purposes: Training hung during large-scale EP dispatch; log excerpt attached.", "question": null, "origin": "reconstructed", "citations": [{"file_id": "ev-0", "json_pointer": null, "lines": null}, {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}], "applicability": null}, {"step_id": "s-1", "purpose": "[SYNTHETIC-MOCK] Decide which knowledge-base namespaces are worth checking first.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -> interrupt.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-2", "purpose": "[SYNTHETIC-MOCK] Load the index for the routed namespaces to find candidate cases.", "explanation": "[SYNTHETIC-MOCK] What happened at this step, restated for teaching purposes: Loaded candidate index.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-3", "purpose": "[SYNTHETIC-MOCK] Cheaply test a candidate case before paying to load its full body.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-4", "purpose": "[SYNTHETIC-MOCK] Cheaply test a candidate case before paying to load its full body.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Primary pattern did not match; fallback matched too broadly to trust alone.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-5", "purpose": "[SYNTHETIC-MOCK] Confirm which candidate case the evidence actually supports.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-6", "purpose": "[SYNTHETIC-MOCK] Write up the finding so it can be recalled without replaying the session.", "explanation": "[SYNTHETIC-MOCK] Recorded reasoning for this step: Trace records the replay-able process; this note is for completeness.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}, {"step_id": "s-7", "purpose": "[SYNTHETIC-MOCK] The engineer supplies new information at this step.", "explanation": "[SYNTHETIC-MOCK] What happened at this step, restated for teaching purposes: Applied export HCCL_BUFFSIZE=4194304 and restarted; training now completes past step 1000.", "question": null, "origin": "reconstructed", "citations": [], "applicability": null}]}], "validation": [{"code": "generated-claims", "severity": "review", "pointer": "/views/0/cards/1", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/0/cards/3", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/0/cards/4", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/0/cards/5", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/0/cards/6", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/1/cards/1", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/1/cards/3", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/1/cards/4", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/1/cards/5", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/1/cards/6", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/1", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/2", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/3", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/4", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/5", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/6", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}, {"code": "generated-claims", "severity": "review", "pointer": "/views/2/cards/7", "message": "card has an explanation but no citations -- needs human review of whether the explanation is grounded"}], "created_at": "2026-11-14T07:18:46Z"}</script>
+<script id="head-data" type="application/json">{"latest_revision": 1, "published_revision": 1, "generation_status": "generated", "publication_status": "published", "synthetic": true, "jobs": {"sha256:6b7ebcb0221a4917332c1e6765dd32529a67655f32bba82e0e9e4f9c1f189562": 1}}</script>
+<script id="glossary-data" type="application/json">{"HCCL": "Huawei Collective Communication Library -- NPU collective-communication runtime.", "EP": "Expert Parallelism -- a MoE sharding strategy that splits experts across devices.", "CANN": "Compute Architecture for Neural Networks -- the Ascend software stack below the framework.", "HDK": "Huawei Driver Kit -- the Ascend device driver/firmware layer.", "all_to_all": "A collective op that exchanges distinct data between every pair of ranks."}</script>
+<script>
+(function () {
+  "use strict";
+  var caseData = JSON.parse(document.getElementById("case-data").textContent);
+  var head = JSON.parse(document.getElementById("head-data").textContent);
+  var glossary = JSON.parse(document.getElementById("glossary-data").textContent);
+
+  function el(tag, opts) {
+    var e = document.createElement(tag);
+    opts = opts || {};
+    if (opts.cls) e.className = opts.cls;
+    if (opts.text !== undefined && opts.text !== null) e.textContent = opts.text;
+    return e;
+  }
+
+  function badge(text, cls) {
+    var b = el("span", {cls: "badge " + cls, text: text});
+    return b;
+  }
+
+  function glossed(text) {
+    var frag = document.createDocumentFragment();
+    var keys = Object.keys(glossary);
+    if (!keys.length) { frag.appendChild(document.createTextNode(text)); return frag; }
+    var re = new RegExp("\\b(" + keys.join("|") + ")\\b", "g");
+    var lastIndex = 0;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
+      var abbr = el("abbr", {text: m[1]});
+      abbr.title = glossary[m[1]];
+      frag.appendChild(abbr);
+      lastIndex = m.index + m[1].length;
+    }
+    frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    return frag;
+  }
+
+  document.getElementById("case-title").textContent = caseData.title || "(untitled)";
+  var badges = document.getElementById("badges");
+  badges.appendChild(badge("gen: " + head.generation_status, "b-" + head.generation_status));
+  badges.appendChild(badge("pub: " + head.publication_status, "b-" + head.publication_status));
+  if (head.synthetic) badges.appendChild(badge("synthetic", "b-synthetic"));
+
+  var ov = document.getElementById("overview");
+  var p1 = el("p");
+  p1.appendChild(document.createTextNode("Teaching class: " + caseData.diagnosis.teaching_class +
+    " · Applicability: " + caseData.applicability.assessment +
+    " (" + (caseData.applicability.platforms.join(", ") || "unspecified") + ")"));
+  ov.appendChild(p1);
+
+  var findingsSec = document.getElementById("findings");
+  if (!caseData.validation.length) {
+    findingsSec.appendChild(el("p", {text: "No findings.", cls: "kv"}));
+  }
+  caseData.validation.forEach(function (f) {
+    var row = el("div", {cls: "finding-" + f.severity});
+    row.textContent = "[" + f.severity + "/" + f.code + "] " + f.pointer + ": " + f.message;
+    findingsSec.appendChild(row);
+  });
+
+  var evMap = {};
+  caseData.evidence.forEach(function (e) { evMap[e.id] = e; });
+
+  var tabs = document.getElementById("tabs");
+  var panes = document.getElementById("panes");
+  caseData.views.forEach(function (view, vi) {
+    var tab = el("div", {cls: "tab" + (vi === 0 ? " active" : ""), text: view.style + " (" + view.state + ")"});
+    var pane = el("div", {cls: "view-pane" + (vi === 0 ? " active" : "")});
+    if (view.state !== "available") {
+      pane.appendChild(el("p", {text: "Unavailable: " + (view.reason || ""), cls: "kv"}));
+    }
+    var cardByStep = {};
+    view.cards.forEach(function (c) { cardByStep[c.step_id] = c; });
+    caseData.steps.forEach(function (step) {
+      var stepEl = el("div", {cls: "step"});
+      stepEl.appendChild(el("div", {cls: "role", text: step.role + (step.action ? " · " + step.action : "")}));
+      if (step.output) {
+        var out = el("pre");
+        out.appendChild(glossed(step.output));
+        stepEl.appendChild(out);
+      }
+      var card = cardByStep[step.id];
+      if (card) {
+        if (card.purpose) stepEl.appendChild(el("div", {cls: "origin", text: "purpose: " + card.purpose}));
+        if (card.explanation) {
+          var cdiv = el("div", {cls: "card"});
+          cdiv.appendChild(el("div", {cls: "origin", text: "origin: " + card.origin}));
+          var expl = el("div");
+          expl.appendChild(glossed(card.explanation));
+          cdiv.appendChild(expl);
+          stepEl.appendChild(cdiv);
+        }
+        if (card.question) stepEl.appendChild(el("div", {cls: "kv", text: "Open question: " + card.question}));
+      }
+      if (step.missing && step.missing.length) {
+        step.missing.forEach(function (m) {
+          stepEl.appendChild(el("div", {cls: "missing", text: "Missing: " + m}));
+        });
+      }
+      pane.appendChild(stepEl);
+    });
+    tab.addEventListener("click", function () {
+      tabs.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      panes.querySelectorAll(".view-pane").forEach(function (p) { p.classList.remove("active"); });
+      tab.classList.add("active");
+      pane.classList.add("active");
+    });
+    tabs.appendChild(tab);
+    panes.appendChild(pane);
+  });
+
+  var evSec = document.getElementById("evidence");
+  caseData.evidence.forEach(function (e) {
+    var row = el("div", {cls: "evidence"});
+    row.appendChild(el("div", {cls: "kv", text: e.id + " · integrity: " + e.integrity + " · support: " + e.support}));
+    if (e.quote) {
+      var q = el("pre", {cls: "integrity-" + e.integrity});
+      q.textContent = e.quote;
+      row.appendChild(q);
+    } else {
+      row.appendChild(el("div", {cls: "integrity-unavailable", text: "(no quoted text -- reference only)"}));
+    }
+    evSec.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>

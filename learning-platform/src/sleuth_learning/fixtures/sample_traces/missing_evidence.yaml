@@ -1,0 +1,43 @@
+# Synthetic fixture -- tests evidence.missing propagation (Step.missing),
+# not a real diagnosis.
+session_id: "demo-missing-evidence"
+status: resolved
+summary: "Synthetic demo: engineer reported a crash but never supplied the CANN version; resolved later anyway."
+created_at: "2026-11-10T09:00:00+08:00"
+updated_at: "2026-11-10T09:30:00+08:00"
+detected_framework: mindspeed-llm
+detected_platform: A5-950
+detected_category: interrupt
+stop_reason: resolved_confirmed
+feedback: {case: MSLLM-EP-HANG-001, outcome: resolved, confirmed_at: "2026-11-10"}
+active_case: MSLLM-EP-HANG-001
+excluded_cases: []
+trace:
+  - role: user
+    step: 1
+    content: "Process crashed with a segfault, no logs attached."
+    evidence:
+      inline: null
+      files: []
+      sources: []
+      missing: "CANN version and crash log were not supplied"
+  - role: agent
+    step: 2
+    action: triage
+    workload_type: training
+    workload_type_source: framework
+    branch: interrupt
+    category: interrupt
+    routed: [training/mindspeed-llm/]
+    output: "Proceeding without CANN version; will ask if the first candidate does not fit."
+    reason: "Framework alone is enough to route; version-specific compat is a soft downgrade, not a blocker."
+  - role: agent
+    step: 3
+    action: hit
+    case: MSLLM-EP-HANG-001
+    confidence: 0.4
+    output: "Tentatively hit MSLLM-EP-HANG-001 based on framework and symptom alone."
+    reason: "Low confidence because CANN version was never confirmed compatible."
+  - role: user
+    step: 3
+    content: "Confirmed the fix worked after applying it."

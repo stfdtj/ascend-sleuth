@@ -1,0 +1,86 @@
+# Synthetic fixture -- NOT a real diagnosis. Shaped like a real
+# ascend-sleuth diagnose trace (skills/diagnose/references/diagnosis-trace.md)
+# so the collector/extractor exercise the real format, but every fact in it
+# is invented for this MVP's demo and tests.
+session_id: "demo-2026-11-14-ep-hang"
+harness_session: ""
+status: resolved
+current_step: 6
+summary: "Synthetic demo: training hang reported during large-scale EP all_to_all; HCCL buffer undersize confirmed and fixed."
+created_at: "2026-11-14T09:10:00+08:00"
+updated_at: "2026-11-14T09:40:00+08:00"
+ended_at: "2026-11-14T09:40:00+08:00"
+kb_rev: "unknown"
+severity: service-affecting
+fix_emitted: true
+stop_reason: resolved_confirmed
+detected_framework: mindspeed-llm
+detected_platform: A5-950
+detected_category: interrupt
+resolved_at: "2026-11-14"
+ending: {kind: root_cause, handed_to: "", duplicate_of: "", note: ""}
+feedback: {case: MSLLM-EP-HANG-001, outcome: resolved, confirmed_at: "2026-11-14"}
+excluded_cases: [MSLLM-EP-HANG-007]
+active_case: MSLLM-EP-HANG-001
+last_action: ""
+trace:
+  - role: user
+    step: 1
+    content: "Training hung during large-scale EP dispatch; log excerpt attached."
+    evidence:
+      inline: "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps"
+      files: ["evidence/complete/train.log"]
+      sources: []
+      missing: null
+      quotes:
+        - {file: "evidence/complete/train.log", line: 3,
+           quote: "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps"}
+  - role: agent
+    step: 2
+    action: triage
+    workload_type: training
+    workload_type_source: framework
+    branch: interrupt
+    category: interrupt
+    routed: [training/mindspeed-llm/, common/]
+    output: "Classified as a training-side interrupt; loading mindspeed-llm and common candidates."
+    reason: "Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -> interrupt."
+  - role: agent
+    step: 3
+    action: load_index
+    namespaces: [training/mindspeed-llm/, common/]
+    n_cases: 34
+    output: "Loaded candidate index."
+  - role: agent
+    step: 4
+    action: quickly_check
+    case: MSLLM-EP-HANG-001
+    primary: pass
+    output: "Candidate 1 passed its primary check."
+    reason: "grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible."
+  - role: agent
+    step: 4
+    action: quickly_check
+    case: MSLLM-EP-HANG-007
+    primary: fail
+    fallback: pass
+    marked: low_confidence
+    output: "Candidate 7 only passed its fallback check."
+    reason: "Primary pattern did not match; fallback matched too broadly to trust alone."
+  - role: agent
+    step: 5
+    action: hit
+    case: MSLLM-EP-HANG-001
+    confidence: 0.8
+    output: "Hit MSLLM-EP-HANG-001: HCCL internal buffer insufficient for EP all_to_all at this world_size."
+    reason: "Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence."
+  - role: agent
+    step: 6
+    action: report
+    report_file: "demo-2026-11-14-ep-hang.report.md"
+    sediment_candidates: 0
+    output: "Wrote up the finding."
+    reason: "Trace records the replay-able process; this note is for completeness."
+  - role: user
+    step: 6
+    content: "Applied export HCCL_BUFFSIZE=4194304 and restarted; training now completes past step 1000."

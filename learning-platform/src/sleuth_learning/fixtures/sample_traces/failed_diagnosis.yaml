@@ -1,0 +1,41 @@
+# Synthetic fixture -- tests teaching_class=failure (knowledge miss,
+# escalated with no fix).
+session_id: "demo-failed-diagnosis"
+status: escalated
+summary: "Synthetic demo: no knowledge-base candidate matched; escalated to tier-3 investigation."
+created_at: "2026-11-09T09:00:00+08:00"
+updated_at: "2026-11-09T11:00:00+08:00"
+detected_framework: sglang
+detected_platform: A3-910C
+detected_category: performance
+stop_reason: escalated_tier3
+feedback: {case: pending-investigation, outcome: not_resolved, confirmed_at: ""}
+active_case: null
+excluded_cases: [SGL-PD-HEAP-001]
+trace:
+  - role: user
+    step: 1
+    content: "Decode throughput drops to near zero after a few hours under PD-disaggregated serving."
+    evidence:
+      inline: "no error in logs, just a throughput cliff"
+      files: []
+      sources: []
+      missing: "profiler trace"
+  - role: agent
+    step: 2
+    action: quickly_check
+    case: SGL-PD-HEAP-001
+    primary: fail
+    fallback: fail
+    output: "Candidate SGL-PD-HEAP-001 did not match either check."
+    reason: "No heap-growth signature in the provided description; cannot confirm without a profiler trace."
+  - role: agent
+    step: 3
+    action: miss
+    output: "No candidate in the routed namespaces matched this symptom."
+    reason: "Performance-cliff-with-no-error-log is under-specified without a profiler trace; escalating rather than guessing."
+  - role: agent
+    step: 4
+    action: tier3
+    output: "Escalated to tier-3 deep investigation; no fix available yet."
+    reason: "Knowledge-base miss; this is a genuine gap, not an execution error."
