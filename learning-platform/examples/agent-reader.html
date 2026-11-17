@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Case Reader</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Arial,sans-serif;margin:0;background:#0f1115;color:#e6e6e6}
+header{padding:16px 24px;border-bottom:1px solid #2a2d35;position:sticky;top:0;background:#0f1115}
+h1{font-size:18px;margin:0 0 4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;margin-right:6px}
+.b-draft{background:#3a3310;color:#e0c050}
+.b-published{background:#123a1c;color:#5bd17a}
+.b-withdrawn{background:#3a1212;color:#e06060}
+.b-generated{background:#123a1c;color:#5bd17a}
+.b-failed{background:#3a1212;color:#e06060}
+.b-synthetic{background:#1a2a3a;color:#6fb0e0}
+main{padding:16px 24px;max-width:960px}
+.tabs{display:flex;gap:8px;margin:12px 0}
+.tab{padding:6px 12px;border:1px solid #2a2d35;border-radius:6px;cursor:pointer;background:#181a20}
+.tab.active{background:#23262e;border-color:#4a7dff}
+.view-pane{display:none}
+.view-pane.active{display:block}
+.step{border:1px solid #2a2d35;border-radius:8px;padding:10px 14px;margin:10px 0;background:#15171c}
+.step .role{font-size:11px;text-transform:uppercase;color:#9aa0ac;letter-spacing:.05em}
+.kv{color:#9aa0ac;font-size:12px}
+.card{border-left:3px solid #4a7dff;padding:6px 10px;margin:6px 0;background:#121722}
+.origin{font-size:11px;color:#8aa0cc}
+.evidence{border:1px dashed #2a2d35;border-radius:6px;padding:8px;margin:6px 0;font-size:13px}
+.integrity-mismatch{color:#e06060}
+.integrity-unavailable{color:#9aa0ac}
+.integrity-quote-matched{color:#5bd17a}
+.missing{color:#e0a060}
+.finding-error{color:#e06060}
+.finding-review{color:#e0c050}
+.finding-warning{color:#9aa0ac}
+pre{white-space:pre-wrap;word-break:break-word;margin:4px 0}
+abbr{text-decoration:underline dotted;cursor:help}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="case-title"></h1>
+  <div id="badges"></div>
+</header>
+<main>
+  <section id="overview"></section>
+  <h2>Validation findings</h2>
+  <section id="findings"></section>
+  <h2>Diagnostic steps</h2>
+  <div class="tabs" id="tabs"></div>
+  <div id="panes"></div>
+  <h2>Evidence</h2>
+  <section id="evidence"></section>
+</main>
+<script id="case-data" type="application/json">{"schema_version": "learning-case/1", "id": "57c10f2b-df1a-51a9-ab6d-c36192844b8d", "revision": 1, "snapshot_hash": "sha256:c594972c1fdd04ea6d4b39ef846f7b30f381fae39adc1683fad743b03ca7d134", "source_identity": {"origin_id": "synthetic-learning-demo", "session_id": "demo-2026-11-14-ep-hang", "lineage_id": "complete"}, "generator": {"mode": "agent", "version": "2", "prompt_hash": "sha256:aa70d597f81964e789d73ff354d64779a832090511abbce7ef0882ea08bc2863", "model_id": "local-agent:codex-session-synthetic-trial", "parameters_hash": "sha256:d0ff09a7a31aa969202f110b72bae40ff9fcdef949af3ea389c0bce94c739530", "dependency_hashes": ["sha256:7ad557d4622da6fc17cf30499133ba89ce7eb42037fc889026be79818325c042", "sha256:a6e197069484bc7c5813b0395601a6701298e3764cc4ed8fd8453fe0c78f5717"]}, "title": "Synthetic demo: training hang reported during large-scale EP all_to_all; HCCL buffer undersize confirmed and fixed.", "applicability": {"platforms": ["A5-950"], "versions": [], "assessment": "unknown", "basis": [{"file_id": "trace", "json_pointer": "/detected_platform", "lines": null}, {"file_id": "trace", "json_pointer": "/active_case", "lines": null}]}, "diagnosis": {"source_status": "resolved", "feedback_outcome": "resolved", "stop_reason": "resolved_confirmed", "teaching_class": "success-reported", "basis": [{"file_id": "trace", "json_pointer": "/status", "lines": null}, {"file_id": "trace", "json_pointer": "/feedback/outcome", "lines": null}]}, "steps": [{"id": "s-0", "source_index": 0, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/0", "lines": null}, "role": "user", "action": null, "output": "Training hung during large-scale EP dispatch; log excerpt attached.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [{"evidence_id": "e-0-inline", "relation": "explicit", "basis": []}, {"evidence_id": "e-0-file-0", "relation": "explicit", "basis": [{"file_id": "ev-0", "json_pointer": null, "lines": null}]}, {"evidence_id": "e-0-quote-0", "relation": "explicit", "basis": [{"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}]}], "case_refs": [], "missing": [], "recorded_context": {"step": 1}}, {"id": "s-1", "source_index": 1, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/1", "lines": null}, "role": "agent", "action": "triage", "output": "Classified as a training-side interrupt; loading mindspeed-llm and common candidates.", "reason": "Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -\u003e interrupt.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 2}}, {"id": "s-2", "source_index": 2, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/2", "lines": null}, "role": "agent", "action": "load_index", "output": "Loaded candidate index.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 3}}, {"id": "s-3", "source_index": 3, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/3", "lines": null}, "role": "agent", "action": "quickly_check", "output": "Candidate 1 passed its primary check.", "reason": "grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 4}}, {"id": "s-4", "source_index": 4, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/4", "lines": null}, "role": "agent", "action": "quickly_check", "output": "Candidate 7 only passed its fallback check.", "reason": "Primary pattern did not match; fallback matched too broadly to trust alone.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 4}}, {"id": "s-5", "source_index": 5, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/5", "lines": null}, "role": "agent", "action": "hit", "output": "Hit MSLLM-EP-HANG-001: HCCL internal buffer insufficient for EP all_to_all at this world_size.", "reason": "Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 5}}, {"id": "s-6", "source_index": 6, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/6", "lines": null}, "role": "agent", "action": "report", "output": "Wrote up the finding.", "reason": "Trace records the replay-able process; this note is for completeness.", "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 6}}, {"id": "s-7", "source_index": 7, "source_pointer": {"file_id": "trace", "json_pointer": "/trace/7", "lines": null}, "role": "user", "action": null, "output": "Applied export HCCL_BUFFSIZE=4194304 and restarted; training now completes past step 1000.", "reason": null, "observed_at": null, "known_at": null, "time_basis": [], "commands": [], "evidence_links": [], "case_refs": [], "missing": [], "recorded_context": {"step": 6}}], "evidence": [{"id": "e-0-inline", "file_id": null, "pointer": null, "quote": "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps", "lineage": {"original_lines": null, "transformed": false, "trace_pointer": "/trace/0/evidence/inline"}, "integrity": "unavailable", "support": "observation-only", "access_class": "internal"}, {"id": "e-0-file-0", "file_id": "ev-0", "pointer": {"file_id": "ev-0", "json_pointer": null, "lines": null}, "quote": null, "lineage": {"original_lines": null, "transformed": false, "trace_pointer": "/trace/0/evidence/files/0", "source_ref": "evidence/complete/train.log", "availability": "available", "omission_reason": null}, "integrity": "unchecked", "support": "observation-only", "access_class": "internal"}, {"id": "e-0-quote-0", "file_id": "ev-0", "pointer": {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}, "quote": "rank3: HCCL timeout waiting for all_to_all completion after 1000+ steps", "lineage": {"original_lines": {"start": 3, "end": 3}, "transformed": false, "trace_pointer": "/trace/0/evidence/quotes/0", "source_ref": "evidence/complete/train.log", "availability": "available", "omission_reason": null}, "integrity": "quote-matched", "support": "observation-only", "access_class": "internal"}], "views": [{"style": "replay", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": null, "explanation": null, "question": null, "origin": "recorded-human", "citations": [{"file_id": "ev-0", "json_pointer": null, "lines": null}, {"file_id": "ev-0", "json_pointer": null, "lines": {"start": 3, "end": 3}}], "applicability": null}, {"step_id": "s-1", "purpose": null, "explanation": "Framework name mindspeed-llm maps to knowledge/training/mindspeed-llm; symptom mentions HCCL + timeout -\u003e interrupt.", "question": null, "origin": "recorded-agent", "citations": [{"file_id": "trace", "json_pointer": "/trace/1/reason", "lines": null}], "applicability": null}, {"step_id": "s-2", "purpose": null, "explanation": null, "question": null, "origin": "recorded-agent", "citations": [], "applicability": null}, {"step_id": "s-3", "purpose": null, "explanation": "grep 'HCCL' on the log matches this case's primary pattern and the platform is compatible.", "question": null, "origin": "recorded-agent", "citations": [{"file_id": "trace", "json_pointer": "/trace/3/reason", "lines": null}], "applicability": null}, {"step_id": "s-4", "purpose": null, "explanation": "Primary pattern did not match; fallback matched too broadly to trust alone.", "question": null, "origin": "recorded-agent", "citations": [{"file_id": "trace", "json_pointer": "/trace/4/reason", "lines": null}], "applicability": null}, {"step_id": "s-5", "purpose": null, "explanation": "Log timeout signature plus platform/version compatibility both point to this case; candidate 007 excluded as low confidence.", "question": null, "origin": "recorded-agent", "citations": [{"file_id": "trace", "json_pointer": "/trace/5/reason", "lines": null}], "applicability": null}, {"step_id": "s-6", "purpose": null, "explanation": "Trace records the replay-able process; this note is for completeness.", "question": null, "origin": "recorded-agent", "citations": [{"file_id": "trace", "json_pointer": "/trace/6/reason", "lines": null}], "applicability": null}, {"step_id": "s-7", "purpose": null, "explanation": null, "question": null, "origin": "recorded-human", "citations": [], "applicability": null}]}, {"style": "agent", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": "Establish the observed failure before selecting a cause.", "explanation": "The engineer reports a hang during EP dispatch. The supplied line records rank3 waiting for all_to_all completion after more than 1,000 steps. Matching this quote to the packaged log establishes what that line says; it does not explain why the wait occurred. No diagnostic action has yet been recorded.", "question": "Which part of the available evidence describes the symptom, and which part would establish its cause?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/0/content", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/0/evidence/quotes/0", "lines": null}], "applicability": null}, {"step_id": "s-1", "purpose": "Understand why the recorded search narrows to these namespaces.", "explanation": "The recorded reason uses the framework name to choose training/mindspeed-llm and uses the HCCL timeout symptom to choose the interrupt category. This is a search decision supported by the recorded framework context, not a root-cause determination. Nothing at this point selects a specific case.", "question": "What does routing establish, and what still needs a candidate-specific check?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/1/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/1/reason", "lines": null}], "applicability": null}, {"step_id": "s-2", "purpose": "Recognize candidate discovery as an intermediate action.", "explanation": "The Trace records that an index was loaded after routing. It does not provide this step with an explanation of how entries were ranked or selected. The available information supports saying that candidates were sought, but not reconstructing a shortlist or asserting that a cause was found.", "question": "What selection information is missing between loading an index and verifying a candidate?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/2/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/1/output", "lines": null}], "applicability": null}, {"step_id": "s-3", "purpose": "Interpret the recorded primary-check result at its actual strength.", "explanation": "The agent reports that Candidate 1 passed and says an HCCL match plus platform compatibility motivated that result. The initial quote supports the timeout observation. However, this step supplies no structured tool-call record, candidate rule, or compatibility comparison to verify the reported check independently. Preserve the reported pass without treating it as independent proof of a mechanism.", "question": "Which assertions in the recorded reason can be checked from the material currently shown?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/3/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/3/reason", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/0/evidence/quotes/0", "lines": null}], "applicability": null}, {"step_id": "s-4", "purpose": "Explain the recorded reduction in confidence for Candidate 7.", "explanation": "The recorded primary pattern failed while a fallback matched. The agent explicitly describes that fallback as too broad to trust alone. This supports reduced confidence rather than confirmation. It does not yet establish that every possible variant of this candidate has been excluded.", "question": "Why does a broad fallback match provide weaker support than the missing primary match?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/4/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/4/reason", "lines": null}], "applicability": null}, {"step_id": "s-5", "purpose": "Assess the recorded diagnosis without promoting it to proven causation.", "explanation": "The agent now selects MSLLM-EP-HANG-001 and attributes the wait to insufficient HCCL buffer capacity. Its stated basis is a timeout signature and platform/version compatibility, while Candidate 7 is excluded as low confidence. These are recorded conclusions. The supplied step context contains no buffer measurement or auditable version comparison, so it cannot independently establish the proposed mechanism or a successful remedy.", "question": "Which additional evidence would test the proposed buffer explanation rather than repeat the timeout observation?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/5/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/5/reason", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/4/reason", "lines": null}], "applicability": null}, {"step_id": "s-6", "purpose": "Separate report creation from diagnostic validation.", "explanation": "The Trace says a finding was written up and explains that the Trace preserves the process. The report contents are not supplied here. Creating a report adds a documentation event; it does not supply a new observation that confirms the proposed cause or shows that a change worked.", "question": "Does this event add diagnostic evidence, or record a documentation action?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/6/output", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/6/reason", "lines": null}], "applicability": null}, {"step_id": "s-7", "purpose": "Interpret feedback as a reported outcome with bounded scope.", "explanation": "The user now reports applying a buffer-setting change together with a restart and progressing beyond step 1,000. That is new outcome information at this step. It supports a reported improvement after the combined intervention, rather than independently proving that the buffer setting alone caused it. No post-change log or longer observation window is supplied.", "question": "What can be concluded from the report, and what would require post-change evidence?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/7/content", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/0/evidence/quotes/0", "lines": null}], "applicability": null}]}, {"style": "engineer", "state": "available", "reason": null, "cards": [{"step_id": "s-0", "purpose": "Separate an observation from a causal explanation.", "explanation": "Treat the timeout as a starting observation. Teaching suggestion: seek evidence that distinguishes a communication wait from its underlying cause before choosing a remedy. The current excerpt supplies neither that comparison nor a verified explanation. A reproducible quote and line number make the observation auditable, while the mechanism remains open.", "question": "What additional observation would distinguish competing explanations for this timeout?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/0/evidence/inline", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/0/evidence/quotes/0", "lines": null}], "applicability": null}, {"step_id": "s-1", "purpose": "Keep workload selection and failure classification separate.", "explanation": "This record makes two distinct choices: where to search using the framework context, and which problem category to investigate using the symptom. Teaching suggestion: preserve the reason for each choice so a later contradictory observation can trigger a deliberate change of route. The route itself provides no evidence that a particular fix applies.", "question": "Which recorded fact supports each routing choice?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/1/reason", "lines": null}], "applicability": null}, {"step_id": "s-2", "purpose": "Identify a missing decision record without filling it from hindsight.", "explanation": "A newcomer can see that the search reached an index, but cannot audit candidate selection from this output alone. Teaching suggestion: record why promising candidates deserve verification, including the discriminating evidence for each. That would make the next choice teachable; it is not something this Trace establishes happened.", "question": "What short explanation would make the transition from index to candidate check auditable?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/2/output", "lines": null}], "applicability": null}, {"step_id": "s-3", "purpose": "Distinguish a broad signature match from a discriminating test.", "explanation": "The word HCCL is present in the source quote, but a shared keyword does not by itself distinguish causes. Teaching suggestion: ask what additional condition makes this candidate more specific than other HCCL timeout cases. The recorded reason mentions compatibility; the comparison values needed to audit that assertion are absent from the supplied step context.", "question": "What candidate-specific observation would make this reported pass more informative?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/0/evidence/quotes/0", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/3/reason", "lines": null}], "applicability": null}, {"step_id": "s-4", "purpose": "Use failed checks as part of the lesson.", "explanation": "This step illustrates why a fallback can keep an investigation open without establishing a diagnosis. Teaching suggestion: retain both the primary failure and the fallback rationale when comparing candidates. Dropping the primary failure would make the case look stronger than the recorded evidence warrants.", "question": "What could be lost if the learning case kept only the fallback pass?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/4/reason", "lines": null}], "applicability": null}, {"step_id": "s-5", "purpose": "Learn where the evidence chain stops.", "explanation": "A candidate can be the recorded choice while its mechanism remains insufficiently demonstrated in the available material. Teaching suggestion: distinguish support for selecting a candidate from support for its causal explanation. Here the missing compatibility comparison and mechanism-specific observation are evidence gaps; later success must not be assumed at this point.", "question": "How would the conclusion be worded if it preserved the recorded choice and its remaining uncertainty?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/5/reason", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/3/reason", "lines": null}], "applicability": null}, {"step_id": "s-6", "purpose": "Identify what a useful handoff must preserve.", "explanation": "The recorded purpose is to make the process replayable. Teaching suggestion: a handoff should preserve the observation, candidate checks, selected conclusion and unresolved verification gaps. The absence of the report body means this lesson cannot claim that the report actually contains those elements.", "question": "Which unresolved verification gap should remain visible when writing up the selected diagnosis?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/6/reason", "lines": null}, {"file_id": "trace", "json_pointer": "/trace/5/reason", "lines": null}], "applicability": null}, {"step_id": "s-7", "purpose": "Separate intervention, observed improvement and causal attribution.", "explanation": "The feedback includes both a configuration change and a restart. Teaching suggestion: keep the combined intervention explicit when reviewing the improvement, and compare a sufficiently similar post-change observation with the original failure. The supplied report is a useful outcome claim; it does not isolate which change mattered or establish long-term stability. The transferable lesson is to state the scope of confirmation.", "question": "Why does changing two things at once limit what this outcome establishes?", "origin": "reconstructed", "citations": [{"file_id": "trace", "json_pointer": "/trace/7/content", "lines": null}], "applicability": null}]}], "validation": [{"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/0", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/1", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/2", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/3", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/4", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/5", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/6", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/1/cards/7", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/0", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/1", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/2", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/3", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/4", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/5", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/6", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}, {"code": "teaching-review", "severity": "review", "pointer": "/views/2/cards/7", "message": "Agent-authored teaching; citation checks do not establish semantic correctness."}], "created_at": "2026-11-17T01:57:06Z", "source_context": {"created_at": "2026-11-14T09:10:00+08:00", "updated_at": "2026-11-14T09:40:00+08:00"}}</script>
+<script id="head-data" type="application/json">{"latest_revision": 1, "published_revision": null, "generation_status": "generated", "publication_status": "draft", "synthetic": true, "jobs": {"sha256:e73c7da0b083a8195944061ec527212abe9837a8f616988ae3089a7cbd0fdba5": 1}}</script>
+<script id="glossary-data" type="application/json">{"HCCL": "Huawei Collective Communication Library -- NPU collective-communication runtime.", "EP": "Expert Parallelism -- a MoE sharding strategy that splits experts across devices.", "CANN": "Compute Architecture for Neural Networks -- the Ascend software stack below the framework.", "HDK": "Huawei Driver Kit -- the Ascend device driver/firmware layer.", "all_to_all": "A collective op that exchanges distinct data between every pair of ranks."}</script>
+<script>
+(function () {
+  "use strict";
+  var caseData = JSON.parse(document.getElementById("case-data").textContent);
+  var head = JSON.parse(document.getElementById("head-data").textContent);
+  var glossary = JSON.parse(document.getElementById("glossary-data").textContent);
+
+  function el(tag, opts) {
+    var e = document.createElement(tag);
+    opts = opts || {};
+    if (opts.cls) e.className = opts.cls;
+    if (opts.text !== undefined && opts.text !== null) e.textContent = opts.text;
+    return e;
+  }
+
+  function badge(text, cls) {
+    var b = el("span", {cls: "badge " + cls, text: text});
+    return b;
+  }
+
+  function glossed(text) {
+    var frag = document.createDocumentFragment();
+    var keys = Object.keys(glossary);
+    if (!keys.length) { frag.appendChild(document.createTextNode(text)); return frag; }
+    var re = new RegExp("\\b(" + keys.join("|") + ")\\b", "g");
+    var lastIndex = 0;
+    var m;
+    while ((m = re.exec(text)) !== null) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
+      var abbr = el("abbr", {text: m[1]});
+      abbr.title = glossary[m[1]];
+      frag.appendChild(abbr);
+      lastIndex = m.index + m[1].length;
+    }
+    frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    return frag;
+  }
+
+  document.getElementById("case-title").textContent = caseData.title || "(untitled)";
+  var badges = document.getElementById("badges");
+  badges.appendChild(badge("gen: " + head.generation_status, "b-" + head.generation_status));
+  badges.appendChild(badge("pub: " + head.publication_status, "b-" + head.publication_status));
+  if (head.synthetic) badges.appendChild(badge("synthetic", "b-synthetic"));
+
+  var ov = document.getElementById("overview");
+  var p1 = el("p");
+  p1.appendChild(document.createTextNode("Teaching class: " + caseData.diagnosis.teaching_class +
+    " · Applicability: " + caseData.applicability.assessment +
+    " (" + (caseData.applicability.platforms.join(", ") || "unspecified") + ")"));
+  ov.appendChild(p1);
+  var context = caseData.source_context || {};
+  [["Workload", context.workload_type || context.side],
+   ["Workload source", context.workload_type_source || context.side_source],
+   ["Environment", context.incident_env], ["Trace created", context.created_at],
+   ["Trace updated", context.updated_at]].forEach(function (item) {
+    if (item[1]) ov.appendChild(el("div", {cls: "kv", text: item[0] + ": " + item[1]}));
+  });
+
+  if (caseData.source_context && caseData.source_context.not_projected) {
+    ov.appendChild(el("p", {cls: "missing", text: "Additional source timelines are not displayed here; review these fields in the local packaged Trace: " + caseData.source_context.not_projected.join(", ") + ". Files referenced only there were not collected."}));
+  }
+
+  var findingsSec = document.getElementById("findings");
+  if (!caseData.validation.length) {
+    findingsSec.appendChild(el("p", {text: "No findings.", cls: "kv"}));
+  }
+  caseData.validation.forEach(function (f) {
+    var row = el("div", {cls: "finding-" + f.severity});
+    row.textContent = "[" + f.severity + "/" + f.code + "] " + f.pointer + ": " + f.message;
+    findingsSec.appendChild(row);
+  });
+
+  var evMap = {};
+  caseData.evidence.forEach(function (e) { evMap[e.id] = e; });
+
+  var tabs = document.getElementById("tabs");
+  var panes = document.getElementById("panes");
+  caseData.views.forEach(function (view, vi) {
+    var tab = el("div", {cls: "tab" + (vi === 0 ? " active" : ""), text: view.style + " (" + view.state + ")"});
+    var pane = el("div", {cls: "view-pane" + (vi === 0 ? " active" : "")});
+    if (view.state !== "available") {
+      pane.appendChild(el("p", {text: "Unavailable: " + (view.reason || ""), cls: "kv"}));
+    }
+    var viewDescriptions = {
+      replay: "Original recorded process and reasoning.",
+      agent: "Teaching commentary: explain and assess the recorded choices.",
+      engineer: "Teaching commentary: evidence gaps, alternative checks and transferable lessons."
+    };
+    pane.appendChild(el("p", {text: viewDescriptions[view.style] || view.style}));
+    if (caseData.generator.mode === "mock" && view.style !== "replay") pane.appendChild(el("p", {cls: "missing", text: "Template mock only; this is not agent-authored teaching."}));
+    if (caseData.generator.model_id && caseData.generator.model_id.indexOf("local-agent:") === 0 && view.style !== "replay") pane.appendChild(el("p", {cls: "missing", text: "Agent-authored reconstruction; requires professional review."}));
+    var cardByStep = {};
+    view.cards.forEach(function (c) { cardByStep[c.step_id] = c; });
+    caseData.steps.forEach(function (step) {
+      var stepEl = el("div", {cls: "step"});
+      stepEl.appendChild(el("div", {cls: "role", text: step.role + (step.action ? " · " + step.action : "")}));
+      if (step.output) {
+        var out = el("pre");
+        out.appendChild(glossed(step.output));
+        stepEl.appendChild(out);
+      }
+      stepEl.appendChild(el("div", {cls: "kv", text: "Source: " + step.source_pointer.json_pointer + " (source array order; not causal order)"}));
+      if (step.reason && step.role !== "agent") stepEl.appendChild(el("pre", {text: "Recorded reasoning: " + step.reason}));
+      if (!step.reason) stepEl.appendChild(el("div", {cls: "kv", text: "Diagnostic reasoning not recorded."}));
+      stepEl.appendChild(el("div", {cls: "kv", text: "Recorded commands / tool-use records"}));
+      if (!(step.commands || []).length) stepEl.appendChild(el("div", {cls: "kv", text: "No command recorded."}));
+      (step.commands || []).forEach(function (cmd) {
+        stepEl.appendChild(el("pre", {text: cmd.text}));
+        stepEl.appendChild(el("div", {cls: "kv", text: cmd.execution + " (execution not independently verified) · " + cmd.source.json_pointer}));
+      });
+      (step.evidence_links || []).forEach(function (link) {
+        var evidence = evMap[link.evidence_id];
+        if (evidence) stepEl.appendChild(evidenceRow(evidence));
+      });
+      var recorded = step.recorded_context || {};
+      [["Source step", recorded.step], ["Recorded time", recorded.at || recorded.timestamp],
+       ["Rank", recorded.rank], ["Node", recorded.node]].forEach(function (item) {
+        if (item[1] !== undefined && item[1] !== null) stepEl.appendChild(el("div", {cls: "kv", text: item[0] + ": " + item[1]}));
+      });
+      var card = cardByStep[step.id];
+      if (!card && view.style !== "replay" && view.state === "available") stepEl.appendChild(el("p", {cls: "kv", text: "No teaching card supplied for this step; recorded process retained."}));
+      if (card) {
+        if (card.purpose) stepEl.appendChild(el("div", {cls: "origin", text: "purpose: " + card.purpose}));
+        if (card.explanation) {
+          var cdiv = el("div", {cls: "card"});
+          cdiv.appendChild(el("div", {cls: "origin", text: "origin: " + card.origin}));
+          var expl = el("div");
+          expl.appendChild(glossed(card.explanation));
+          cdiv.appendChild(expl);
+          stepEl.appendChild(cdiv);
+        }
+        if (card.citations && card.citations.length) stepEl.appendChild(el("div", {cls: "kv", text: "Teaching sources: " + card.citations.map(function (p) { return p.file_id + (p.json_pointer || "") + (p.lines ? " line " + p.lines.start : ""); }).join(", ")}));
+        if (card.question) stepEl.appendChild(el("div", {cls: "kv", text: "Open question: " + card.question}));
+      }
+      if (step.missing && step.missing.length) {
+        step.missing.forEach(function (m) {
+          stepEl.appendChild(el("div", {cls: "missing", text: "Missing: " + m}));
+        });
+      }
+      pane.appendChild(stepEl);
+    });
+    tab.addEventListener("click", function () {
+      tabs.querySelectorAll(".tab").forEach(function (t) { t.classList.remove("active"); });
+      panes.querySelectorAll(".view-pane").forEach(function (p) { p.classList.remove("active"); });
+      tab.classList.add("active");
+      pane.classList.add("active");
+    });
+    tabs.appendChild(tab);
+    panes.appendChild(pane);
+  });
+
+  function evidenceRow(e) {
+    var row = el("div", {cls: "evidence"});
+    var lineage = e.lineage || {};
+    row.appendChild(el("div", {cls: "kv", text: e.id + " · integrity: " + e.integrity + " · support: " + e.support}));
+    row.appendChild(el("div", {cls: "kv", text: "Source: " + (lineage.source_ref || "See local trace") + " · " + (lineage.trace_pointer || "source pointer unavailable")}));
+    if (lineage.availability) row.appendChild(el("div", {cls: "kv", text: lineage.availability + (lineage.omission_reason ? " · " + lineage.omission_reason : "")}));
+    if (e.pointer) row.appendChild(el("div", {cls: "kv", text: "Package file: " + e.pointer.file_id + (e.pointer.lines ? " · line " + e.pointer.lines.start : "")}));
+    row.appendChild(el("pre", {text: e.quote || "(no quoted text -- reference only)"}));
+    return row;
+  }
+  var evSec = document.getElementById("evidence");
+  caseData.evidence.forEach(function (e) { evSec.appendChild(evidenceRow(e)); });
+})();
+</script>
+</body>
+</html>

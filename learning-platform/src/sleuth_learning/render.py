@@ -11,6 +11,7 @@ or mock output -- is ever interpreted as HTML (deployment-design.md section
 from __future__ import annotations
 
 import json
+import re
 
 GLOSSARY = {
     "HCCL": "Huawei Collective Communication Library -- NPU collective-communication runtime.",
@@ -128,6 +129,17 @@ abbr{text-decoration:underline dotted;cursor:help}
     " · Applicability: " + caseData.applicability.assessment +
     " (" + (caseData.applicability.platforms.join(", ") || "unspecified") + ")"));
   ov.appendChild(p1);
+  var context = caseData.source_context || {};
+  [["Workload", context.workload_type || context.side],
+   ["Workload source", context.workload_type_source || context.side_source],
+   ["Environment", context.incident_env], ["Trace created", context.created_at],
+   ["Trace updated", context.updated_at]].forEach(function (item) {
+    if (item[1]) ov.appendChild(el("div", {cls: "kv", text: item[0] + ": " + item[1]}));
+  });
+
+  if (caseData.source_context && caseData.source_context.not_projected) {
+    ov.appendChild(el("p", {cls: "missing", text: "Additional source timelines are not displayed here; review these fields in the local packaged Trace: " + caseData.source_context.not_projected.join(", ") + ". Files referenced only there were not collected."}));
+  }
 
   var findingsSec = document.getElementById("findings");
   if (!caseData.validation.length) {
@@ -150,6 +162,14 @@ abbr{text-decoration:underline dotted;cursor:help}
     if (view.state !== "available") {
       pane.appendChild(el("p", {text: "Unavailable: " + (view.reason || ""), cls: "kv"}));
     }
+    var viewDescriptions = {
+      replay: "Original recorded process and reasoning.",
+      agent: "Teaching commentary: explain and assess the recorded choices.",
+      engineer: "Teaching commentary: evidence gaps, alternative checks and transferable lessons."
+    };
+    pane.appendChild(el("p", {text: viewDescriptions[view.style] || view.style}));
+    if (caseData.generator.mode === "mock" && view.style !== "replay") pane.appendChild(el("p", {cls: "missing", text: "Template mock only; this is not agent-authored teaching."}));
+    if (caseData.generator.model_id && caseData.generator.model_id.indexOf("local-agent:") === 0 && view.style !== "replay") pane.appendChild(el("p", {cls: "missing", text: "Agent-authored reconstruction; requires professional review."}));
     var cardByStep = {};
     view.cards.forEach(function (c) { cardByStep[c.step_id] = c; });
     caseData.steps.forEach(function (step) {
@@ -160,7 +180,26 @@ abbr{text-decoration:underline dotted;cursor:help}
         out.appendChild(glossed(step.output));
         stepEl.appendChild(out);
       }
+      stepEl.appendChild(el("div", {cls: "kv", text: "Source: " + step.source_pointer.json_pointer + " (source array order; not causal order)"}));
+      if (step.reason && step.role !== "agent") stepEl.appendChild(el("pre", {text: "Recorded reasoning: " + step.reason}));
+      if (!step.reason) stepEl.appendChild(el("div", {cls: "kv", text: "Diagnostic reasoning not recorded."}));
+      stepEl.appendChild(el("div", {cls: "kv", text: "Recorded commands / tool-use records"}));
+      if (!(step.commands || []).length) stepEl.appendChild(el("div", {cls: "kv", text: "No command recorded."}));
+      (step.commands || []).forEach(function (cmd) {
+        stepEl.appendChild(el("pre", {text: cmd.text}));
+        stepEl.appendChild(el("div", {cls: "kv", text: cmd.execution + " (execution not independently verified) · " + cmd.source.json_pointer}));
+      });
+      (step.evidence_links || []).forEach(function (link) {
+        var evidence = evMap[link.evidence_id];
+        if (evidence) stepEl.appendChild(evidenceRow(evidence));
+      });
+      var recorded = step.recorded_context || {};
+      [["Source step", recorded.step], ["Recorded time", recorded.at || recorded.timestamp],
+       ["Rank", recorded.rank], ["Node", recorded.node]].forEach(function (item) {
+        if (item[1] !== undefined && item[1] !== null) stepEl.appendChild(el("div", {cls: "kv", text: item[0] + ": " + item[1]}));
+      });
       var card = cardByStep[step.id];
+      if (!card && view.style !== "replay" && view.state === "available") stepEl.appendChild(el("p", {cls: "kv", text: "No teaching card supplied for this step; recorded process retained."}));
       if (card) {
         if (card.purpose) stepEl.appendChild(el("div", {cls: "origin", text: "purpose: " + card.purpose}));
         if (card.explanation) {
@@ -171,6 +210,7 @@ abbr{text-decoration:underline dotted;cursor:help}
           cdiv.appendChild(expl);
           stepEl.appendChild(cdiv);
         }
+        if (card.citations && card.citations.length) stepEl.appendChild(el("div", {cls: "kv", text: "Teaching sources: " + card.citations.map(function (p) { return p.file_id + (p.json_pointer || "") + (p.lines ? " line " + p.lines.start : ""); }).join(", ")}));
         if (card.question) stepEl.appendChild(el("div", {cls: "kv", text: "Open question: " + card.question}));
       }
       if (step.missing && step.missing.length) {
@@ -190,19 +230,18 @@ abbr{text-decoration:underline dotted;cursor:help}
     panes.appendChild(pane);
   });
 
-  var evSec = document.getElementById("evidence");
-  caseData.evidence.forEach(function (e) {
+  function evidenceRow(e) {
     var row = el("div", {cls: "evidence"});
+    var lineage = e.lineage || {};
     row.appendChild(el("div", {cls: "kv", text: e.id + " · integrity: " + e.integrity + " · support: " + e.support}));
-    if (e.quote) {
-      var q = el("pre", {cls: "integrity-" + e.integrity});
-      q.textContent = e.quote;
-      row.appendChild(q);
-    } else {
-      row.appendChild(el("div", {cls: "integrity-unavailable", text: "(no quoted text -- reference only)"}));
-    }
-    evSec.appendChild(row);
-  });
+    row.appendChild(el("div", {cls: "kv", text: "Source: " + (lineage.source_ref || "See local trace") + " · " + (lineage.trace_pointer || "source pointer unavailable")}));
+    if (lineage.availability) row.appendChild(el("div", {cls: "kv", text: lineage.availability + (lineage.omission_reason ? " · " + lineage.omission_reason : "")}));
+    if (e.pointer) row.appendChild(el("div", {cls: "kv", text: "Package file: " + e.pointer.file_id + (e.pointer.lines ? " · line " + e.pointer.lines.start : "")}));
+    row.appendChild(el("pre", {text: e.quote || "(no quoted text -- reference only)"}));
+    return row;
+  }
+  var evSec = document.getElementById("evidence");
+  caseData.evidence.forEach(function (e) { evSec.appendChild(evidenceRow(e)); });
 })();
 </script>
 </body>
@@ -214,11 +253,9 @@ def _embed(value) -> str:
     """JSON text safe to place inside <script type="application/json">: a
     literal `</script` substring in any string field would otherwise close
     the tag early and let the rest be parsed as HTML."""
-    return json.dumps(value, ensure_ascii=False).replace("</", "<\\/")
+    return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
 def render_html(case, head: dict) -> str:
-    html = PAGE_TEMPLATE.replace("__CASE_JSON__", _embed(case.to_dict()))
-    html = html.replace("__HEAD_JSON__", _embed(head))
-    html = html.replace("__GLOSSARY_JSON__", _embed(GLOSSARY))
-    return html
+    values = {"__CASE_JSON__": case.to_dict(), "__HEAD_JSON__": head, "__GLOSSARY_JSON__": GLOSSARY}
+    return re.sub(r"__(?:CASE|HEAD|GLOSSARY)_JSON__", lambda m: _embed(values[m.group()]), PAGE_TEMPLATE)

@@ -9,13 +9,15 @@ recorded `reason` (when the source trace wrote one), never a paraphrase.
 
 from __future__ import annotations
 
-from ..model import Card, View
+from ..model import Card, View, SourcePointer
 
 
 def generate_replay_view(extracted) -> View:
     cards = []
     for step in extracted.steps:
         citations = [p for link in step.evidence_links for p in link.basis]
+        if step.reason:
+            citations.append(SourcePointer("trace", step.source_pointer.json_pointer + "/reason"))
         explanation = step.reason if step.role == "agent" else None
         origin = "recorded-agent" if step.role == "agent" else "recorded-human"
         cards.append(Card(step_id=step.id, purpose=None, explanation=explanation,

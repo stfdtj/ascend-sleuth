@@ -1,0 +1,413 @@
+{
+  "schema_version": "learning-case/1",
+  "id": "8a9f68d5-154c-5dd8-9e69-770de15b89f5",
+  "revision": 1,
+  "snapshot_hash": "sha256:4bcc86acce233b6bc79c22860cc79fa623406e436a1a2988287254e99044b8c8",
+  "source_identity": {
+    "origin_id": "synthetic-regression",
+    "session_id": "synthetic-shared",
+    "lineage_id": "synthetic-complete"
+  },
+  "generator": {
+    "mode": "replay",
+    "version": "2",
+    "prompt_hash": null,
+    "model_id": null,
+    "parameters_hash": "sha256:8aa501d76c2b22ce4675ad20dcdd679843898192b36e36fc463b032c32396672",
+    "dependency_hashes": []
+  },
+  "title": "synthetic-shared",
+  "applicability": {
+    "platforms": [],
+    "versions": [],
+    "assessment": "unknown",
+    "basis": [
+      {
+        "file_id": "trace",
+        "json_pointer": "/detected_platform",
+        "lines": null
+      },
+      {
+        "file_id": "trace",
+        "json_pointer": "/active_case",
+        "lines": null
+      }
+    ]
+  },
+  "diagnosis": {
+    "source_status": "resolved",
+    "feedback_outcome": null,
+    "stop_reason": null,
+    "teaching_class": "undetermined",
+    "basis": [
+      {
+        "file_id": "trace",
+        "json_pointer": "/status",
+        "lines": null
+      },
+      {
+        "file_id": "trace",
+        "json_pointer": "/feedback/outcome",
+        "lines": null
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "s-0",
+      "source_index": 0,
+      "source_pointer": {
+        "file_id": "trace",
+        "json_pointer": "/trace/0",
+        "lines": null
+      },
+      "role": "user",
+      "action": null,
+      "output": "node-a rank0 and node-b rank7 observations",
+      "reason": null,
+      "observed_at": null,
+      "known_at": null,
+      "time_basis": [],
+      "commands": [],
+      "evidence_links": [
+        {
+          "evidence_id": "e-0-file-0",
+          "relation": "explicit",
+          "basis": [
+            {
+              "file_id": "ev-0",
+              "json_pointer": null,
+              "lines": null
+            }
+          ]
+        },
+        {
+          "evidence_id": "e-0-file-1",
+          "relation": "explicit",
+          "basis": [
+            {
+              "file_id": "ev-1",
+              "json_pointer": null,
+              "lines": null
+            }
+          ]
+        },
+        {
+          "evidence_id": "e-0-file-2",
+          "relation": "explicit",
+          "basis": []
+        },
+        {
+          "evidence_id": "e-0-file-3",
+          "relation": "explicit",
+          "basis": []
+        },
+        {
+          "evidence_id": "e-0-file-4",
+          "relation": "explicit",
+          "basis": []
+        },
+        {
+          "evidence_id": "e-0-quote-0",
+          "relation": "explicit",
+          "basis": [
+            {
+              "file_id": "ev-1",
+              "json_pointer": null,
+              "lines": {
+                "start": 1,
+                "end": 1
+              }
+            }
+          ]
+        }
+      ],
+      "case_refs": [],
+      "missing": [
+        "referenced evidence file not in package; see evidence provenance",
+        "referenced evidence file not in package; see evidence provenance",
+        "referenced evidence file not in package; see evidence provenance"
+      ],
+      "recorded_context": {
+        "step": 1
+      }
+    },
+    {
+      "id": "s-1",
+      "source_index": 1,
+      "source_pointer": {
+        "file_id": "trace",
+        "json_pointer": "/trace/1",
+        "lines": null
+      },
+      "role": "agent",
+      "action": "source_analysis",
+      "output": "Inspect the recorded rank7 timeout",
+      "reason": "The user supplied a rank7 timeout; other causes remain unknown.",
+      "observed_at": null,
+      "known_at": null,
+      "time_basis": [],
+      "commands": [
+        {
+          "text": "grep -n timeout rank7.log",
+          "source": {
+            "file_id": "trace",
+            "json_pointer": "/trace/1/tool_calls/0",
+            "lines": null
+          },
+          "execution": "recorded-tool-call",
+          "output_evidence_ids": []
+        }
+      ],
+      "evidence_links": [],
+      "case_refs": [],
+      "missing": [],
+      "recorded_context": {
+        "step": 2
+      }
+    },
+    {
+      "id": "s-2",
+      "source_index": 2,
+      "source_pointer": {
+        "file_id": "trace",
+        "json_pointer": "/trace/2",
+        "lines": null
+      },
+      "role": "agent",
+      "action": "future_action",
+      "output": "Unknown action preserved",
+      "reason": null,
+      "observed_at": null,
+      "known_at": null,
+      "time_basis": [],
+      "commands": [],
+      "evidence_links": [],
+      "case_refs": [],
+      "missing": [],
+      "recorded_context": {}
+    },
+    {
+      "id": "s-3",
+      "source_index": 3,
+      "source_pointer": {
+        "file_id": "trace",
+        "json_pointer": "/trace/3",
+        "lines": null
+      },
+      "role": "unknown",
+      "action": null,
+      "output": null,
+      "reason": null,
+      "observed_at": null,
+      "known_at": null,
+      "time_basis": [],
+      "commands": [],
+      "evidence_links": [],
+      "case_refs": [],
+      "missing": [
+        "trace event was not a mapping"
+      ],
+      "recorded_context": {}
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e-0-file-0",
+      "file_id": "ev-0",
+      "pointer": {
+        "file_id": "ev-0",
+        "json_pointer": null,
+        "lines": null
+      },
+      "quote": null,
+      "lineage": {
+        "original_lines": null,
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/files/0",
+        "source_ref": "rank0.log",
+        "availability": "available",
+        "omission_reason": null
+      },
+      "integrity": "unchecked",
+      "support": "observation-only",
+      "access_class": "internal"
+    },
+    {
+      "id": "e-0-file-1",
+      "file_id": "ev-1",
+      "pointer": {
+        "file_id": "ev-1",
+        "json_pointer": null,
+        "lines": null
+      },
+      "quote": null,
+      "lineage": {
+        "original_lines": null,
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/files/1",
+        "source_ref": "rank7.log",
+        "availability": "available",
+        "omission_reason": null
+      },
+      "integrity": "unchecked",
+      "support": "observation-only",
+      "access_class": "internal"
+    },
+    {
+      "id": "e-0-file-2",
+      "file_id": null,
+      "pointer": null,
+      "quote": null,
+      "lineage": {
+        "original_lines": null,
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/files/2",
+        "source_ref": "missing.log",
+        "availability": "missing",
+        "omission_reason": "missing"
+      },
+      "integrity": "unavailable",
+      "support": "observation-only",
+      "access_class": "internal"
+    },
+    {
+      "id": "e-0-file-3",
+      "file_id": null,
+      "pointer": null,
+      "quote": null,
+      "lineage": {
+        "original_lines": null,
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/files/3",
+        "source_ref": "huge.log",
+        "availability": "omitted",
+        "omission_reason": "too-large"
+      },
+      "integrity": "unavailable",
+      "support": "observation-only",
+      "access_class": "internal"
+    },
+    {
+      "id": "e-0-file-4",
+      "file_id": null,
+      "pointer": null,
+      "quote": null,
+      "lineage": {
+        "original_lines": null,
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/files/4",
+        "source_ref": "[restricted path; consult local trace pointer]",
+        "availability": "inaccessible",
+        "omission_reason": "not-authorized"
+      },
+      "integrity": "unavailable",
+      "support": "observation-only",
+      "access_class": "internal"
+    },
+    {
+      "id": "e-0-quote-0",
+      "file_id": "ev-1",
+      "pointer": {
+        "file_id": "ev-1",
+        "json_pointer": null,
+        "lines": {
+          "start": 1,
+          "end": 1
+        }
+      },
+      "quote": "rank7 timeout <script>alert(1)</script>",
+      "lineage": {
+        "original_lines": {
+          "start": 1,
+          "end": 1
+        },
+        "transformed": false,
+        "trace_pointer": "/trace/0/evidence/quotes/0",
+        "source_ref": "rank7.log",
+        "availability": "available",
+        "omission_reason": null
+      },
+      "integrity": "quote-matched",
+      "support": "observation-only",
+      "access_class": "internal"
+    }
+  ],
+  "views": [
+    {
+      "style": "replay",
+      "state": "available",
+      "reason": null,
+      "cards": [
+        {
+          "step_id": "s-0",
+          "purpose": null,
+          "explanation": null,
+          "question": null,
+          "origin": "recorded-human",
+          "citations": [
+            {
+              "file_id": "ev-0",
+              "json_pointer": null,
+              "lines": null
+            },
+            {
+              "file_id": "ev-1",
+              "json_pointer": null,
+              "lines": null
+            },
+            {
+              "file_id": "ev-1",
+              "json_pointer": null,
+              "lines": {
+                "start": 1,
+                "end": 1
+              }
+            }
+          ],
+          "applicability": null
+        },
+        {
+          "step_id": "s-1",
+          "purpose": null,
+          "explanation": "The user supplied a rank7 timeout; other causes remain unknown.",
+          "question": null,
+          "origin": "recorded-agent",
+          "citations": [
+            {
+              "file_id": "trace",
+              "json_pointer": "/trace/1/reason",
+              "lines": null
+            }
+          ],
+          "applicability": null
+        },
+        {
+          "step_id": "s-2",
+          "purpose": null,
+          "explanation": null,
+          "question": null,
+          "origin": "recorded-agent",
+          "citations": [],
+          "applicability": null
+        },
+        {
+          "step_id": "s-3",
+          "purpose": null,
+          "explanation": null,
+          "question": null,
+          "origin": "recorded-human",
+          "citations": [],
+          "applicability": null
+        }
+      ]
+    }
+  ],
+  "validation": [],
+  "created_at": "2026-11-16T15:53:19Z",
+  "source_context": {
+    "side": "training",
+    "side_source": "user",
+    "created_at": "2026-11-10T10:00:00+08:00"
+  }
+}

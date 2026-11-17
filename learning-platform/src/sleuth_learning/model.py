@@ -121,6 +121,7 @@ class Step:
     evidence_links: list = field(default_factory=list)  # list[Link]
     case_refs: list = field(default_factory=list)  # list[SourcePointer]
     missing: list = field(default_factory=list)
+    recorded_context: dict = field(default_factory=dict)
 
     def to_dict(self):
         return {
@@ -133,7 +134,7 @@ class Step:
             "commands": [c.to_dict() for c in self.commands],
             "evidence_links": [l.to_dict() for l in self.evidence_links],
             "case_refs": [p.to_dict() for p in self.case_refs],
-            "missing": list(self.missing),
+            "missing": list(self.missing), "recorded_context": self.recorded_context,
         }
 
     @staticmethod
@@ -148,7 +149,7 @@ class Step:
             commands=[Command.from_dict(c) for c in (d.get("commands") or [])],
             evidence_links=[Link.from_dict(l) for l in (d.get("evidence_links") or [])],
             case_refs=[SourcePointer.from_dict(p) for p in (d.get("case_refs") or [])],
-            missing=list(d.get("missing") or []),
+            missing=list(d.get("missing") or []), recorded_context=d.get("recorded_context") or {},
         )
 
 
@@ -285,6 +286,7 @@ class LearningCase:
     views: list  # list[View]
     validation: list  # list[Finding]
     created_at: str
+    source_context: dict = field(default_factory=dict)
 
     def to_dict(self):
         return {
@@ -296,7 +298,7 @@ class LearningCase:
             "evidence": [e.to_dict() for e in self.evidence],
             "views": [v.to_dict() for v in self.views],
             "validation": [f.to_dict() for f in self.validation],
-            "created_at": self.created_at,
+            "created_at": self.created_at, "source_context": self.source_context,
         }
 
     @staticmethod
@@ -311,5 +313,5 @@ class LearningCase:
             evidence=[Evidence.from_dict(e) for e in d.get("evidence") or []],
             views=[View.from_dict(v) for v in d.get("views") or []],
             validation=[Finding.from_dict(f) for f in d.get("validation") or []],
-            created_at=d["created_at"],
+            created_at=d["created_at"], source_context=d.get("source_context") or {},
         )

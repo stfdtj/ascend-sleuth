@@ -1,0 +1,302 @@
+{
+  "schema_version": "teaching-response/1",
+  "snapshot_hash": "sha256:c594972c1fdd04ea6d4b39ef846f7b30f381fae39adc1683fad743b03ca7d134",
+  "request_hash": "sha256:7ad557d4622da6fc17cf30499133ba89ce7eb42037fc889026be79818325c042",
+  "author": "codex-session-synthetic-trial",
+  "cards": [
+    {
+      "style": "agent",
+      "step_id": "s-0",
+      "purpose": "Establish the observed failure before selecting a cause.",
+      "explanation": "The engineer reports a hang during EP dispatch. The supplied line records rank3 waiting for all_to_all completion after more than 1,000 steps. Matching this quote to the packaged log establishes what that line says; it does not explain why the wait occurred. No diagnostic action has yet been recorded.",
+      "question": "Which part of the available evidence describes the symptom, and which part would establish its cause?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/content",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/quotes/0",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-0",
+      "purpose": "Separate an observation from a causal explanation.",
+      "explanation": "Treat the timeout as a starting observation. Teaching suggestion: seek evidence that distinguishes a communication wait from its underlying cause before choosing a remedy. The current excerpt supplies neither that comparison nor a verified explanation. A reproducible quote and line number make the observation auditable, while the mechanism remains open.",
+      "question": "What additional observation would distinguish competing explanations for this timeout?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/inline",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/quotes/0",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-1",
+      "purpose": "Understand why the recorded search narrows to these namespaces.",
+      "explanation": "The recorded reason uses the framework name to choose training/mindspeed-llm and uses the HCCL timeout symptom to choose the interrupt category. This is a search decision supported by the recorded framework context, not a root-cause determination. Nothing at this point selects a specific case.",
+      "question": "What does routing establish, and what still needs a candidate-specific check?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/1/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/1/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-1",
+      "purpose": "Keep workload selection and failure classification separate.",
+      "explanation": "This record makes two distinct choices: where to search using the framework context, and which problem category to investigate using the symptom. Teaching suggestion: preserve the reason for each choice so a later contradictory observation can trigger a deliberate change of route. The route itself provides no evidence that a particular fix applies.",
+      "question": "Which recorded fact supports each routing choice?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/1/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-2",
+      "purpose": "Recognize candidate discovery as an intermediate action.",
+      "explanation": "The Trace records that an index was loaded after routing. It does not provide this step with an explanation of how entries were ranked or selected. The available information supports saying that candidates were sought, but not reconstructing a shortlist or asserting that a cause was found.",
+      "question": "What selection information is missing between loading an index and verifying a candidate?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/2/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/1/output",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-2",
+      "purpose": "Identify a missing decision record without filling it from hindsight.",
+      "explanation": "A newcomer can see that the search reached an index, but cannot audit candidate selection from this output alone. Teaching suggestion: record why promising candidates deserve verification, including the discriminating evidence for each. That would make the next choice teachable; it is not something this Trace establishes happened.",
+      "question": "What short explanation would make the transition from index to candidate check auditable?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/2/output",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-3",
+      "purpose": "Interpret the recorded primary-check result at its actual strength.",
+      "explanation": "The agent reports that Candidate 1 passed and says an HCCL match plus platform compatibility motivated that result. The initial quote supports the timeout observation. However, this step supplies no structured tool-call record, candidate rule, or compatibility comparison to verify the reported check independently. Preserve the reported pass without treating it as independent proof of a mechanism.",
+      "question": "Which assertions in the recorded reason can be checked from the material currently shown?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/3/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/3/reason",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/quotes/0",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-3",
+      "purpose": "Distinguish a broad signature match from a discriminating test.",
+      "explanation": "The word HCCL is present in the source quote, but a shared keyword does not by itself distinguish causes. Teaching suggestion: ask what additional condition makes this candidate more specific than other HCCL timeout cases. The recorded reason mentions compatibility; the comparison values needed to audit that assertion are absent from the supplied step context.",
+      "question": "What candidate-specific observation would make this reported pass more informative?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/quotes/0",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/3/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-4",
+      "purpose": "Explain the recorded reduction in confidence for Candidate 7.",
+      "explanation": "The recorded primary pattern failed while a fallback matched. The agent explicitly describes that fallback as too broad to trust alone. This supports reduced confidence rather than confirmation. It does not yet establish that every possible variant of this candidate has been excluded.",
+      "question": "Why does a broad fallback match provide weaker support than the missing primary match?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/4/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/4/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-4",
+      "purpose": "Use failed checks as part of the lesson.",
+      "explanation": "This step illustrates why a fallback can keep an investigation open without establishing a diagnosis. Teaching suggestion: retain both the primary failure and the fallback rationale when comparing candidates. Dropping the primary failure would make the case look stronger than the recorded evidence warrants.",
+      "question": "What could be lost if the learning case kept only the fallback pass?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/4/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-5",
+      "purpose": "Assess the recorded diagnosis without promoting it to proven causation.",
+      "explanation": "The agent now selects MSLLM-EP-HANG-001 and attributes the wait to insufficient HCCL buffer capacity. Its stated basis is a timeout signature and platform/version compatibility, while Candidate 7 is excluded as low confidence. These are recorded conclusions. The supplied step context contains no buffer measurement or auditable version comparison, so it cannot independently establish the proposed mechanism or a successful remedy.",
+      "question": "Which additional evidence would test the proposed buffer explanation rather than repeat the timeout observation?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/5/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/5/reason",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/4/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-5",
+      "purpose": "Learn where the evidence chain stops.",
+      "explanation": "A candidate can be the recorded choice while its mechanism remains insufficiently demonstrated in the available material. Teaching suggestion: distinguish support for selecting a candidate from support for its causal explanation. Here the missing compatibility comparison and mechanism-specific observation are evidence gaps; later success must not be assumed at this point.",
+      "question": "How would the conclusion be worded if it preserved the recorded choice and its remaining uncertainty?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/5/reason",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/3/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-6",
+      "purpose": "Separate report creation from diagnostic validation.",
+      "explanation": "The Trace says a finding was written up and explains that the Trace preserves the process. The report contents are not supplied here. Creating a report adds a documentation event; it does not supply a new observation that confirms the proposed cause or shows that a change worked.",
+      "question": "Does this event add diagnostic evidence, or record a documentation action?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/6/output",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/6/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-6",
+      "purpose": "Identify what a useful handoff must preserve.",
+      "explanation": "The recorded purpose is to make the process replayable. Teaching suggestion: a handoff should preserve the observation, candidate checks, selected conclusion and unresolved verification gaps. The absence of the report body means this lesson cannot claim that the report actually contains those elements.",
+      "question": "Which unresolved verification gap should remain visible when writing up the selected diagnosis?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/6/reason",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/5/reason",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "agent",
+      "step_id": "s-7",
+      "purpose": "Interpret feedback as a reported outcome with bounded scope.",
+      "explanation": "The user now reports applying a buffer-setting change together with a restart and progressing beyond step 1,000. That is new outcome information at this step. It supports a reported improvement after the combined intervention, rather than independently proving that the buffer setting alone caused it. No post-change log or longer observation window is supplied.",
+      "question": "What can be concluded from the report, and what would require post-change evidence?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/7/content",
+          "lines": null
+        },
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/0/evidence/quotes/0",
+          "lines": null
+        }
+      ]
+    },
+    {
+      "style": "engineer",
+      "step_id": "s-7",
+      "purpose": "Separate intervention, observed improvement and causal attribution.",
+      "explanation": "The feedback includes both a configuration change and a restart. Teaching suggestion: keep the combined intervention explicit when reviewing the improvement, and compare a sufficiently similar post-change observation with the original failure. The supplied report is a useful outcome claim; it does not isolate which change mattered or establish long-term stability. The transferable lesson is to state the scope of confirmation.",
+      "question": "Why does changing two things at once limit what this outcome establishes?",
+      "citations": [
+        {
+          "file_id": "trace",
+          "json_pointer": "/trace/7/content",
+          "lines": null
+        }
+      ]
+    }
+  ]
+}

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import json
 import time
-import uuid
+import re
+from datetime import date, datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -54,7 +55,15 @@ def project_and_seal(captured: dict, plan: SourcePlan, out_dir: Path, *,
     blobs_dir = out_dir / "blobs"
 
     trace_obj = yaml.safe_load(captured["trace_text"])
-    trace_json = json.dumps(trace_obj, ensure_ascii=False, indent=2, sort_keys=False).encode("utf-8")
+    def jsonable(value):
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {str(k): jsonable(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [jsonable(v) for v in value]
+        return value
+    trace_json = json.dumps(jsonable(trace_obj), ensure_ascii=False, sort_keys=True).encode("utf-8")
     trace_hash, trace_bytes = _write_blob(blobs_dir, trace_json)
 
     files = [{
@@ -68,7 +77,7 @@ def project_and_seal(captured: dict, plan: SourcePlan, out_dir: Path, *,
         media_type = MEDIA_TYPES.get(staged_path.suffix.lower(), "text/plain")
         files.append({
             "id": f"ev-{i}", "path": f"source/evidence/ev-{i}/{Path(f['ref']).name}",
-            "blob_hash": blob_hash, "bytes": nbytes, "media_type": media_type, "kind": "evidence",
+            "source_ref": f["ref"], "blob_hash": blob_hash, "bytes": nbytes, "media_type": media_type, "kind": "evidence",
         })
 
     total_bytes = sum(x["bytes"] for x in files)
@@ -84,13 +93,13 @@ def project_and_seal(captured: dict, plan: SourcePlan, out_dir: Path, *,
 
     content = {
         "source_identity": {
-            "origin_id": origin_id or str(uuid.uuid4()),
+            "origin_id": origin_id or content_hash({"local_trace": str(plan.trace_path.resolve())}),
             "session_id": session_id,
-            "lineage_id": lineage_id,
+            "lineage_id": lineage_id or (None if session_id else content_hash({"local_trace": str(plan.trace_path.resolve())})),
         },
         "synthetic": bool(synthetic),
         "consistency": "stable-read",
-        "projection_policy": "selected-evidence-v1",
+        "projection_policy": "selected-evidence-v2",
         "files": files,
         "omitted": [o.to_dict() for o in plan.omitted],
         "related_sources": [],
@@ -100,7 +109,7 @@ def project_and_seal(captured: dict, plan: SourcePlan, out_dir: Path, *,
         "snapshot_hash": content_hash(content),
         "content": content,
         "created_at": _now_iso(),
-        "collector_version": "1",
+        "collector_version": "2",
         "authorization_ref": authorization_ref,
     }
     (out_dir / "manifest.json").write_text(
@@ -133,16 +142,30 @@ def validate_manifest_shape(manifest: dict) -> list:
     missing_content = REQUIRED_CONTENT - set(content)
     if missing_content:
         errs.append(f"content missing fields: {sorted(missing_content)}")
+    identity = content.get("source_identity")
+    if not isinstance(identity, dict) or not isinstance(identity.get("origin_id"), str) or not identity.get("origin_id"):
+        errs.append("source_identity requires a non-empty origin_id")
+    if manifest.get("snapshot_hash") != content_hash(content):
+        errs.append("snapshot_hash does not match content")
     files = content.get("files")
     if not isinstance(files, list) or not files:
         errs.append("content.files must be a non-empty list")
     else:
+        if len(files) > MAX_FILES:
+            errs.append("too many files")
+        if sum(f.get("bytes", 0) for f in files if isinstance(f, dict) and isinstance(f.get("bytes"), int)) > MAX_TOTAL_BYTES:
+            errs.append("package exceeds total byte limit")
         ids, paths = set(), set()
         has_trace = False
         for f in files:
             if not isinstance(f, dict) or REQUIRED_FILE - set(f):
                 errs.append(f"file entry missing fields: {f!r}")
                 continue
+            if not all(isinstance(f.get(k), str) for k in ("id", "path", "blob_hash", "media_type", "kind")):
+                errs.append("file identifiers must be strings")
+                continue
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", f["blob_hash"]):
+                errs.append("invalid blob hash")
             if f["id"] in ids:
                 errs.append(f"duplicate file id: {f['id']!r}")
             ids.add(f["id"])
@@ -153,7 +176,9 @@ def validate_manifest_shape(manifest: dict) -> list:
                 errs.append(f"file {f['id']}: unknown kind {f['kind']!r}")
             if f["kind"] == "trace":
                 has_trace = True
-            if not isinstance(f["bytes"], int) or f["bytes"] < 0:
+            if f["media_type"] not in ALLOWED_MEDIA_TYPES:
+                errs.append("unsupported media type")
+            if not isinstance(f["bytes"], int) or not 0 <= f["bytes"] <= MAX_FILE_BYTES:
                 errs.append(f"file {f['id']}: bytes must be a non-negative integer")
         if not has_trace:
             errs.append("content.files has no file with kind=trace")
@@ -166,11 +191,17 @@ def verify_blob_integrity(package_dir: Path, manifest: dict) -> list:
     problems = []
     blobs_dir = package_dir / "blobs"
     for f in manifest.get("content", {}).get("files", []):
-        hexdigest = f["blob_hash"][len(HASH_PREFIX):] if f["blob_hash"].startswith(HASH_PREFIX) else f["blob_hash"]
+        if not isinstance(f.get("blob_hash"), str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", f["blob_hash"]):
+            problems.append({"file_id": f.get("id"), "path": f.get("path"), "problem": "invalid blob hash"})
+            continue
+        hexdigest = f["blob_hash"][len(HASH_PREFIX):]
         blob_path = blobs_dir / hexdigest
-        if not blob_path.is_file():
+        if blob_path.is_symlink() or blobs_dir.is_symlink() or not blob_path.is_file():
             problems.append({"file_id": f["id"], "path": f["path"], "expected": f["blob_hash"],
                               "problem": "blob missing"})
+            continue
+        if blob_path.stat().st_size != f["bytes"] or blob_path.stat().st_size > MAX_FILE_BYTES:
+            problems.append({"file_id": f["id"], "path": f["path"], "problem": "blob size mismatch or limit exceeded"})
             continue
         actual = sha256_bytes(blob_path.read_bytes())
         if actual != f["blob_hash"]:

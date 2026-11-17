@@ -17,6 +17,15 @@ Nothing here touches a real company environment, a real model, or real
 customer data. Every trace/evidence file this package ships is synthetic
 and hand-written for this MVP (`src/sleuth_learning/fixtures/`).
 
+## Agent-authored teaching
+
+The local coding-agent handoff now produces substantive teaching commentary.
+See [agent-teaching.md](agent-teaching.md) for export → agent authoring →
+validated import, and [agent-reader.html](examples/agent-reader.html) for the
+synthetic trial with distinct Agent and Engineer explanations. The CLI uses
+`teaching-request` and `generate --mode agent --teaching-file response.json`.
+No external model API is integrated. Template mock views remain available.
+
 ## Quickstart
 
 ```bash
@@ -58,7 +67,7 @@ sleuth-learn render --data-dir /tmp/sleuth-learning-demo/data \
 all. To also see Mode A/Mode B teaching cards (built from an offline,
 clearly-labeled mock model, never a real one), use `--mode mock --model
 mock`, or `--mode agent --model mock` / `--mode engineer --model mock` for
-one style at a time. Without `--model mock`, requesting `agent`/`engineer`
+one style at a time. Without a teaching file or `--model mock`, requesting `agent`/`engineer`
 mode downgrades to replay and marks that view `state: unavailable` --
 exactly like `generation-design.md`'s "no model -> replay" rule.
 
@@ -77,7 +86,8 @@ corresponding static reader page -- open it directly, no server required.
 | `prepare --trace F --allow-root DIR --out DIR [--dry-run] [--not-synthetic]` | Build a local collector package |
 | `inspect --package DIR` | Show a package's manifest, re-verify blob integrity |
 | `ingest --package DIR --data-dir DIR` | Idempotently import a package into the local store |
-| `generate --data-dir DIR --snapshot ID --mode {replay,mock,agent,engineer} [--model {none,mock}] [--platform-registry F] [--force]` | Run extraction + generation |
+| `teaching-request --data-dir DIR --snapshot ID --out DIR` | Export bounded current/prior step requests for a local agent |
+| `generate --data-dir DIR --snapshot ID --mode {replay,mock,agent,engineer} [--model {none,mock}] [--teaching-file F] [--platform-registry F] [--force]` | Run extraction + generation |
 | `validate --data-dir DIR --case ID [--revision N]` | Show stored validation findings |
 | `publish --data-dir DIR --case ID --revision N --i-have-authorization [--allow-non-synthetic]` | Publish a revision |
 | `withdraw --data-dir DIR --case ID [--reason TEXT]` | Withdraw a case from publication |
@@ -87,7 +97,17 @@ corresponding static reader page -- open it directly, no server required.
 
 Every command accepts `--json` for machine-readable output.
 
-## Tests and execution results
+`prepare` also accepts `--origin-id` and `--lineage-id`. Use stable opaque
+values when moving the same logical source between directories or machines.
+Without overrides, origin is a SHA-256 of the resolved local Trace path;
+missing session IDs use a path-derived lineage. The absolute path itself is
+not added to source identity. Changing this default path creates a new case.
+
+The current synthetic validation results and remaining limits are in
+[validation-report.md](validation-report.md). The authorized local real-Case
+procedure is in [local-trace-validation.md](local-trace-validation.md).
+
+## Original MVP baseline tests
 
 ```bash
 $ python -m unittest discover -s tests -v
@@ -119,11 +139,9 @@ themselves):
   blocking validation errors present, or non-synthetic material without
   `--allow-non-synthetic`, are all refused (`PublicationAuthorizationTests`)
 
-The reader's inline JS was also syntax-checked with `node --check` against
-the generated HTML (not run inside this session's own browser tooling,
-which only renders local files as static snapshots, not an interactive DOM
--- please actually open `demo-case.html` / `examples/example-reader.html`
-yourself to confirm the visual result).
+The original baseline checked JavaScript syntax only. The current regression
+suite also runs the Reader in headless Edge and inspects the rendered DOM;
+see [validation-report.md](validation-report.md) for results and dependencies.
 
 ## Module-by-module summary
 
@@ -152,7 +170,7 @@ learning-platform/
     render.py             static, self-contained HTML reader (textContent only)
     cli.py                `sleuth-learn` command-line entry point
     fixtures/             synthetic demo traces + evidence, shipped with the package
-  tests/                 32 unit/integration tests (see above)
+  tests/                 unit, regression, CLI integration and browser tests
   examples/              a generated Learning Case + reader page, checked in
 ```
 
@@ -205,21 +223,18 @@ exist as described, or were deliberately cut for the offline MVP:
    is a deterministic, free, offline mock -- rate-limiting it would be
    theater. A real model integration must add both back.
 
-4. **Generator mode is never claimed dishonestly.** `data-contracts.md`'s
-   `Generator.mode` enum is `replay | mock | agent | engineer`. Since this
-   MVP has no real model, requesting `--mode agent` or `--mode engineer`
-   without `--model mock` downgrades the *recorded* mode to `replay` (per
-   `generation-design.md`'s own "no model -> replay" rule); requesting it
-   *with* `--model mock` records the mode as `mock`, never as `agent` or
-   `engineer` -- this package never lets mock output pass as a real model's
-   teaching judgement, per the task's explicit instruction not to.
+4. **Generator provenance distinguishes authored teaching from mock output.**
+   `--teaching-file` imports local agent-authored cards and records the
+   requested `agent`/`engineer` perspective, self-declared author label,
+   rule hash and request/response dependency hashes. With neither a teaching
+   file nor `--model mock`, these modes downgrade to replay. Template output
+   is always recorded as `mock`. The importer checks provenance binding and
+   citation scope; professional review assesses semantic correctness.
 
-5. **Case identity is keyed by `session_id`, not by `snapshot_hash`** (a
-   design choice this MVP had to make that data-contracts.md leaves to the
-   server implementation). A corrected trace produces a new snapshot (new
-   `snapshot_hash`) but must land as a new revision of the *same* case, not
-   a new case, so the previously-published revision survives untouched --
-   see `storage.case_id_for_session`.
+5. **Case identity uses stable provenance.** New packages use
+   `selected-evidence-v2`: the case ID hashes origin plus lineage (or session).
+   Snapshot hashes identify content revisions. See [validation report](validation-report.md)
+   for the fingerprint contract and legacy compatibility strategy.
 
 6. **Smaller, real gaps, not design choices:**
    - `Step.commands` is only ever populated from an event's own
@@ -238,7 +253,9 @@ exist as described, or were deliberately cut for the offline MVP:
 - No real `IdentityProvider`/`AuthorizationProvider` -- see deviation 2.
 - No `ModelProvider` talking to an approved internal model -- the
   `ModelProvider` interface (`generation/providers.py`) is real and stable,
-  but the only implementation is the offline `MockModelProvider`.
+  but its in-process implementation is the offline `MockModelProvider`.
+  A local coding agent can supply bounded teaching cards through the
+  file handoff; it does not add a model API integration.
 - No `WikiProvider`/Wiki retrieval -- see deviation 3.
 - No HTTP API, no multi-tenant isolation, no audit log, no backup/retention
   policy, no CDN/no-store cache headers (there is no server to set them on).
@@ -263,8 +280,8 @@ interfaces unchanged as the contract boundary, then:
    real grant checks.
 3. Configure an approved internal `ModelProvider` and wire it in next to
    `MockModelProvider`; keep `generator.mode` honest (deviation 4) --
-   only record `agent`/`engineer` once a real model actually produced the
-   view.
+   retain provenance showing whether the view came from a local coding
+   agent handoff, a mock template or a future approved model adapter.
 4. Build the real `WikiProvider`/`FrozenWikiIndex` and replace the
    `--platform-registry` stand-in with real retrieval, enforcing the token
    budgets in `generation-design.md` section 4.

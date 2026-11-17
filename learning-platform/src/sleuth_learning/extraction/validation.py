@@ -59,7 +59,11 @@ def _check_pointer(case: LearningCase, file_ids: set) -> list:
     for i, ev in enumerate(case.evidence):
         if ev.file_id is not None and ev.file_id not in file_ids:
             out.append(_err("pointer", f"/evidence/{i}", f"file_id {ev.file_id!r} not in package"))
+    evidence_ids = {e.id for e in case.evidence}
     for i, step in enumerate(case.steps):
+        for link in step.evidence_links:
+            if link.evidence_id not in evidence_ids:
+                out.append(_err("pointer", f"/steps/{i}/evidence_links", "unknown evidence id"))
         if step.source_pointer.file_id not in file_ids:
             out.append(_err("pointer", f"/steps/{i}/source_pointer",
                             f"file_id {step.source_pointer.file_id!r} not in package"))
@@ -125,6 +129,9 @@ def _check_generated_claims(case: LearningCase, file_ids: set) -> list:
     for vi, view in enumerate(case.views):
         for ci, card in enumerate(view.cards):
             where = f"/views/{vi}/cards/{ci}"
+            if case.generator.model_id and case.generator.model_id.startswith("local-agent:") and card.origin == "reconstructed":
+                out.append(_review("teaching-review", where,
+                                   "Agent-authored teaching; citation checks do not establish semantic correctness."))
             if card.explanation and not card.citations:
                 out.append(_review("generated-claims", where,
                                    "card has an explanation but no citations -- needs human "

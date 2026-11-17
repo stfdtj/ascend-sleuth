@@ -8,7 +8,7 @@ produced.
 from __future__ import annotations
 
 import time
-import uuid
+from ..storage import case_id_for_source
 
 from ..hashing import content_hash
 from ..model import Generator, LearningCase
@@ -23,7 +23,7 @@ def _now_iso() -> str:
 def build_generator(mode: str, *, provider=None, prompt_hash: str = None) -> Generator:
     model_id = getattr(provider, "model_id", None) if provider else None
     return Generator(
-        mode=mode, version="1",
+        mode=mode, version="2",
         prompt_hash=prompt_hash if provider else None,
         model_id=model_id,
         parameters_hash=content_hash({"mode": mode}),
@@ -36,12 +36,12 @@ def assemble_case(extracted, manifest: dict, mode: str, views: list, *,
                   prompt_hash: str = None) -> LearningCase:
     return LearningCase(
         schema_version=SCHEMA,
-        id=case_id or str(uuid.uuid4()),
+        id=case_id or case_id_for_source(manifest),
         revision=revision,
         snapshot_hash=manifest["snapshot_hash"],
         source_identity=dict(manifest["content"]["source_identity"]),
         generator=build_generator(mode, provider=provider, prompt_hash=prompt_hash),
-        title=extracted.title,
+        title=extracted.title, source_context=extracted.source_context,
         applicability=extracted.applicability,
         diagnosis=extracted.diagnosis,
         steps=extracted.steps,

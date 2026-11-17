@@ -13,9 +13,7 @@ Layout under `data_dir`:
                                         synthetic, jobs: {job_key: revision}}
     cases/<case_id>/<revision>/learning-case.json
 
-A case id is derived deterministically from its snapshot_hash (uuid5), so
-re-ingesting/regenerating from the same snapshot always lands on the same
-case, growing its revision history instead of spawning duplicates.
+Case identity uses stable source provenance; snapshot hashes identify content revisions.
 """
 
 from __future__ import annotations
@@ -51,17 +49,29 @@ def _write_json(path: Path, data) -> None:
 
 
 def case_id_for_session(session_id: str) -> str:
-    """Case identity is keyed by the source session, not the snapshot hash:
-    re-ingesting a corrected version of the same session's trace produces a
-    new snapshot (new snapshot_hash) but must land as a new revision of the
-    *same* case, not a brand-new one -- otherwise "source changes and
-    regeneration" could never retain the old published revision as
-    data-contracts.md requires. An empty/unknown session_id still needs a
-    stable identity, so it falls back to a fixed sentinel rather than
-    colliding with a real session named "" from two different packages.
+    """Legacy v1 identity only. Retained to read/replay historical packages.
+
+    New callers must use case_id_for_source to avoid cross-origin collisions.
     """
     key = session_id or "unknown-session"
     return str(uuid.uuid5(CASE_NAMESPACE, key))
+
+
+def case_id_for_source(manifest: dict) -> str:
+    """v2 scopes sessions by origin. Legacy packages keep their historical ID.
+
+    Existing stored revisions are never moved or rewritten. Recollecting a
+    legacy source under v2 creates a separate case; there is no unsafe merge.
+    """
+    content = manifest["content"]
+    identity = content["source_identity"]
+    if content.get("projection_policy") == "selected-evidence-v1":
+        return case_id_for_session(identity.get("session_id"))
+    logical = identity.get("lineage_id") or identity.get("session_id")
+    if not logical:
+        raise SchemaError("source identity needs session_id or lineage_id")
+    return str(uuid.uuid5(CASE_NAMESPACE, content_hash({
+        "version": 2, "origin": identity["origin_id"], "logical": logical})))
 
 
 # ---- snapshots / ingestion --------------------------------------------------
@@ -91,7 +101,10 @@ def ingest_package(package_dir: Path, data_dir: Path) -> dict:
     dest = data_dir / "snapshots" / snapshot_id
     dest.mkdir(parents=True, exist_ok=True)
     shutil.copy2(manifest_path, dest / "manifest.json")
-    shutil.copytree(package_dir / "blobs", dest / "blobs", dirs_exist_ok=True)
+    (dest / "blobs").mkdir(exist_ok=True)
+    for entry in manifest["content"]["files"]:
+        name = entry["blob_hash"].split(":", 1)[1]
+        shutil.copy2(package_dir / "blobs" / name, dest / "blobs" / name)
 
     index[snapshot_hash] = snapshot_id
     _write_json(index_path, index)
@@ -135,10 +148,12 @@ def load_head(data_dir: Path, case_id: str) -> dict:
     })
 
 
-def job_key(snapshot_hash: str, mode: str, generator_version: str, model_id, prompt_hash) -> str:
-    return content_hash({"snapshot_hash": snapshot_hash, "mode": mode,
-                         "generator_version": generator_version,
-                         "model_id": model_id, "prompt_hash": prompt_hash})
+def job_key(snapshot_hash: str, mode: str, generator_version: str, model_id, prompt_hash, *, dependencies=None) -> str:
+    inputs = {"snapshot_hash": snapshot_hash, "mode": mode, "generator_version": generator_version,
+              "model_id": model_id, "prompt_hash": prompt_hash}
+    if dependencies:
+        inputs["dependencies"] = dependencies
+    return content_hash(inputs)
 
 
 def save_case_revision(data_dir: Path, case: LearningCase, findings: list, *,
@@ -193,6 +208,16 @@ def list_cases(data_dir: Path) -> list:
     return out
 
 
+def case_is_synthetic(data_dir: Path, case: LearningCase) -> bool:
+    """Read the immutable revision's provenance; missing provenance is real/unknown."""
+    index = _read_json(data_dir / "snapshots" / "index.json", {})
+    snapshot_id = index.get(case.snapshot_hash)
+    if not snapshot_id:
+        return False
+    manifest = get_snapshot(data_dir, snapshot_id)["manifest"]
+    return manifest["content"].get("synthetic") is True
+
+
 def publish(data_dir: Path, case_id: str, revision: int, *, authorized: bool,
            allow_non_synthetic: bool = False) -> dict:
     head = load_head(data_dir, case_id)
@@ -209,7 +234,7 @@ def publish(data_dir: Path, case_id: str, revision: int, *, authorized: bool,
             "safety/content/publisher review workflow (deployment-design.md section 4) -- "
             "pass authorized=True (CLI: --i-have-authorization) only once a human has actually "
             "reviewed this revision")
-    if head.get("synthetic") is False and not allow_non_synthetic:
+    if not case_is_synthetic(data_dir, case) and not allow_non_synthetic:
         raise AuthorizationError(
             "publish refused: this case was derived from a non-synthetic (real) trace. "
             "Publishing real material requires --allow-non-synthetic in addition to "

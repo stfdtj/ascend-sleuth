@@ -10,6 +10,7 @@ import json
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 from . import render, storage
@@ -23,6 +24,7 @@ from .generation import assemble as assemble_mod
 from .generation import providers as providers_mod
 from .generation import replay as replay_mod
 from .generation import teaching as teaching_mod
+from .generation import handoff as handoff_mod
 from .hashing import content_hash, short
 
 
@@ -99,11 +101,12 @@ def cmd_prepare(args):
     if not args.out:
         raise SleuthLearningError("--out is required unless --dry-run is given")
     out_dir = Path(args.out)
-    session_id = doc.get("session_id") or trace_path.stem
+    session_id = str(doc.get("session_id") or "")
     with tempfile.TemporaryDirectory(prefix="sleuth-learn-staging-") as td:
         captured = snapshot_mod.capture_stable(plan, Path(td), settle_seconds=args.settle_seconds)
         manifest = package_mod.project_and_seal(
-            captured, plan, out_dir, session_id=session_id, synthetic=not args.not_synthetic)
+            captured, plan, out_dir, session_id=session_id, origin_id=args.origin_id, lineage_id=args.lineage_id,
+            synthetic=not args.not_synthetic)
 
     lines = [f"Package sealed at {out_dir}",
              f"  snapshot_hash: {short(manifest['snapshot_hash'])}",
@@ -156,6 +159,18 @@ def cmd_ingest(args):
                "duplicate": result["duplicate"]}, lines)
 
 
+def cmd_teaching_request(args):
+    snap = storage.get_snapshot(Path(args.data_dir), args.snapshot)
+    extracted = trace_adapter.extract(snap["dir"], snap["manifest"])
+    evidence_linker.link_evidence(extracted)
+    evidence_linker.verify_quotes(extracted, snap["dir"], snap["manifest"])
+    bundle = handoff_mod.build_requests(extracted, snap["manifest"])
+    handoff_mod.export_requests(bundle, Path(args.out))
+    _out(args, {"request_hash": bundle["request_hash"], "requests": len(bundle["requests"]),
+                "omitted": bundle["omitted"]},
+         [f"Exported {len(bundle['requests'])} step requests to {args.out}; {len(bundle['omitted'])} retain replay only."])
+
+
 # ---- generate ------------------------------------------------------------------
 
 def _build_views(extracted, requested_mode, model_choice):
@@ -206,18 +221,33 @@ def cmd_generate(args):
     evidence_linker.link_evidence(extracted)
     evidence_linker.verify_quotes(extracted, package_dir, manifest)
 
-    views, effective_mode, provider = _build_views(extracted, args.mode, args.model)
-    prompt_hash = providers_mod.prompt_hash() if provider else None
+    dependencies = []
+    if args.teaching_file:
+        if args.mode not in ("agent", "engineer") or args.model != "none":
+            raise SleuthLearningError("--teaching-file requires --mode agent or engineer and --model none")
+        bundle = handoff_mod.build_requests(extracted, manifest)
+        authored, author, response_hash = handoff_mod.import_teaching(Path(args.teaching_file), bundle)
+        if not any(v.style == args.mode and v.cards for v in authored):
+            raise SleuthLearningError("requested teaching perspective has no supplied cards")
+        views = [replay_mod.generate_replay_view(extracted)] + authored
+        effective_mode = args.mode
+        provider = SimpleNamespace(model_id="local-agent:" + author)
+        prompt_hash = content_hash(handoff_mod.RULES)
+        dependencies = [bundle["request_hash"], response_hash]
+    else:
+        views, effective_mode, provider = _build_views(extracted, args.mode, args.model)
+        prompt_hash = providers_mod.prompt_hash() if provider else None
 
-    case_id = storage.case_id_for_session(extracted.session_id)
+    case_id = storage.case_id_for_source(manifest)
     case = assemble_mod.assemble_case(extracted, manifest, effective_mode, views,
                                       case_id=case_id, provider=provider, prompt_hash=prompt_hash)
+    case.generator.dependency_hashes = dependencies
     findings = validation_mod.validate_artifact(
         case, package_dir=package_dir, manifest=manifest,
         source_event_count=extracted.source_event_count)
 
     key = storage.job_key(manifest["snapshot_hash"], effective_mode, case.generator.version,
-                          case.generator.model_id, case.generator.prompt_hash)
+                          case.generator.model_id, case.generator.prompt_hash, dependencies=dependencies)
     result = storage.save_case_revision(data_dir, case, findings, manifest=manifest, key=key,
                                         force=args.force)
 
@@ -288,6 +318,7 @@ def cmd_render(args):
     data_dir = Path(args.data_dir)
     case = storage.get_case(data_dir, args.case, args.revision)
     head = storage.load_head(data_dir, args.case)
+    head["synthetic"] = storage.case_is_synthetic(data_dir, case)
     html = render.render_html(case, head)
     out_path = Path(args.out)
     out_path.write_text(html, encoding="utf-8")
@@ -323,7 +354,7 @@ def cmd_demo_run(args):
     evidence_linker.link_evidence(extracted)
     evidence_linker.verify_quotes(extracted, snap["dir"], snap["manifest"])
     views, effective_mode, provider = _build_views(extracted, "mock", "mock")
-    case_id = storage.case_id_for_session(extracted.session_id)
+    case_id = storage.case_id_for_source(manifest)
     case = assemble_mod.assemble_case(extracted, snap["manifest"], effective_mode, views,
                                       case_id=case_id, provider=provider,
                                       prompt_hash=providers_mod.prompt_hash())
@@ -397,6 +428,8 @@ def build_parser():
     sp.add_argument("--not-synthetic", action="store_true",
                     help="mark the package as real (non-synthetic) material; affects publish "
                          "authorization later")
+    sp.add_argument("--origin-id", help="stable opaque source identifier; reuse after relocating source")
+    sp.add_argument("--lineage-id", help="stable logical identifier for traces without session_id")
     sp.add_argument("--settle-seconds", type=float, default=0.2)
 
     sp = add("inspect", cmd_inspect, "show a package's manifest and re-verify blob integrity")
@@ -406,10 +439,16 @@ def build_parser():
     sp.add_argument("--package", required=True)
     sp.add_argument("--data-dir", required=True)
 
+    sp = add("teaching-request", cmd_teaching_request, "export bounded per-step requests for a local coding agent")
+    sp.add_argument("--data-dir", required=True)
+    sp.add_argument("--snapshot", required=True)
+    sp.add_argument("--out", required=True)
+
     sp = add("generate", cmd_generate, "run extraction + generation for an ingested snapshot")
     sp.add_argument("--data-dir", required=True)
     sp.add_argument("--snapshot", required=True)
     sp.add_argument("--mode", choices=["replay", "mock", "agent", "engineer"], default="replay")
+    sp.add_argument("--teaching-file", help="agent-authored response JSON bound to teaching-request")
     sp.add_argument("--model", choices=["none", "mock"], default="none")
     sp.add_argument("--platform-registry", default=None,
                     help="optional JSON file {case_id: [platform,...]} of authorized "
@@ -455,6 +494,9 @@ def main(argv=None) -> int:
     try:
         args.func(args)
         return 0
+    except (ValueError, OSError) as e:
+        print(json.dumps({"code": "INVALID_INPUT", "message": str(e)}), file=sys.stderr)
+        return 1
     except SleuthLearningError as e:
         if getattr(args, "json", False):
             print(json.dumps(e.to_dict(), ensure_ascii=False), file=sys.stderr)

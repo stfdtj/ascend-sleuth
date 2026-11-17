@@ -91,7 +91,7 @@ def resolve_ref(ref: str, allow_root: Path) -> Path:
     candidate = (allow_root / raw).resolve()
     if not _is_within(candidate, allow_root):
         raise PathSafetyError(f"evidence ref escapes allow-root: {ref!r}")
-    if candidate.exists() and _has_symlink_component(candidate, allow_root):
+    if _has_symlink_component(allow_root / raw, allow_root):
         raise PathSafetyError(f"evidence ref resolves through a symlink: {ref!r}")
     return candidate
 
@@ -99,7 +99,8 @@ def resolve_ref(ref: str, allow_root: Path) -> Path:
 def iter_evidence_refs(trace_doc: dict):
     """Yield every evidence.files[] reference from `user` events, in the
     order they appear (duplicates kept -- dedup is the caller's choice)."""
-    for event in trace_doc.get("trace") or []:
+    events = trace_doc.get("trace")
+    for event in events if isinstance(events, list) else []:
         if not isinstance(event, dict):
             continue
         evidence = event.get("evidence")
@@ -108,8 +109,9 @@ def iter_evidence_refs(trace_doc: dict):
         files = evidence.get("files")
         if isinstance(files, str):
             files = [files]
-        for f in files or []:
-            yield str(f)
+        for f in files if isinstance(files, list) else []:
+            if isinstance(f, str):
+                yield f
 
 
 def plan_sources(trace_doc: dict, trace_path: Path, allow_root: Path) -> SourcePlan:

@@ -33,6 +33,7 @@ class ExtractedCase:
     diagnosis: Diagnosis
     source_event_count: int = 0
     warnings: list = field(default_factory=list)
+    source_context: dict = field(default_factory=dict)
 
 
 def _load_trace_json(package_dir: Path, manifest: dict) -> dict:
@@ -44,12 +45,16 @@ def _load_trace_json(package_dir: Path, manifest: dict) -> dict:
 
 
 def _ref_to_file_id(trace_doc: dict, manifest: dict) -> dict:
-    """Reconstruct which packaged evidence file id a trace-recorded path maps
+    """Use explicit v2 source_ref mappings; for legacy packages reconstruct
+    which packaged evidence file id a trace-recorded path maps
     to, by replaying the same dedup-by-first-seen order the collector used
     when it walked evidence.files (collector.snapshot.iter_evidence_refs /
     plan_sources) -- the manifest itself carries no such mapping, since
     data-contracts.md's file-entry schema has no room for one.
     """
+    mapped = {f["source_ref"]: f["id"] for f in manifest["content"]["files"] if "source_ref" in f}
+    if mapped:
+        return mapped
     omitted_refs = {o["source_pointer"] for o in manifest["content"]["omitted"]}
     seen = set()
     included_order = []
@@ -72,7 +77,7 @@ def _clip(text, limit: int = 2000) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict) -> tuple:
+def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict, omissions: dict) -> tuple:
     """-> (evidence_list, missing_notes) for one user event."""
     ev_out, missing = [], []
     evd = event.get("evidence")
@@ -90,10 +95,11 @@ def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict) -> 
     files = evd.get("files")
     if isinstance(files, str):
         files = [files]
-    for j, ref in enumerate(files or []):
+    files = files if isinstance(files, list) else []
+    for j, ref in enumerate(files):
         file_id = ref_to_file_id.get(str(ref))
         if file_id is None:
-            missing.append(f"referenced evidence file not in package: {ref}")
+            missing.append("referenced evidence file not in package; see evidence provenance")
             ev_out.append(Evidence(
                 id=f"e-{idx}-file-{j}", file_id=None, pointer=None, quote=None,
                 lineage={"original_lines": None, "transformed": False},
@@ -108,10 +114,10 @@ def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict) -> 
         ))
 
     quotes = evd.get("quotes")
-    for k, q in enumerate(quotes or []):
+    for k, q in enumerate(quotes if isinstance(quotes, list) else []):
         if not isinstance(q, dict):
             continue
-        file_id = ref_to_file_id.get(str(q.get("file") or ""))
+        file_id = ref_to_file_id.get(str(q.get("file") or "")) if q.get("file") in (files or []) else None
         line = q.get("line")
         lines = {"start": line, "end": line} if isinstance(line, int) else None
         ev_out.append(Evidence(
@@ -124,7 +130,8 @@ def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict) -> 
         ))
 
     sources = evd.get("sources")
-    for k, url in enumerate(sources or []):
+    sources = [sources] if isinstance(sources, str) else sources
+    for k, url in enumerate(sources if isinstance(sources, list) else []):
         ev_out.append(Evidence(
             id=f"e-{idx}-source-{k}", file_id=None, pointer=None, quote=str(url),
             lineage={"original_lines": None, "transformed": False},
@@ -134,6 +141,28 @@ def _extract_evidence_for_event(idx: int, event: dict, ref_to_file_id: dict) -> 
     raw_missing = evd.get("missing")
     if raw_missing:
         missing.append(str(raw_missing))
+    for ev in ev_out:
+        kind, _, ordinal = ev.id.split("-", 2)[2].partition("-")
+        ref = None
+        if kind == "file":
+            ref = files[int(ordinal)]
+        elif kind == "quote":
+            ref = quotes[int(ordinal)].get("file")
+        pointer = f"/trace/{idx}/evidence/{kind if kind == 'inline' else kind + 's'}"
+        if ordinal and not (kind in ("file", "source") and isinstance(evd.get(kind + "s"), str)):
+            pointer += f"/{ordinal}"
+        ev.lineage["trace_pointer"] = pointer
+        if ref is not None:
+            raw = str(ref).replace("\\", "/")
+            safe = not raw.startswith("/") and ":" not in raw and ".." not in raw.split("/")
+            ev.lineage["source_ref"] = raw if safe else "[restricted path; consult local trace pointer]"
+            reason = omissions.get(str(ref))
+            ev.lineage["availability"] = ("available" if ev.file_id else
+                "missing" if reason == "missing" else
+                "inaccessible" if reason in ("permission-denied", "not-authorized") else "omitted" if reason else "unavailable")
+            ev.lineage["omission_reason"] = reason
+        if kind == "inline":
+            ev.lineage["transformed"] = len(str(inline)) > 2000
     return ev_out, missing
 
 
@@ -148,7 +177,7 @@ def _extract_commands(idx: int, event: dict) -> list:
     for i, item in enumerate(calls):
         out.append(Command(
             text=str(item), source=_sp("trace", pointer=f"/trace/{idx}/tool_calls/{i}"),
-            execution="unknown",
+            execution="recorded-tool-call",
         ))
     return out
 
@@ -164,6 +193,7 @@ def extract(package_dir: Path, manifest: dict, platform_registry: Optional[dict]
     trace_doc = _load_trace_json(package_dir, manifest)
     ref_to_file_id = _ref_to_file_id(trace_doc, manifest)
     warnings = []
+    omissions = {o["source_pointer"]: o["reason"] for o in manifest["content"]["omitted"]}
 
     steps, evidence = [], []
     events = trace_doc.get("trace")
@@ -187,20 +217,20 @@ def extract(package_dir: Path, manifest: dict, platform_registry: Optional[dict]
             text_payload = event.get("output")
             reason = event.get("reason")
 
-        step_evidence, missing = _extract_evidence_for_event(idx, event, ref_to_file_id)
+        step_evidence, missing = _extract_evidence_for_event(idx, event, ref_to_file_id, omissions)
         evidence.extend(step_evidence)
 
-        if action is not None and action not in KNOWN_ACTIONS:
+        if action is not None and str(action) not in KNOWN_ACTIONS:
             warnings.append(f"step {idx}: unrecognized action {action!r} kept as-is")
 
         steps.append(Step(
             id=f"s-{idx}", source_index=idx,
             source_pointer=_sp("trace", pointer=f"/trace/{idx}"),
             role=role, action=action,
-            output=_clip(text_payload) if text_payload is not None else None,
-            reason=_clip(reason) if reason is not None else None,
+            output=str(text_payload) if text_payload is not None else None,
+            reason=str(reason) if reason is not None else None,
             commands=_extract_commands(idx, event),
-            missing=missing,
+            missing=missing, recorded_context={k: event[k] for k in ("step", "at", "timestamp", "rank", "node") if k in event},
         ))
 
     session_id = str(trace_doc.get("session_id") or "")
@@ -225,8 +255,8 @@ def extract(package_dir: Path, manifest: dict, platform_registry: Optional[dict]
 
     platform = trace_doc.get("detected_platform")
     active_case = trace_doc.get("active_case")
-    assessment = "matched" if active_case else "unknown"
-    if active_case and platform_registry and active_case in platform_registry:
+    assessment = "unknown"
+    if isinstance(active_case, str) and platform_registry and active_case in platform_registry:
         known = set(platform_registry[active_case])
         assessment = "matched" if platform in known else "conflicting"
     applicability = Applicability(
@@ -236,11 +266,20 @@ def extract(package_dir: Path, manifest: dict, platform_registry: Optional[dict]
         basis=[_sp("trace", pointer="/detected_platform"), _sp("trace", pointer="/active_case")],
     )
 
+    context = {k: trace_doc[k] for k in (
+        "workload_type", "workload_type_source", "side", "side_source",
+        "created_at", "updated_at", "incident_env") if k in trace_doc}
+    unprojected = ["/" + k for k in ("incident_timeline", "failure_process", "upstream_timeline", "revisions")
+                   if trace_doc.get(k)]
+    if unprojected:
+        context["not_projected"] = unprojected
+
     title = (str(trace_doc.get("summary") or "")[:120] or session_id or "Untitled learning case")
 
     return ExtractedCase(session_id=session_id, title=title, steps=steps, evidence=evidence,
                          applicability=applicability, diagnosis=diagnosis,
-                         source_event_count=len(events), warnings=warnings)
+                         source_event_count=len(events), warnings=warnings,
+                         source_context=context)
 
 
 KNOWN_ACTIONS = {

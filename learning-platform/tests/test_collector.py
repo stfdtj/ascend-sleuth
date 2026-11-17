@@ -79,7 +79,7 @@ class PackageTests(unittest.TestCase):
             blob_path.write_bytes(original + b"tampered")
             problems = package_mod.verify_blob_integrity(out_dir, manifest)
             self.assertEqual(len(problems), 1)
-            self.assertIn("hash mismatch", problems[0]["problem"])
+            self.assertRegex(problems[0]["problem"], "hash mismatch|size mismatch")
 
     def test_source_file_is_never_modified(self):
         root = fixtures_root()
