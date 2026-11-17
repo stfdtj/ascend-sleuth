@@ -39,6 +39,7 @@ const ANALYSIS_ENTRY = 'run.py'
 const DEFAULT_BUDGET_MS = 10 * 60 * 1000
 const SUMMARY_LIMIT = 500
 const FINDING_LIMIT = 5
+const FINDING_CHAR_LIMIT = 200
 const STATE_SCHEMA = 1
 
 const KNOWN = [
@@ -61,9 +62,16 @@ const OUTPUT_SCHEMA = {
   properties: {
     ok: { type: 'boolean', required: true },
     reason: { type: 'string' },
+    detail: { type: 'string' },
+    analyzer: { type: 'string' },
+    analyzer_version: { type: 'string' },
     status: { type: 'string' },
-    report: { type: 'string' },
+    summary: { type: 'string' },
+    findings: { type: 'array', items: { type: 'string' } },
+    missing: { type: 'array', items: { type: 'string' } },
     result_file: { type: 'string' },
+    duration_ms: { type: 'integer' },
+    truncated: { type: 'boolean' },
   },
 }
 
@@ -156,6 +164,21 @@ function normalizeInputs(inputs) {
   return { resolved, missing }
 }
 
+function readAnalyzerMeta(analyzer) {
+  const empty = { version: 'unknown', upstream_commit: 'unknown' }
+  const file = path.join(analyzerDir(analyzer), 'meta.json')
+  if (!existsSync(file)) return empty
+  try {
+    const meta = JSON.parse(readFileSync(file, 'utf8'))
+    return {
+      version: String(meta.version || 'unknown'),
+      upstream_commit: String(meta.upstream_commit || 'unknown'),
+    }
+  } catch {
+    return empty
+  }
+}
+
 function responder(value) {
   if (!value.ok) {
     const lines = [`分析器调用未完成：${value.reason || 'unknown'}`]
@@ -163,16 +186,19 @@ function responder(value) {
     lines.push('按 analyzer-dispatch 的退化规则回到原路径，本单不重试；不要把它记成「已排除」。')
     return lines
   }
-  const lines = [`分析器：${value.analyzer}｜状态：${value.status}｜耗时：${(value.duration_ms / 1000).toFixed(1)} s`]
-  lines.push(clip(value.summary, SUMMARY_LIMIT))
+  const lines = [
+    `分析器：${value.analyzer}｜版本：${value.analyzer_version || 'unknown'}｜状态：${value.status}｜耗时：${(value.duration_ms / 1000).toFixed(1)} s`,
+  ]
+  lines.push(value.summary || '（分析器没有给摘要）')
   if (value.findings && value.findings.length) {
     lines.push('关键发现：')
-    value.findings.slice(0, FINDING_LIMIT).forEach((item, index) => {
-      lines.push(`${index + 1}. ${clip(item, 200)}`)
+    value.findings.forEach((item, index) => {
+      lines.push(`${index + 1}. ${item}`)
     })
   }
   if (value.missing && value.missing.length) lines.push(`缺数据：${value.missing.join('；')}`)
   if (value.result_file) lines.push(`结构化结果：${value.result_file}`)
+  if (value.truncated) lines.push('（摘要已按预算截断；全文在结构化结果里）')
   return lines
 }
 
@@ -190,10 +216,12 @@ async function analyze(args) {
 
   const { resolved, missing } = normalizeInputs(args.inputs)
   if (!resolved.length) {
-    return { ok: false, reason: 'no-input', detail: missing.length ? missing.join('；') : '没有给绝对路径。' }
+    return missing.length
+      ? { ok: false, reason: 'bad-input', detail: `路径都不能用：${missing.join('；')}` }
+      : { ok: false, reason: 'no-input', detail: '没有给绝对路径。' }
   }
   if (missing.length) {
-    return { ok: false, reason: 'bad-input', detail: missing.join('；') }
+    return { ok: false, reason: 'bad-input', detail: `以下路径不能用，其余也未分析，请修正后重跑：${missing.join('；')}` }
   }
 
   const python = await resolvePython()
@@ -207,6 +235,7 @@ async function analyze(args) {
   mkdirSync(outDir, { recursive: true })
 
   const budgetMs = Number(args.budget_seconds) > 0 ? Math.min(Number(args.budget_seconds) * 1000, 60 * 60 * 1000) : (config.budgetMs || DEFAULT_BUDGET_MS)
+  const meta = readAnalyzerMeta(analyzer)
   const started = Date.now()
   const entry = path.join(analyzerDir(analyzer), ANALYSIS_ENTRY)
   const result = await runProcess(python.python, [
@@ -223,6 +252,8 @@ async function analyze(args) {
   writeFileSync(path.join(outDir, 'invocation.json'), JSON.stringify({
     schema_version: STATE_SCHEMA,
     analyzer,
+    analyzer_version: meta.version,
+    upstream_commit: meta.upstream_commit,
     call_id: callId,
     session_id: sessionId,
     inputs: resolved,
@@ -234,28 +265,75 @@ async function analyze(args) {
   }, null, 2), 'utf8')
 
   const resultFile = path.join(outDir, 'result.json')
-  if (existsSync(resultFile)) {
-    let payload = {}
-    try { payload = JSON.parse(readFileSync(resultFile, 'utf8')) } catch { payload = {} }
-    return {
-      ok: true,
-      analyzer,
-      status: String(payload.status || 'ok'),
-      summary: String(payload.summary || '（分析器没有给摘要）'),
-      findings: Array.isArray(payload.findings) ? payload.findings.map((item) => (typeof item === 'string' ? item : item && item.claim) || '') : [],
-      missing: Array.isArray(payload.missing) ? payload.missing : [],
-      result_file: resultFile,
-      duration_ms: Date.now() - started,
+  const hasResult = existsSync(resultFile)
+  let payload = null
+  let parseError = ''
+  if (hasResult) {
+    try {
+      payload = JSON.parse(readFileSync(resultFile, 'utf8'))
+    } catch (error) {
+      parseError = String((error && error.message) || error)
     }
   }
 
+  if (result.phase !== 'closed' || result.exit_code !== 0) {
+    return {
+      ok: false,
+      reason: result.phase === 'timeout' ? 'timeout' : 'analyzer-failed',
+      detail: [
+        `退出码 ${result.exit_code === undefined ? '-' : result.exit_code}；产物目录 ${outDir}`,
+        hasResult ? '有 result.json 但进程没正常结束，不采信' : '',
+        clip(result.stderr, 300),
+      ].filter(Boolean).join('；'),
+    }
+  }
+
+  if (!hasResult) {
+    return {
+      ok: false,
+      reason: 'no-result',
+      detail: `进程正常结束但没有写 result.json；产物目录 ${outDir}`,
+    }
+  }
+
+  if (parseError) {
+    return {
+      ok: false,
+      reason: 'bad-result-json',
+      detail: `result.json 解析失败：${clip(parseError, 200)}；产物目录 ${outDir}`,
+    }
+  }
+
+  const analyzerStatus = String((payload && payload.status) || 'ok')
+  if (analyzerStatus === 'failed' || analyzerStatus === 'blocked') {
+    return {
+      ok: false,
+      reason: `analyzer-${analyzerStatus}`,
+      detail: clip(String((payload && payload.summary) || '分析器自报未完成'), SUMMARY_LIMIT),
+      result_file: resultFile,
+    }
+  }
+
+  const rawSummary = String((payload && payload.summary) || '（分析器没有给摘要）')
+  const rawFindings = Array.isArray(payload && payload.findings)
+    ? payload.findings.map((item) => (typeof item === 'string' ? item : (item && item.claim) || '')).filter(Boolean)
+    : []
+  const summary = clip(rawSummary, SUMMARY_LIMIT)
+  const findings = rawFindings.slice(0, FINDING_LIMIT).map((item) => clip(item, FINDING_CHAR_LIMIT))
+  const truncated = summary !== rawSummary
+    || rawFindings.length > findings.length
+    || findings.some((item, index) => item !== rawFindings[index])
   return {
-    ok: false,
-    reason: result.phase === 'timeout' ? 'timeout' : 'no-result',
-    detail: [
-      `退出码 ${result.exit_code === undefined ? '-' : result.exit_code}；产物目录 ${outDir}`,
-      clip(result.stderr, 300),
-    ].filter(Boolean).join('；'),
+    ok: true,
+    analyzer,
+    analyzer_version: String((payload && payload.analyzer_version) || meta.version),
+    status: analyzerStatus,
+    summary,
+    findings,
+    missing: Array.isArray(payload && payload.missing) ? payload.missing.slice(0, FINDING_LIMIT) : [],
+    result_file: resultFile,
+    duration_ms: Date.now() - started,
+    truncated,
   }
 }
 

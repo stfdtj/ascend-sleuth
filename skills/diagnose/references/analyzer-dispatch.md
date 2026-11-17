@@ -38,6 +38,7 @@ sleuth_analyze(
 返回四样：状态、≤500 字摘要、≤5 条关键发现、结构化结果文件路径。
 
 - 摘要里的**事实**可以直接进 trace 与报告；分析器给出的**候选解释**要标"未验证"，不能当根因。
+- 摘要已按预算截断（500 字，发现最多 5 条）：截断时返回里会说明"摘要已截断"，全文只在 `result.json` 里。**不要把 `result.json` 整份贴进上下文**——需要复核时按里面的证据位置去读原文。
 - 证据文件（`result.json`）里有每条发现的原始位置与测量值；写报告时引用它，不要引用摘要。
 - **fix、severity、report 仍由主持 agent 产出**。分析器没有 fix 权，也没有 severity 权。
 - 出现新签名 → 回步骤 2/3 重判性质，不要就此定案。
@@ -62,8 +63,10 @@ sleuth_analyze(
 复用现有 `run_check` 事件，不新增 action 词表（新增词表要同时改校验、回放与统计，见方案第 4 节）：
 
 ```yaml
-- {action: run_check, step: 5, check: analyzer_run, analyzer: <名字>,
+- {action: run_check, step: 5, check: analyzer_run, analyzer: <名字>, analyzer_version: <版本或 unknown>,
    verdict: hit|empty|blocked|failed, evidence: <result.json 路径>, reason: <一句话>}
 ```
+
+`analyzer_version` 取工具返回里的版本（解析自 `tools/<name>/meta.json` 或 `result.json`）；拿不到写 `unknown`，不要省略这个字段——版本与结论要能对上，否则下次结果变了分不清是数据变了还是实现变了。
 
 结论被采纳时，在后续 `hit` 或 `output` 里写清用了哪一条发现；工具跑成功不等于诊断解决。
