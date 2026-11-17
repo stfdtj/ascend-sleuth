@@ -2,7 +2,7 @@
 
 一个包、八行开关、一个工具。分析器实现按 `tools/<name>/` 分发；本包只放入口、契约与约束表。
 
-**现状**：接入层可用，分析器实现尚未随包分发。调用会返回 `blocked: analyzer-not-installed`——这是如实返回，不是故障。
+**现状**：接入层是待验收骨架，分析器实现尚未随包分发。实现缺失时返回 `ok:false, reason: analyzer-not-installed`；这只能验收退化路径。
 
 ## 装
 
@@ -10,7 +10,7 @@
 node scripts/panel_install.js --spec "<本目录绝对路径>"
 ```
 
-装完重启 DSH Desktop。设置页的「分析器」一项填状态目录（不填则落系统临时目录 `sleuth-analyzers/traces/evidence`）。
+装完重启 DSH Desktop。设置页客户端尚未实现；试用前通过配置或 `DSH_SLEUTH_STATE_DIR` 指定隔离状态目录，并核对状态查询中的实际路径。未配置时落系统临时目录。
 
 ## 验证
 
@@ -52,15 +52,20 @@ tools/<name>/       分析器实现（未分发），入口固定为 run.py
 - 设置页的客户端半边（现在只有状态查询路由，没有界面）。
 - 沙箱验证：工具在主进程里 spawn python，`workspace-write` 档下能否启动未验证。
 
-## 本分支在对照实验里是什么（臂 B）
+## 本分支在人工对照试用中是什么（版本 B）
 
-本分支相对 `main` 只多三样：这个插件包、`skills/diagnose/SKILL.md` 步骤 5 的一句转接、`skills/diagnose/references/analyzer-dispatch.md`。知识库与其它流程不动。对照方案见 [`proposals/analyzer-arms-experiment.md`](../../proposals/analyzer-arms-experiment.md)。
+本分支相对共用方案固定的起点只多三样：这个插件包、`skills/diagnose/SKILL.md` 步骤 5 的一句转接、`skills/diagnose/references/analyzer-dispatch.md`。知识库与其它流程不动。
+
+试用方案见 [`proposals/analyzer-arms-experiment.md`](../../proposals/analyzer-arms-experiment.md)。
 
 **agent 多能做什么**：在步骤 5 判定「手上有整包数据」时调一次 `sleuth_analyze(analyzer, inputs, purpose, ab, session_id)`，拿到结构化摘要与证据文件；选型、退化、记账规则都在 `analyzer-dispatch.md`。
 
-**产出多什么**：每题多一个 `traces/evidence/<session>/tool-runs/<call_id>/`（`invocation.json`、`stdout.log`、`stderr.log`、`result.json`），trace 里多一条 `run_check`（`check: analyzer_run`）。
+**产出多什么**：实际进入执行的调用按可用产物留档，位置为 `traces/evidence/<session>/tool-runs/<call_id>/`。未调用或早期拒绝不保证创建目录，失败不保证有 result.json；调用及失败原因写入 trace 的 `run_check`（`check: analyzer_run`）。
 
 **验收时看四点**：① 该调的时候是否调了；② 分析器选得对不对；③ 返回的发现有没有被写进结论（还是只贴了个路径）；④ 失败时是否退化回原路径、有没有被记成「已排除」。
 
-**现状（影响实验）**：八个分析器的实现还没随包分发，调用一律返回 `analyzer-not-installed`，所以**臂 B 现在跑出来的结果等于基线**。本分支当前可验收的只有接线：装包 → 工具出现 → 调一次看返回 → 关一行看工具消失。效果对比要等第一个分析器（建议 `issue-analyzer`）随包之后再跑。
+**开跑条件**：八个分析器的实现尚未分发。先迁入本轮主题相关的分析器，并修复 `index.js` 中仅凭 result.json 存在就判成功的逻辑；超时、非零退出及损坏 JSON 不得记成功。此项尚未完成。
 
+接线验收看工具出现、缺实现退化和关闭 `analyzers-run` 后工具消失；逐分析器开关另验对应能力不可调用。跑通开发样例及失败路径后，再对原作者选定的独立案例试用。未安装时不具备效果比较条件，也不能说等于无插件版本。
+
+试用中沿实际步骤 5 转接，不强迫每题调用。未调用、失败或未采用发现仍保留为 B 的结果；人工评审按证据、处置、追问负担与耗时比较，不设准确率门槛。
