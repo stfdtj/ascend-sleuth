@@ -1,0 +1,67 @@
+# 八个分析器：一个包、八行开关、一行工具。
+#
+# 装法（仓库根）：
+#   node scripts/panel_install.js --spec "D:/working/ascend-sleuth-wt-analyzers-plugin/dsh-plugins/dsh-sleuth-analyzers"
+# 装完重启 DSH Desktop。设置页「分析器」一项填状态目录（不填则落系统临时目录）。
+#
+# 八行 analyzer-* 现在只表达「这个分析器允许被调用」，实现还没搬进来时调用返回
+# blocked: analyzer-not-installed，不会假装跑过。
+- insert:
+    - id: analyzers-run
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: tools
+    - id: analyzer-ibmc
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: ibmc_analyzer
+    - id: analyzer-prof-compare
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: prof-compare
+    - id: analyzer-cluster-analysis
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: cluster-analysis
+    - id: analyzer-cluster-compare
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: cluster-compare
+    - id: analyzer-issue
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: issue-analyzer
+    - id: analyzer-dump
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: ascend-dump-analyzer
+    - id: analyzer-host
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: cpu-host-performance
+    - id: analyzer-vllm-tuning
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: analyzer
+        analyzer: vllm-ascend-tuning
+    - id: analyzers-settings
+      name: 'dsh-sleuth-analyzers'
+      disabled: false
+      config:
+        mode: settings
