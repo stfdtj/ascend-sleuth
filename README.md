@@ -1,126 +1,67 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <img alt="ascend-sleuth" src="docs/assets/logo.svg" width="460">
-  </picture>
-</p>
+# 实验分支 A：把 8 个分析器的经验写成知识库条目
 
-<h1 align="center">昇腾 NPU 训练与推理故障诊断知识库</h1>
+这条分支是实验分支，首页临时换成这份说明，方便对照查看。项目原本的说明在 [main 分支](https://github.com/pillumina/ascend-sleuth)。
 
-<p align="center">
-  <a href="https://www.hiascend.com/"><img alt="platform: Ascend NPU" src="https://img.shields.io/badge/platform-Ascend%20NPU-CC0000?logo=huawei&logoColor=white"></a>
-  <a href="https://agentskills.io/"><img alt="Agent Skills compliant" src="https://img.shields.io/badge/Agent%20Skills-compliant-8B5CF6.svg"></a>
-  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
-</p>
+一句话：不改诊断流程、不加工具，只把 8 个分析器里「下次遇到同类问题还用得上」的判断依据，写成 sleuth 诊断时能查到的条目。
 
-训练或推理在昇腾 NPU 上中断、精度异常、性能退化时，把日志与版本信息交给 agent。它按症状路由，查先验知识（官方文档与已沉淀事实）框定方向，再加载候选 case 逐条验证。未命中时继续深度排查，可按版本拉源码分析。输出定位结论与修复方案。
+## 原作者需要提供什么
 
-定位结束后，新知识进待审队列，每周例行维护去重、升格为 case，同类问题下次直接命中。共性另归纳成先验知识。系统也按使用记录演进：未命中、执行出错、条目过期都记为改进卡。改动按影响面验证，提 PR 人审。
+1. **样例数据**：每个分析器 2–3 份脱敏后的输入（prof 目录、`dump_info`、日志包都行）。没有样例，条目是不是对的没法验。
+2. **正确答案**：每份样例的根因和正确处置。实验判定全靠这一栏。
+3. **来源说明**：条目里的数字和做法出自哪份官方文档——给文档名加页码，或给公开链接。没有官方出处的，我们只能标成「工程师经验」，不能标成官方事实。这一条最重要：标错等级会让别人把个人经验当结论用。
 
-skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Claude Code、Codex、DeepSeek Harness（DSH）等支持该标准的 agent 中运行。
+## agent 怎么做
 
-## 快速开始
+按主题分组，每组派一个 **subagent** 并行写条目，主 agent 收齐后做去重和来源核对。
 
-### 安装
+六组：
 
-```bash
-git clone https://github.com/pillumina/ascend-sleuth.git
-cd ascend-sleuth
-python3 scripts/enable_agent_skills.py
-```
+| 组 | 写什么 |
+|---|---|
+| 硬件（BMC / iBMC） | 电源、温度、风扇、ECC、光模块的正常值与异常分级 |
+| Host / CPU | 主机侧瓶颈的判断依据、绑核与 NUMA 的约束、绑核的副作用与回退 |
+| Prof 判读 | 每类分析怎么看、指标含义与单位、快慢卡怎么判、什么情况下不下结论 |
+| 日志取证 | 取证步骤、证据怎么记（文件、行号、原文、时间）、先找第一个错误 |
+| 环境与版本 | 快照字段含义、组件版本配套关系、缺字段不等于异常 |
+| 推理调优 | 量化与投机解码对精度和性能的影响、配置基线 |
 
-脚本检测本机已安装的 agent，为它们建项目级 skills 链接（幂等，可重复执行）。Linux 与 macOS 上 DSH 不跑这个脚本也够用：`.dsh/skills` 是仓库跟踪的 symlink，clone 后即可用。`git pull` 更新 SKILL.md 即时生效。
+每个 subagent 写条目时固定回答四件事：结论是什么、依据哪段原文、适用于哪些平台与版本、什么情况下不成立。
 
-诊断开单会自动同步知识库：`trace_begin.py` 建单时 fetch 远端，条件满足时做一次快进合并。
+## 必须产出
 
-配置与开关（`sync.remote` / `sync.branch` / `sync.enabled` / `sync.auto_merge` / `sync.check_enabled` / `sync.check_minutes` / `sync.check_full_access`）在 `.local/settings.json`。`sync.enabled` 与 `sync.auto_merge` 只管诊断读侧的自动路径，groom 不受影响；`sync.check_enabled` / `sync.check_minutes` 是诊断状态条的知识库提醒开关与检查间隔（可在「Ascend Sleuth · 知识库」页设置）。没有这个文件时用默认值：`origin`、当前分支上游（取不到用 `main`）、同步开、自动合并开。
+- 每条一个文件：`references/<类别>/<编号>.yaml`，含结论、依据原文、适用平台、来源等级；
+- 一份清单：编号 / 类别 / 补的是哪个诊断空白 / 来源等级。
 
-当前状态用 `python3 scripts/kb_sync.py --show` 查看（只读，不联网）。
+## 流程约束（做不到，这条分支的实验结果作废）
 
-Windows 上 Git 默认不还原 symlink，`.dsh/skills` 会落成一个内容为 `../skills` 的文本文件，agent 发现不了 skills，而 `git status` 此时可能是干净的。脚本会把这条 symlink 建好；自动检测认不出的 agent 用 `--all`。`--check` 只读自检状态（不写盘），`--fix-copy` 把 Git Bash 建出的目录副本换成链接。自检与两条修法见 [windows-setup.md](docs/guide/windows-setup.md)。
+1. **只加条目**，不改诊断步骤、不加工具。想改流程的另开分支，别混在这里。
+2. **每条都要写「什么情况下不成立」**。写不出来说明还没想清楚，不许入库。
+3. **来源分两级**：能逐字对到官方文档的标「官方」；只有你手记或口头说的标「经验」。不许把经验写成官方。
+4. **每条要能回答「补的是哪个诊断空白」**。答不上来就是复述，不算融合。
+5. **加之前先和现有条目比一遍**，重复的并进去或者标成同一主题的另一个平台，不要新建一份一样的。
+6. **加之后跑一次读量检查**（`python3 scripts/index_read_cost.py`）；超线就分批加，不要一次性堆进去。
 
-装完在 agent 中调用 `/skill:<name>`。
+## 怎么比较效果
 
-### 使用示例
+同一批题，三个版本各跑一遍：现在的 sleuth（对照组）、版本 A（这条分支）、版本 B（另加工具的那条分支）。
 
-在 agent 中调用 `/skill:diagnose`，把客户给的症状、框架版本与日志片段粘贴给它：
+每题在跑之前先写死正确答案，防止事后改标准。每题只跑一次；判定为「材料不够、无法判断」的题才允许重跑一次并记原因。
 
-```
-/skill:diagnose
+比三个数：
 
-客户 A5-950 训练在 step ~3000 hang，all_to_all timeout，world_size=128。
-框架 mindspeed-llm 2.5.0。报错栈尾：
-[粘贴相关 rank 的日志片段]
-```
+- 根因说对的题数（说对 / 说对一半 / 说错）；
+- 第一轮就问对关键事实的题数（关键事实在答案里预先列出）；
+- 给出可执行的修复方案的题数。
 
-agent 按症状路由到 `training/mindspeed-llm/`，匹配并验证 case。命中时输出四段：结论、依据链（含命中的 `<CASE-ID>`、历史 `hits` 与 `misdiagnoses`）、修复方案与 rollback、可靠度与残余风险。未命中时转深度排查。信息不足时，agent 指出还要向客户补什么。
+合格线：版本 A 比对照组多答对 10% 以上才算有效；不到就说明这些经验对诊断没帮助，知识库不动。
 
-诊断全程写 trace。被打断时可用 `/skill:resume-diagnosis` 续接。
+## 现在什么状态
 
-### 在其他项目中试用
+分支里还没有条目。第一批建议从 Prof 判读和日志取证开始——这两块的官方出处好找，来源等级能标成「官方」，最有说服力。
 
-```bash
-npx skills@latest add pillumina/ascend-sleuth -s diagnose -s to-postmortem -s to-reference -s issue-ingest -s knowledge-groom -s resume-diagnosis
-```
+## 项目原本的说明
 
-该方式安装的是 `skills/` 副本，更新需重新安装，也不沉淀回本仓。要在其他仓库中沉淀知识，按 [知识获取：三种起步形态](docs/guide/knowledge-acquisition.md) 配置。
-
-## 背景
-
-昇腾训练与推理的日常问题集中在三类：中断（hang、crash、OOM）、精度异常（loss 发散、FP8 衰减）、性能退化（吞吐下降、通信占比过高）。根因高度重复，相关知识却散落在个人笔记、IM 聊天与各处 wiki。新 case 每周都在出现，A2-910B / A3-910C / A5-950 三代平台的差异还在扩大，靠个人手工维护的知识库跟不上这个速度。
-
-ascend-sleuth 把这些经验沉淀为结构化知识库。诊断时按症状路由到已验证的 case。定位结束后，新知识进入待审队列，由例行维护完成去重、升格与退休。人工沉淀按周批处理，自动化导入源可以直接升格。
-
-## 工作原理
-
-知识分三层按需加载，控制进 agent 上下文的量：
-
-| 层 | 内容 | 加载时机 |
-|---|---|---|
-| Tier 1 | `triage-tree.yaml`：症状到命名空间的映射 | 始终加载 |
-| Tier 2 | `knowledge/` 下的 case 规则 | 命中症状后两阶段加载：先读该命名空间与类别的读侧视图过滤候选，再加载全文验证 |
-| Tier 3 | `postmortems/` 下的原始定位记录 | 前两层未命中时关键词检索 |
-
-知识库本体在 `knowledge/`，按框架与类别分目录：
-
-```
-knowledge/
-├── _index.yaml / _index/   总表与读侧视图（scripts/build_index.py 生成；合入后由主干 job 重建）
-├── training/{mindspeed-llm,mindspeed-mm,verl}/
-├── inference/{vllm-ascend,sglang}/
-├── common/                 多框架共用的权威记录（由 groom 提升）
-└── _archive/               软退休的过期 case
-```
-
-命名空间下面按性质分目录（如 `inference/vllm-ascend/interrupt/`）。先验知识层在 `references/`，放官方文档与案例沉淀的事实、工具词条与流程，不参与候选路由。
-
-问题按两个维度拆。在哪查：训练还是推理、用什么框架，决定命名空间（如 `training/mindspeed-llm/`）。什么性质：中断、精度还是性能，决定匹配形态（中断用错误签名 grep，精度用数值阈值断言，性能用 profiler 指标比对），三者不混用。
-
-诊断全程写 trace：加载了哪些命名空间、按什么顺序做了哪些检查、工程师提供了什么证据。误诊归因靠它区分 case 错（改知识 YAML）与执行错（改 skill 正文）。两者的修法不同，混在一起会改坏本来正确的 case。
-
-三个闭环驱动整个系统：
-
-| 闭环 | 什么时候发生 | 入口 | 产出 |
-|---|---|---|---|
-| 诊断闭环 | 每次问题（分钟级） | `/skill:diagnose` | 修复建议 + trace |
-| 沉淀闭环 | 定位结束后 / 定期批量 | `/skill:to-postmortem`、`/skill:to-reference`、`/skill:issue-ingest` | 待审队列 → case / reference 词条 |
-| 演进闭环 | 内容流程收尾 / 全库体检轮 | `/skill:evolve-check`、`/skill:self-evolve` | 改进卡 → 验证 → 攒批 PR（人审） |
-
-![ascend-sleuth 架构](docs/diagrams/ascend-sleuth-architecture.png)
-
-自演进机制的完整流程（[交互图](docs/diagrams/self-evolve-flow.html)，可切主题与导出 PNG）：
-
-![自演进机制全流程](docs/diagrams/self-evolve-flow.png)
-
-每个机制配了什么护栏、每周实际要做什么，见 [自演进元机制](docs/mechanism/rsi-mechanism.md)。
-
-## 适用范围与限制
-
-- 诊断 agent 不访问客户环境，也不改生产：日志、版本与报错由工程师提供，修复建议由人应用。
-- 诊断质量随 agent 变化：prompt 纪律是概率性的，换一个 agent 或换一次会话，结果与 trace 质量可能不同。团队内建议统一 agent。跨 agent 对比时先归因执行差异，再判断是不是知识本身错。
-- `data-loss-risk` 的根因不给修复方案，只输出停机、保留现场、通知 owner。
-- 版本匹配是软判据：`compat` 不匹配只降 confidence，不排除 case。
-- 输出是给人看的建议，不对接 on-call 或 IM 通知链路。
+见 [main 分支的 README](https://github.com/pillumina/ascend-sleuth)。实验结束后这条分支的首页会恢复。
 
 ## skill 清单
 
@@ -131,18 +72,3 @@ knowledge/
 - **知识沉淀**（4）：`to-postmortem` · `to-reference` · `issue-ingest` · `reference-ingest`
 - **维护与演进**（6）：`knowledge-groom` · `self-evolve` · `evolve-check`（内部协议，由内容流程收尾自动转接，不单独调用） · `skill-review`（内部协议，由用户显式触发做 skill 质量审视） · `preload-panel`（仅 DSH：按本机给模型的工具定装载路，有 cordis_define / cordis_run 热加载，有 plugin_manager 装常驻插件包，DSH Desktop 用安装目录自带的 dsh 命令行装（profile 记成 link），另有脚本经 /api 通路装与插件页粘贴两条备用路；含「装了但 tab 不出现」的排查顺序） · `doctor`（本机环境体检：一条命令报「哪些流程能跑、哪些会降级」并给修法；只读，不装包）
 <!-- END generated: skill-roster -->
-
-每个 skill 的触发条件与操作细节见各自的 `skills/<name>/SKILL.md`。
-
-## 文档
-
-- [文档总目录](docs/README.md)：全部文档按"什么时候读"分层
-- [演示走查](docs/demo-walkthrough.md)：从一次诊断到知识演化的完整演示，不需要动手
-- [诊断面板](dsh-plugins/ascend-panel/README.md)：DSH 会话中的可视化面板（可选增强）
-- [知识获取](docs/guide/knowledge-acquisition.md)：三种起步形态与稀疏拉取白名单
-- [部署与协作](docs/guide/git-workflow.md)：集中式与框架式 fork 两种部署、目录归属、审核与门控
-- [术语表](CONTEXT.md)：case / postmortem / groom / trace / reference 的规范定义
-
-## 许可
-
-MIT，见 [LICENSE](LICENSE)。
