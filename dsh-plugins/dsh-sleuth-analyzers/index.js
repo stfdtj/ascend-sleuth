@@ -18,17 +18,45 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 let defineTool
+let sdkDefineTool = null
 try {
-  defineTool = (await import('@deepseek-ai/dsh-tools')).defineTool
+  sdkDefineTool = (await import('@deepseek-ai/dsh-tools')).defineTool
 } catch {
-  defineTool = (options) => ({
+  sdkDefineTool = null
+}
+// defineTool 有方言差异：真品只认 value schema DSL（属性级 required: true），
+// 拿不到真品时输出面按 JSON Schema 校验（required 必须是 object 层的数组）。
+// 这里的 output.schema 源码按 JSON Schema 写（顶层 required: [...]），
+// 真品路径转成 DSL、回退路径原样交出；缺这层，两条路径总有一条拒绝。
+function plainDefineTool(options) {
+  return {
     name: options.name,
     description: options.description,
     parameters: options.parameters,
     output: { schema: options.output.schema, render: options.output.render },
     execute: options.execute,
-  })
+  }
 }
+function outputSchemaAsDSL(schema) {
+  if (!schema || schema.type !== 'object' || typeof schema.properties !== 'object' || schema.properties === null) return schema
+  const required = Array.isArray(schema.required) ? schema.required : []
+  const properties = {}
+  for (const [key, field] of Object.entries(schema.properties)) {
+    const copy = Object.assign({}, field)
+    if (required.indexOf(key) >= 0) copy.required = true
+    properties[key] = copy
+  }
+  const dsl = { type: 'object', properties }
+  if (Object.hasOwn(schema, 'additionalProperties')) dsl.additionalProperties = schema.additionalProperties
+  return dsl
+}
+function wrapDefineTool(options) {
+  if (sdkDefineTool === null) return plainDefineTool(options)
+  return sdkDefineTool(Object.assign({}, options, {
+    output: Object.assign({}, options.output, { schema: outputSchemaAsDSL(options.output.schema) }),
+  }))
+}
+defineTool = wrapDefineTool
 
 export const name = 'sleuth-analyzers'
 export const inject = ['tools']
@@ -59,8 +87,9 @@ let config = {}
 const OUTPUT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
+  required: ['ok'],
   properties: {
-    ok: { type: 'boolean', required: true },
+    ok: { type: 'boolean' },
     reason: { type: 'string' },
     detail: { type: 'string' },
     analyzer: { type: 'string' },
