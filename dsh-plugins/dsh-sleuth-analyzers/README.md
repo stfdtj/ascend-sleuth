@@ -51,3 +51,16 @@ tools/<name>/       分析器实现（未分发），入口固定为 run.py
 - 八个分析器的实现与 `tools/` 目录（下一步：按分析器逐个迁入，配 `upstream-sources/` 与 `overrides/`）。
 - 设置页的客户端半边（现在只有状态查询路由，没有界面）。
 - 沙箱验证：工具在主进程里 spawn python，`workspace-write` 档下能否启动未验证。
+
+## 本分支在对照实验里是什么（臂 B）
+
+本分支相对 `main` 只多三样：这个插件包、`skills/diagnose/SKILL.md` 步骤 5 的一句转接、`skills/diagnose/references/analyzer-dispatch.md`。知识库与其它流程不动。对照方案见 [`proposals/analyzer-arms-experiment.md`](../../proposals/analyzer-arms-experiment.md)。
+
+**agent 多能做什么**：在步骤 5 判定「手上有整包数据」时调一次 `sleuth_analyze(analyzer, inputs, purpose, ab, session_id)`，拿到结构化摘要与证据文件；选型、退化、记账规则都在 `analyzer-dispatch.md`。
+
+**产出多什么**：每题多一个 `traces/evidence/<session>/tool-runs/<call_id>/`（`invocation.json`、`stdout.log`、`stderr.log`、`result.json`），trace 里多一条 `run_check`（`check: analyzer_run`）。
+
+**验收时看四点**：① 该调的时候是否调了；② 分析器选得对不对；③ 返回的发现有没有被写进结论（还是只贴了个路径）；④ 失败时是否退化回原路径、有没有被记成「已排除」。
+
+**现状（影响实验）**：八个分析器的实现还没随包分发，调用一律返回 `analyzer-not-installed`，所以**臂 B 现在跑出来的结果等于基线**。本分支当前可验收的只有接线：装包 → 工具出现 → 调一次看返回 → 关一行看工具消失。效果对比要等第一个分析器（建议 `issue-analyzer`）随包之后再跑。
+
