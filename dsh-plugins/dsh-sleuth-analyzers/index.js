@@ -99,6 +99,7 @@ const OUTPUT_SCHEMA = {
     findings: { type: 'array', items: { type: 'string' } },
     missing: { type: 'array', items: { type: 'string' } },
     result_file: { type: 'string' },
+    artifacts: { type: 'array', items: { type: 'string' } },
     duration_ms: { type: 'integer' },
     truncated: { type: 'boolean' },
   },
@@ -226,6 +227,7 @@ function responder(value) {
     })
   }
   if (value.missing && value.missing.length) lines.push(`缺数据：${value.missing.join('；')}`)
+  if (value.artifacts && value.artifacts.length) lines.push(`报告与产物：${value.artifacts.join('、')}`)
   if (value.result_file) lines.push(`结构化结果：${value.result_file}`)
   if (value.truncated) lines.push('（摘要已按预算截断；全文在结构化结果里）')
   return lines
@@ -361,6 +363,7 @@ async function analyze(args) {
     findings,
     missing: Array.isArray(payload && payload.missing) ? payload.missing.slice(0, FINDING_LIMIT) : [],
     result_file: resultFile,
+    artifacts: Array.isArray(payload && payload.artifacts) ? payload.artifacts.map(String).slice(0, 20) : [],
     duration_ms: Date.now() - started,
     truncated,
   }
