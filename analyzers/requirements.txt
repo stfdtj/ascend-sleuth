@@ -1,0 +1,7 @@
+# 可选依赖：本仓库不自动安装。按需在预配环境手动安装。
+#
+# prof-compare 读取 compare xlsx 需要：
+openpyxl>=3.1
+#
+# prof-compare 从两份 prof 目录生成 compare 需要 msprof-analyze。
+# 该工具由 Ascend 环境提供，不在本文件里指定版本；缺它时用已有的 compare xlsx。
