@@ -1,7 +1,7 @@
 id: vllm-ascend-tuning-workflow
 type: methodology
 title: vLLM-Ascend 推理性能调优流程（目标先行 / 基准配置 / 并行策略 / 环境变量时滞检查）
-summary: vLLM-Ascend 性能调优按固定相位走。先定目标与基准配置，再并行策略、环境、编译、OS、torch_npu、CANN/HCCL、vLLM 参数、加速特性、PD 分离（prefill/decode 分池），最后 vllm bench 验证。
+summary: vLLM-Ascend 性能调优按固定相位走。先定目标与基准配置，再并行策略、环境、编译、OS、torch_npu、CANN/HCCL、vLLM 参数、加速特性、PD 分离（prefill/decode 分池），最后 vllm bench 验证。文中参数取值为示例，用前须按部署版本与硬件核对。
 
 sources:
   - type: engineer-input
@@ -49,8 +49,9 @@ content:
     - step: 2
       name: 匹配模型基准配置
       action: >-
-        按模型与上下文长度先对齐 skill 内置的模型基准启动配置（references/model_configs/*.yaml），
-        用基准配置跑通并记下基线数字。基准配置匹配必须先于一切参数调优——它在模型-上下文维度上先排除
+        按模型与上下文长度先对齐一套已知可跑的基准启动配置（来源与版本写进结论），跑通并记下基线数字。
+        本仓不内置模型配置库；参数取值必须与部署的 vLLM-Ascend 版本核对，不照搬别处配置。
+        基准配置匹配必须先于一切参数调优——它在模型-上下文维度上先排除
         启动参数缺配，后续每步改动都对照这个基线看增量。
       check: 基线数字已记录
       when_to_use: 拿到新模型或新上下文长度时

@@ -1,7 +1,7 @@
 id: ibmc-dump-info-collect-reading
 type: tool
 title: iBMC dump_info 一键收集产物诊断读法（目录结构 / 判定权重序 / 阈值表 / SEL 速查）
-summary: 昇腾服务器故障时按 dump_info 一键收集产物（BMC JSON + HTML 报告）判读：告警→电源→NPU/ECC→光模块→温度/风扇→RAID→BMC；阈值仅作观察项，须对照本机手册确认。
+summary: 昇腾服务器故障时按 dump_info 一键收集产物直接判读（无需额外脚本）：告警→电源→NPU/ECC→光模块→温度/风扇→RAID→BMC；阈值仅作观察项，须对照本机手册确认。
 
 sources:
   - type: official-doc
@@ -26,14 +26,14 @@ status: active
 last_verified: 2026-11-17
 
 content:
-  tool_name: "iBMC dump_info 一键收集与本地判读流程（ibmc_analyzer skill 内置，收集侧为 iBMC diaginfo）"
+  tool_name: "iBMC dump_info 一键收集产物的直接判读（不依赖额外脚本）"
   invocation: >-
-    在 iBMC 页面执行一键收集（diaginfo）拿到 dump_info 压缩包，解压后跑本地分析脚本产出
-    <目录名>_bmc.json 与 BMC诊断报告_<机型>_<SN>.html；机器不可达时按目录结构手工判读。
-    运行脚本前设 PYTHONIOENCODING=utf-8，避免中文字符集报错。
+    在 iBMC 页面执行一键收集（diaginfo）拿到 dump_info 压缩包，解压后按目录与字段直接判读。
+    本仓不提供解析脚本，也不要求先生成 JSON/HTML 报告；别处若已有第三方工具产出的报告，只能作
+    交叉参考，结论以 dump_info 原始文件为准。多机排查时逐机读同一组字段再横向比。
   commands:
-    collect: "iBMC 页面「一键收集」导出 dump_info 压缩包——诊断都从这一手动步骤开始，dnvme_collect.sh 用告警时间戳后的目录/文件名定位"
-    analyze: "本地脚本读取 dump_info 内各文件，输出 <目录名>_bmc.json + HTML 报告（全局结论 + 各维度状态 + 证据条目）"
+    collect: "iBMC 页面「一键收集」导出 dump_info 压缩包；按告警时间戳定位对应目录与文件名"
+    read: "先读 AppDump/FruData/fruinfo.txt（机型 SN）与 sensor_alarm/current_event.txt（当前活动告警），再按下面的判定权重逐维度看"
   output_meaning:
     - "适用边界：下面的阈值取自上游 skill 的固定阈值表，表里给的是 4 个 PSU / 8 卡 / 8 个光模块这一组数量；该表未注明适用机型，也没说这组数量对应满配还是其中一种配置，因此不能直接当任何机型的标准。下面各条写「正常标准」时，都指这张表的口径"
     - "使用方式：本机手册确认前只作观察项，不据此判故障；其他机型以对应机型手册为准"
@@ -58,3 +58,4 @@ content:
     - "SEL 速查：Power Supply input lost = Critical；Above upper threshold = Major/Minor；Operation/Security Log Full = Minor；Cert OverDue = Minor；watchdog = Info"
   pitfalls:
     - "5 判读禁忌：历史掉电 ≠ 当前故障（看活动告警窗口）；版本旧 ≠ P0（先与实际现象复核）；集合通信不达标本就查 ASCEND_GLOBAL_LOG_LEVEL 是否=1（可能是日志被打没了而非硬件故障）；OS 自动重启先查 kdump/OOM（crashkernel 1024M 抖 AI 训练场景建议 2048M）；伙伴机型多 SN 以 BMC 页面为准"
+    - "本词条不含自动解析：多机、多维度的批量比对需要人工抽样；量级大时先看当前活动告警，再按判定权重只看与现象同向的维度"

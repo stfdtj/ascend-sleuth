@@ -34,6 +34,8 @@ content:
     脚本形态 `python performance_compare.py <benchmark_path> <profiling_path> --output_path=<out>`（msprof_analyze/compare_tools 目录）。
     `-d/--profiling_path` 为比对数据、`-bp/--benchmark_path` 为基准数据，差值一律 = 比对 − 基准、比值 = 比对 / 基准。
     建议只采集一个 step 即可回答瓶颈类问题。所有 `--enable_*` 开关都不传时默认全量比对；传任一开关则只按开关比对。
+    本仓不生成这份产物：手上没有 compare 结果时，先请工程师在目标环境跑官方命令（或让其提供已有的 xlsx），
+    再按下面的字段与单位读；不要假设结果已经自动生成。
   commands:
     enable_profiling: "`--enable_profiling_compare`——总体性能比对（终端打印 + OverallMetrics Sheet）"
     enable_operator: "`--enable_operator_compare`——算子性能比对（OperatorCompare/OperatorCompareStatistic；较耗时，建议单 step；MindSpore 不支持）"
@@ -65,8 +67,7 @@ content:
     - "MemoryCompareStatistic 按 Diff Memory(MB) 逆序；Size(KB) 为算子 device 内存；采集未开 profile_memory=True 时内存数据全 0，先查采集开关"
     - "KernelCompare（--use_kernel_type=false）按 Kernel Type + Input Shape 分组（Total/Avg/Max/Min Duration(us)、Calls）；KernelTypeCompare（true）按 Kernel Type + Core Type 分组；两者都仅 NPU vs NPU"
     - "ApiCompare 按 API 名称分组：Total Duration / Self Time / Avg Duration(ms)、Calls"
-    - "分析顺序（三步法）：先 OverallMetrics 定方向（Computing 增大→算子面；Uncovered Communication 增大→通信面；Mem Usage 增大→内存面）→ 再开对应 Statistic Sheet 找差距 TOP → 最后进明细 Sheet 定到具体算子/kernel"
-    - "通信面判读：通信算子逐个都没变慢、而 Uncovered Communication Time 涨了，代表通信与计算并行度变差，转向集群级性能分析，不继续抠单算子"
+    - "定界顺序与「通信算子没变慢但未掩盖涨了 = 并行度问题」这两条判据见 `performance-delimiting-and-comparison`，本词条不重复；这里只讲 compare 产物各 Sheet 的字段与单位"
     - "Not minimal profiling 标注：E2E 时间存在性能膨胀（采集开销撑大），影响通信与调度耗时，绝对值不可信，只看比率"
   pitfalls:
     - "Sheet 缺失 = 对应开关未开或框架不支持：`--enable_api_compare` 无 trace_view.json 不产出；MindSpore 无算子/内存/API 比对；Kernel 比对仅限 NPU vs NPU"
