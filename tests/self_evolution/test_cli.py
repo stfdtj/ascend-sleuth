@@ -54,6 +54,14 @@ class HelpAndPolicyCliTest(unittest.TestCase):
         self.assertIn("paired_binary", result.stdout)
         self.assertIn("# policy_hash:", result.stdout)
 
+    def test_policy_autonomy_resolves_component(self):
+        normal = run_cli("policy", "autonomy", "--component", "docs.normative")
+        self.assertEqual(normal.returncode, 0, normal.stderr)
+        self.assertIn("autonomy: A1", normal.stdout)
+        non_norm = run_cli("policy", "autonomy", "--component", "docs.non_normative")
+        self.assertEqual(non_norm.returncode, 0, non_norm.stderr)
+        self.assertIn("autonomy: A2", non_norm.stdout)
+
     def test_policy_check_unknown_key_fails(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -83,6 +91,20 @@ class HealthCliTest(unittest.TestCase):
             self.assertIn("broken:", result.stdout)
             readout = run_cli("health", "--root", td)
             self.assertEqual(readout.returncode, 0, readout.stdout + readout.stderr)
+
+    def test_traces_sync_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as td:
+            trace = Path(td) / "traces" / "t1.yaml"
+            trace.parent.mkdir()
+            trace.write_text("trace:\n- {action: attribution, attribution_kind: execution, component: diagnose}\n", encoding="utf-8")
+            first = run_cli("traces", "sync", "--root", td, "--state", str(Path(td) / "state.json"))
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertIn("new=1", first.stdout)
+            second = run_cli("traces", "sync", "--root", td, "--state", str(Path(td) / "state.json"))
+            self.assertIn("reused=1", second.stdout)
+            status = run_cli("traces", "status", "--root", td, "--state", str(Path(td) / "state.json"))
+            self.assertEqual(status.returncode, 0, status.stderr)
+            self.assertIn("snapshot_id", status.stdout)
 
     def test_health_json_is_machine_readable(self):
         result = run_cli("health", "--json")
@@ -183,11 +205,26 @@ class SampleLifecycleCliTest(unittest.TestCase):
         )
         self.assertEqual(created.returncode, 0, created.stderr)
         result = self.cli(
-            "experiment", "gate", "--target", "tooling", "--sample", "K-2",
+            "experiment", "gate", "--target", "harness", "--sample", "K-2",
             "--scores", json.dumps({"来源可追": 2}),
         )
         self.assertEqual(result.returncode, 2)
         self.assertIn("no implemented evaluator", result.stderr)
+
+    def test_sample_new_rejects_holdout_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "eval").mkdir()
+            (root / "eval" / "holdout.yaml").write_text(
+                "entries:\n- fixture: VLLM-ASC-13329.fixture.yaml\n", encoding="utf-8",
+            )
+            result = run_cli(
+                "sample", "new", "--root", td, "--id", "X-1",
+                "--object-type", "diagnosis",
+                "--source", "https://github.com/vllm-project/vllm-ascend/issues/13329",
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("holdout", result.stderr)
 
     def test_reject(self):
         self.create()
@@ -429,17 +466,59 @@ class IngestCliTest(unittest.TestCase):
             self.assertEqual(record["summary"], "manual test patch")
             self.assertEqual(record["algorithm"], "baseline")
             self.assertEqual(record["execution"], "manual")
+            self.assertEqual(record["payload"]["role"], "control")
+            self.assertFalse(record["payload"]["proposal"])
             self.assertEqual(record["eval_profile_id"], "arena")
             self.assertTrue(record["eval_ready"])
 
-    def test_experiment_propose_gepa_without_config_fails_cleanly(self):
+    def test_experiment_propose_agent_draft_any_target(self):
+        with tempfile.TemporaryDirectory() as td:
+            draft = Path(td) / "draft.json"
+            draft.write_text(json.dumps({
+                "target_kind": "knowledge",
+                "target_component": "knowledge.case_content",
+                "summary": "补 VLLM-ASC-10892 的长请求分块判别",
+                "change": {"files": ["knowledge/inference/vllm-ascend/precision/VLLM-ASC-10892.yaml"],
+                           "diff": "quickly_check 增加 >1024 token 分块检查"},
+                "expected": "该 case 的复核命中率提升",
+                "risk": "低",
+                "rollback": "恢复原判别条件",
+            }, ensure_ascii=False), encoding="utf-8")
+            result = run_cli("experiment", "propose", "--root", td, "--draft", str(draft))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("algorithm: agent_draft", result.stdout)
+            path = Path(td) / ".s2-replay" / "evolve" / "experiments.jsonl"
+            record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+            self.assertEqual(record["target_kind"], "knowledge")
+            self.assertEqual(record["target_component"], "knowledge.case_content")
+            self.assertEqual(record["algorithm"], "agent_draft")
+            self.assertEqual(record["execution"], "subagent")
+            self.assertEqual(record["source"], "agent_draft")
+            self.assertEqual(record["payload"]["expected"], "该 case 的复核命中率提升")
+
+    def test_agent_draft_rejects_missing_rollback(self):
+        with tempfile.TemporaryDirectory() as td:
+            draft = Path(td) / "draft.json"
+            draft.write_text(json.dumps({
+                "target_kind": "tooling",
+                "target_component": "tooling.source_fetch",
+                "summary": "缓存",
+                "change": {"files": ["scripts/src_fetch.py"]},
+                "expected": "减少抓取",
+                "risk": "低",
+            }), encoding="utf-8")
+            result = run_cli("experiment", "propose", "--root", td, "--draft", str(draft))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("rollback", result.stderr)
+
+    def test_experiment_propose_official_gepa_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             result = run_cli(
                 "experiment", "propose", "--root", td, "--target", "skill",
                 "--algorithm", "gepa",
             )
             self.assertEqual(result.returncode, 2)
-            self.assertIn("budget.gepa", result.stderr)
+            self.assertIn("not allowed", result.stderr)
             self.assertNotIn("Traceback", result.stderr)
 
     def test_experiment_propose_rejects_invalid_patch_fields(self):
@@ -487,6 +566,41 @@ class IngestCliTest(unittest.TestCase):
             self.assertEqual(created.returncode, 2)
             self.assertIn("subagent_judge", created.stderr)
 
+    def test_knowledge_usage_compare_cli(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td) / "base.json"
+            cand = Path(td) / "cand.json"
+            base.write_text(json.dumps([
+                {"sample_id": "a", "hit": True, "first_hit_step": 4,
+                 "candidates_examined": 3, "full_body_reads": 3,
+                 "reference_lookups": 1, "wrong_cases": 0, "tokens": 100},
+            ]), encoding="utf-8")
+            cand.write_text(json.dumps([
+                {"sample_id": "a", "hit": True, "first_hit_step": 2,
+                 "candidates_examined": 1, "full_body_reads": 1,
+                 "reference_lookups": 0, "wrong_cases": 0, "tokens": 50},
+            ]), encoding="utf-8")
+            result = run_cli("knowledge-usage", "compare",
+                             "--baseline", str(base), "--candidate", str(cand), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('"decision": "accept"', result.stdout)
+
+    def test_experiment_record_rejects_fake_p_value(self):
+        result = {
+            "target_kind": "skill", "target_component": "x",
+            "algorithm": "subagent-reflection", "algorithm_version": "1",
+            "execution": "subagent", "decision": "accept", "samples": ["S-1"],
+            "baseline": {"score": 0, "samples": ["S-1"]},
+            "candidate": {"score": 1, "samples": ["S-1"]},
+            "paired": {"b": 1, "c": 0, "n": 1, "p_value": 0, "alpha_eff": 0.1},
+        }
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "bad.json"
+            path.write_text(json.dumps(result), encoding="utf-8")
+            created = run_cli("experiment", "record", "--root", td, "--file", str(path))
+            self.assertEqual(created.returncode, 2)
+            self.assertIn("exact paired p", created.stderr)
+
     def test_experiment_record_rejects_mismatched_samples(self):
         result = {
             "target_kind": "skill", "target_component": "x",
@@ -516,6 +630,73 @@ class IngestCliTest(unittest.TestCase):
             result = run_cli("experiment", "list", "--root", td)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("* baseline", result.stdout)
+
+    def test_issue_ingest_uses_quality_answer(self):
+        cache = Path(tempfile.mkdtemp()) / "issues.json"
+        cache.write_text(json.dumps([{
+            "number": 9, "title": "T9", "body": "long local body for ingest " * 2,
+            "comments": 5, "state": "closed", "labels": ["triaged"],
+        }]), encoding="utf-8")
+        quality = Path(tempfile.mkdtemp()) / "quality.json"
+        quality.write_text(json.dumps({
+            "9": {"score": 0.9, "answer": "specific fix", "namespace": "inference/vllm-ascend",
+                  "category": "interrupt", "evidence": "comment"},
+        }), encoding="utf-8")
+        with tempfile.TemporaryDirectory() as td:
+            result = run_cli(
+                "sample", "ingest-issues", "--source", "local", "--cache", str(cache),
+                "--repo", "o/r", "--root", td, "--state", "ingest-state.json",
+                "--quality-file", str(quality),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            sample = Path(td) / ".s2-replay" / "evolve" / "samples" / "LOCAL-O-R-9.yaml"
+            self.assertIn("specific fix", sample.read_text(encoding="utf-8"))
+
+    def test_issue_ingest_skips_issue_missing_from_quality_file(self):
+        cache = Path(tempfile.mkdtemp()) / "issues.json"
+        cache.write_text(json.dumps([{
+            "number": 10, "title": "T10", "body": "long local body for ingest " * 2,
+            "comments": 5, "state": "closed", "labels": ["triaged"],
+        }]), encoding="utf-8")
+        quality = Path(tempfile.mkdtemp()) / "quality.json"
+        quality.write_text(json.dumps({}), encoding="utf-8")
+        with tempfile.TemporaryDirectory() as td:
+            result = run_cli(
+                "sample", "ingest-issues", "--source", "local", "--cache", str(cache),
+                "--repo", "o/r", "--root", td, "--state", "ingest-state.json",
+                "--quality-file", str(quality),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("created: 0", result.stdout)
+
+    def test_issue_ingest_malformed_quality_file_fails_cleanly(self):
+        with tempfile.TemporaryDirectory() as td:
+            quality = Path(td) / "quality.json"
+            quality.write_text("{bad", encoding="utf-8")
+            result = run_cli(
+                "sample", "ingest-issues", "--source", "local", "--cache", "/tmp/none.json",
+                "--repo", "o/r", "--root", td, "--state", "ingest-state.json",
+                "--quality-file", str(quality),
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertNotIn("Traceback", result.stderr)
+
+    def test_issue_ingest_rejects_low_quality(self):
+        cache = Path(tempfile.mkdtemp()) / "issues.json"
+        cache.write_text(json.dumps([{
+            "number": 9, "title": "T9", "body": "long local body for ingest " * 2,
+            "comments": 5, "state": "closed", "labels": ["triaged"],
+        }]), encoding="utf-8")
+        quality = Path(tempfile.mkdtemp()) / "quality.json"
+        quality.write_text(json.dumps({"9": {"score": 0.2, "answer": "x"}}), encoding="utf-8")
+        with tempfile.TemporaryDirectory() as td:
+            result = run_cli(
+                "sample", "ingest-issues", "--source", "local", "--cache", str(cache),
+                "--repo", "o/r", "--root", td, "--state", "ingest-state.json",
+                "--quality-file", str(quality),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("created: 0", result.stdout)
 
     def test_unknown_source_exits_2(self):
         with tempfile.TemporaryDirectory() as td:
@@ -968,3 +1149,114 @@ class PolicyWiringCliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ToolingCliTest(unittest.TestCase):
+    @staticmethod
+    def _row(sample, calls=2, resolved=True):
+        return {"sample_id": sample, "tool_calls": calls, "fetch_calls": 1,
+                "grep_calls": 1, "retries": 0, "cache_hits": 0,
+                "tool_ms": 10.0, "failures": 0, "resolved": resolved}
+
+    def test_tooling_gate_accepts_and_rejects(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            base = root / "base.json"
+            cand = root / "cand.json"
+            base.write_text(json.dumps({"samples": [self._row("a", calls=4)]}), encoding="utf-8")
+            cand.write_text(json.dumps({"samples": [self._row("a", calls=2)]}), encoding="utf-8")
+            result = run_cli("experiment", "gate", "--target", "tooling",
+                             "--baseline", str(base), "--candidate", str(cand))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("decision: accept", result.stdout)
+            cand.write_text(json.dumps({"samples": [self._row("a", calls=2, resolved=False)]}),
+                            encoding="utf-8")
+            result = run_cli("experiment", "gate", "--target", "tooling",
+                             "--baseline", str(base), "--candidate", str(cand))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("decision: reject", result.stdout)
+
+    def test_tool_usage_from_trace_cli(self):
+        with tempfile.TemporaryDirectory() as td:
+            trace = Path(td) / "t.yaml"
+            trace.write_text(yaml.safe_dump({
+                "session_id": "s1",
+                "trace": [{"action": "source_analysis", "files_read": ["a.py"],
+                           "tool_calls": ["src_fetch.py r main", "grep a.py"],
+                           "tool_ms": 5.0}],
+            }), encoding="utf-8")
+            result = run_cli("tool-usage", "from-trace", "--trace", str(trace), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload["tool_calls"], 2)
+            self.assertEqual(payload["fetch_calls"], 1)
+
+
+class SampleIntakeCliTest(unittest.TestCase):
+    def test_trace_dry_run_create_answer_and_status(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            traces = root / "traces"
+            traces.mkdir()
+            trace = traces / "t.yaml"
+            trace.write_text(yaml.safe_dump({
+                "session_id": "2026-01-01-1001-demo",
+                "summary": "现象：启动崩。\n\n根因：模块绑定未刷新。\n\n处置：重绑。",
+                "incident_env": "A3",
+                "trace": [{"role": "user", "content": "启动崩"}],
+            }), encoding="utf-8")
+            dry = run_cli("sample", "new", "--from", "trace", "--trace", str(trace),
+                          "--root", td, "--dry-run", "--json")
+            self.assertEqual(dry.returncode, 0, dry.stderr)
+            payload = json.loads(dry.stdout)
+            self.assertEqual(payload["completeness"]["state"], "needs_answer")
+            created = run_cli("sample", "new", "--from", "trace", "--trace", str(trace),
+                              "--root", td)
+            self.assertEqual(created.returncode, 0, created.stderr)
+            sample_id = created.stdout.split("created: ", 1)[1].splitlines()[0].strip()
+            answered = run_cli("sample", "set-answer", "--id", sample_id,
+                               "--resolution", "模块绑定未刷新", "--confidence",
+                               "maintainer-reviewed", "--sanitized", "true", "--root", td)
+            self.assertEqual(answered.returncode, 0, answered.stderr)
+            status = run_cli("sample", "status", "--id", sample_id, "--root", td, "--json")
+            self.assertEqual(status.returncode, 0, status.stderr)
+            self.assertEqual(json.loads(status.stdout)["state"], "ready")
+
+
+class JudgeCalibrationCliTest(unittest.TestCase):
+    def test_agreement_and_gate(self):
+        with tempfile.TemporaryDirectory() as td:
+            a = Path(td) / "a.json"
+            b = Path(td) / "b.json"
+            a.write_text(json.dumps({"scores": [
+                {"id": "x", "score": 1}, {"id": "y", "score": 0}]}), encoding="utf-8")
+            b.write_text(json.dumps({"x": 1, "y": 0}), encoding="utf-8")
+            ok = run_cli("judge-calibration", "--a", str(a), "--b", str(b), "--json")
+            self.assertEqual(ok.returncode, 0, ok.stderr)
+            self.assertTrue(json.loads(ok.stdout)["passed"])
+            b.write_text(json.dumps({"x": 0, "y": 0}), encoding="utf-8")
+            bad = run_cli("judge-calibration", "--a", str(a), "--b", str(b))
+            self.assertEqual(bad.returncode, 1)
+            self.assertIn("passed: false", bad.stdout)
+
+
+class SampleReviewJsonCliTest(unittest.TestCase):
+    def test_review_and_promote_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            created = run_cli("sample", "new", "--root", td, "--id", "S-J",
+                              "--object-type", "diagnosis",
+                              "--source", "traces/j.yaml",
+                              "--expected", '{"resolution": "r"}')
+            self.assertEqual(created.returncode, 0, created.stderr)
+            answer = run_cli("sample", "set-answer", "--root", td, "--id", "S-J",
+                             "--resolution", "r", "--sanitized", "true",
+                             "--confidence", "maintainer-reviewed")
+            self.assertEqual(answer.returncode, 0, answer.stderr)
+            reviewed = run_cli("sample", "review", "--root", td, "--id", "S-J",
+                               "--approve", "--json")
+            self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+            self.assertEqual(json.loads(reviewed.stdout)["status"], "active")
+            promoted = run_cli("sample", "promote", "--root", td, "--id", "S-J",
+                               "--to", "core", "--json")
+            self.assertEqual(promoted.returncode, 0, promoted.stderr)
+            self.assertEqual(json.loads(promoted.stdout)["origin"], "core")

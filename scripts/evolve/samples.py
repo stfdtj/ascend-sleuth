@@ -18,6 +18,7 @@ import yaml
 
 from .contracts import (
     ORIGINS,
+    source_needs_provenance,
     PURPOSES,
     STATUSES,
     Sample,
@@ -79,6 +80,7 @@ class SampleStore:
         else:
             raise StoreError("SampleStore requires root or base")
         self.samples_dir = self.base / SAMPLES_DIRNAME
+        self.core_dir = self.root / "eval" / "core" / "samples"
 
     # ---------------------------------------------------------------- 读取
     def path_for(self, id: str) -> Path:
@@ -102,9 +104,13 @@ class SampleStore:
             raise StoreError(f"invalid sample in {path}: {exc}") from exc
         return sample
 
-    def load(self, id: str) -> Optional[Sample]:
+    def core_path_for(self, id: str) -> Path:
         sample_id = id
-        path = self.path_for(sample_id)
+        if not valid_id(sample_id):
+            raise StoreError(f"invalid sample id: {sample_id!r}")
+        return self.core_dir / f"{sample_id}.yaml"
+
+    def _load_at(self, path: Path, sample_id: str) -> Optional[Sample]:
         if not path.exists():
             return None
         sample = self._read_path(path)
@@ -114,17 +120,34 @@ class SampleStore:
             )
         return sample
 
+    def load(self, id: str) -> Optional[Sample]:
+        sample_id = id
+        return (self._load_at(self.path_for(sample_id), sample_id)
+                or self._load_at(self.core_path_for(sample_id), sample_id))
+
     def require(self, id: str) -> Sample:
         sample = self.load(id)
         if sample is None:
             raise StoreError(f"no such sample: {id}")
         return sample
 
-    def read_all(self) -> List[Sample]:
-        if not self.samples_dir.exists():
-            return []
-        samples = [self._read_path(path) for path in sorted(self.samples_dir.glob("*.yaml"))]
-        return sorted(samples, key=lambda item: item.id)
+    def read_all(self, strict: bool = True) -> List[Sample]:
+        local = ([self._read_path(path)
+                  for path in sorted(self.samples_dir.glob("*.yaml"))]
+                 if self.samples_dir.exists() else [])
+        core = ([self._read_path(path)
+                 for path in sorted(self.core_dir.glob("*.yaml"))]
+                if self.core_dir.exists() else [])
+        out = []
+        seen = set()
+        for sample in local + core:
+            if sample.id in seen and strict:
+                raise StoreError(
+                    f"duplicate sample id across local and eval/core: {sample.id}"
+                )
+            seen.add(sample.id)
+            out.append(sample)
+        return sorted(out, key=lambda item: item.id)
 
     def list(
         self,
@@ -151,6 +174,10 @@ class SampleStore:
     # ---------------------------------------------------------------- 写入
     def _write(self, sample: Sample) -> Path:
         sample.validate()
+        if not self.path_for(sample.id).exists() and self.core_path_for(sample.id).exists():
+            raise StoreError(
+                f"{sample.id} is a tracked eval/core sample; edit it via PR, not the local store"
+            )
         path = self.path_for(sample.id)
         text = yaml.safe_dump(
             sample.to_dict(),
@@ -205,6 +232,8 @@ class SampleStore:
         input: Optional[Dict[str, Any]] = None,
         expected_kind: Optional[str] = None,
         proposed: Optional[Dict[str, Any]] = None,
+        provenance: Optional[Dict[str, Any]] = None,
+        non_diagnostic: bool = False,
         notes: Optional[str] = None,
     ) -> Sample:
         """创建候选样本。候选可以先缺答案，但 ``sample check`` 会拦下。"""
@@ -243,6 +272,8 @@ class SampleStore:
             expected_kind=expected_kind,
             rubric=rubric,
             proposed=proposed,
+            provenance=dict(provenance) if provenance is not None else None,
+            non_diagnostic=non_diagnostic,
             created_at=stamp,
             updated_at=stamp,
             notes=notes,
@@ -261,6 +292,15 @@ class SampleStore:
             errors.append("purpose=test only from active/core-evaluation")
         if sample.purpose == "feedback" and sample.origin == "core":
             errors.append("purpose=feedback must stay in origin=field")
+        if (sample.object_type == "diagnosis"
+                and sample.purpose in ("evaluation", "test")):
+            provenance = sample.provenance or {}
+            if provenance.get("sanitized") is False or (
+                    provenance.get("sanitized") is None
+                    and source_needs_provenance(sample.source)):
+                errors.append("purpose=evaluation/test requires sanitized provenance")
+        if sample.non_diagnostic and sample.purpose in ("evaluation", "test"):
+            errors.append("non_diagnostic sample cannot enter evaluation/test")
         if sample.object_type in OBJECT_TYPES:
             spec = OBJECT_TYPES[sample.object_type]
             if sample.purpose not in spec.allowed_purposes:
@@ -268,7 +308,7 @@ class SampleStore:
                     f"purpose={sample.purpose} not allowed for object_type={sample.object_type}; "
                     f"allowed: {list(spec.allowed_purposes)}"
                 )
-        others = self.read_all()
+        others = self.read_all(strict=False)
         for other in others:
             if other.id != sample.id and source_group(other) == source_group(sample):
                 errors.append(f"duplicate source also used by sample {other.id}")
@@ -334,6 +374,10 @@ class SampleStore:
                 "promote rejected: purpose=test is derived from active/core evaluation, "
                 "not promoted from a candidate"
             )
+        if (sample.provenance or {}).get("sanitized") is False:
+            raise StoreError(
+                "promote rejected: provenance.sanitized is false; redact before core"
+            )
         prospective = replace(sample, origin="core")
         errors = self._admission_errors(prospective)
         if errors:
@@ -353,10 +397,11 @@ class SampleStore:
         expected: Optional[Dict[str, Any]] = None,
         rubric: Optional[Dict[str, Any]] = None,
         expected_kind: Optional[str] = None,
+        provenance: Optional[Dict[str, Any]] = None,
         actor: str = "maintainer",
         reason: str = "",
     ) -> Sample:
-        """给 candidate/active 补答案；写前走准入校验，失败不落盘。"""
+        """给 candidate/active 补答案；``provenance`` 只做局部合并。"""
         sample = self.require(id)
         if sample.status not in ("candidate", "active"):
             raise StoreError(
@@ -371,11 +416,21 @@ class SampleStore:
                 expected_kind = "resolution"
             else:
                 expected_kind = sample.expected_kind
+        merged_provenance = dict(sample.provenance or {})
+        if provenance:
+            merged_provenance.update(provenance)
+        if merged_provenance:
+            merged_provenance.setdefault("trigger", "manual_case")
+            merged_provenance.setdefault("sanitized", False)
+            merged_provenance.setdefault("redactions", [])
+            merged_provenance.setdefault("confidence", "agent-reviewed")
+            merged_provenance.setdefault("extraction", "manual")
         prospective = replace(
             sample,
             expected=dict(expected) if expected is not None else None,
             rubric=dict(rubric) if rubric is not None else None,
             expected_kind=expected_kind,
+            provenance=merged_provenance or None,
         )
         errors = self._admission_errors(prospective)
         if errors:
@@ -383,6 +438,7 @@ class SampleStore:
         sample.expected = prospective.expected
         sample.rubric = prospective.rubric
         sample.expected_kind = prospective.expected_kind
+        sample.provenance = prospective.provenance
         self._record_change(
             sample, sample.status, sample.status,
             reason or "answer set by maintainer", actor,
@@ -501,6 +557,29 @@ class SampleStore:
             ))
         return sorted(existing + drawn, key=lambda sample: sample.id)
 
+    def export_core(self, id: str) -> Path:
+        """把本地 active/core 样本写入 tracked eval/core/samples/，并移除本地副本。"""
+        sample = self.require(id)
+        if sample.status != "active":
+            raise StoreError("export-core requires an active sample")
+        if sample.origin != "core":
+            raise StoreError("export-core requires origin=core (promote first)")
+        if sample.purpose not in ("test", "regression"):
+            raise StoreError("export-core requires purpose=test or regression")
+        self.core_dir.mkdir(parents=True, exist_ok=True)
+        path = self.core_path_for(sample.id)
+        text = yaml.safe_dump(
+            sample.to_dict(), sort_keys=False, allow_unicode=True,
+            default_flow_style=False,
+        )
+        if not text.endswith("\n"):
+            text += "\n"
+        _atomic_write(path, text)
+        local = self.path_for(sample.id)
+        if local.exists():
+            local.unlink()
+        return path
+
     def retire(self, id: str, actor: str = "maintainer", reason: str = "") -> Sample:
         """active → retired（软退休，可复活）。"""
         sample = self.require(id)
@@ -545,3 +624,39 @@ class SampleStore:
 def can_transition(status: str, new_status: str) -> bool:
     """对外暴露状态机检查，避免调用方各自判断。"""
     return check_transition(status, new_status)
+
+
+def import_pilot(store: "SampleStore", tasks_path: Path) -> Dict[str, List[str]]:
+    """把一次 pilot 的 samples 注册进样本队列；已存在的跳过，不改状态。"""
+    import json
+
+    tasks = json.loads(Path(tasks_path).read_text(encoding="utf-8"))
+    created: List[str] = []
+    skipped: List[str] = []
+    for entry in tasks.get("samples") or []:
+        sid = str(entry.get("short_id") or entry.get("id"))
+        if store.load(sid) is not None:
+            skipped.append(sid)
+            continue
+        path = entry.get("path")
+        if not isinstance(path, str) or not path:
+            raise StoreError(f"pilot sample {sid!r} has no path")
+        data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise StoreError(f"invalid sample file: {entry['path']}")
+        store.new(
+            id=sid,
+            object_type="diagnosis",
+            source=str(data.get("source") or entry.get("id")),
+            origin="field",
+            purpose="evaluation",
+            input=data.get("input") or {},
+            expected=data.get("expected"),
+            expected_kind=data.get("expected_kind") or "resolution",
+            provenance={"trigger": "issue_import", "sanitized": True,
+                        "redactions": [], "confidence": "issue-verified",
+                        "extraction": "auto"},
+            notes=f"imported from pilot {tasks.get('candidate_id', '')}".strip(),
+        )
+        created.append(sid)
+    return {"created": created, "skipped": skipped}

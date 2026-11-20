@@ -8,10 +8,13 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .decision import required_exclusive_wins
 from .pools import stratum_of
 from .policy import policy_hash
 from .records import ConclusionStore
 from .samples import SampleStore
+
+import yaml
 
 
 def _purpose_count(samples: List[Any], purpose: str) -> int:
@@ -19,7 +22,8 @@ def _purpose_count(samples: List[Any], purpose: str) -> int:
 
 
 def issue_plan(root: Any, base: Any, policy: Dict[str, Any],
-               metrics: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+               metrics: Optional[Dict[str, Any]] = None,
+               trace_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """返回计划字典；``root`` 用于 metrics 读取与无 ``base`` 时的默认落点。"""
     root_path = Path(root) if root is not None else Path(".")
     base_path = Path(base) if base is not None else None
@@ -134,6 +138,14 @@ def issue_plan(root: Any, base: Any, policy: Dict[str, Any],
             f"core_regression_short: {core_regression}/{target_core_regression}; "
             "add core regression samples"
         )
+    alpha = float((policy.get("decision") or {}).get("alpha", 0.10))
+    required = required_exclusive_wins(alpha)
+    potential = field_eval + counts["candidate"]
+    if potential < required:
+        actions.append(
+            f"judgment_capacity_short: pool_samples={potential} < required_b={required}; "
+            "this pool can only return insufficient"
+        )
     if missing_answer:
         warnings.append(
             "candidate(s) missing answer: " + ", ".join(sorted(missing_answer))
@@ -144,6 +156,8 @@ def issue_plan(root: Any, base: Any, policy: Dict[str, Any],
         )
     freshness = metrics.get("freshness") or {}
     timeline = metrics.get("timeline") or {}
+    if not trace_state or not trace_state.get("available"):
+        actions.append("traces_unattributed: run traces sync before attribution-driven evolution")
     if timeline.get("available") is False:
         actions.append(
             "metrics_unavailable: run trace_entry_activity --apply / metrics_snapshot "
@@ -178,6 +192,17 @@ def issue_plan(root: Any, base: Any, policy: Dict[str, Any],
                 for key in strata_short
             )
         )
+    stage = root_path / "eval" / "core" / "test-stage.yaml"
+    if stage.is_file():
+        try:
+            doc = yaml.safe_load(stage.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            warnings.append(f"test-stage unreadable: {exc}")
+        else:
+            if str(doc.get("status") or "") != "complete":
+                actions.append(
+                    "test_stage_not_started: " + str(doc.get("reason") or "test replay not run")
+                )
     if not samples:
         warnings.append("sample store is empty")
     if not actions:
@@ -185,12 +210,26 @@ def issue_plan(root: Any, base: Any, policy: Dict[str, Any],
 
     if metrics is None:
         metrics = {"available": False, "reason": "metrics not loaded by caller"}
+    runs = (policy.get("cost") or {}).get("runs") or {}
+    cost_plan = {
+        "pilot_max_pairs": runs.get("max_pairs"),
+        "baseline_reuse": bool(runs.get("baseline_reuse", True)),
+        "test_samples": (policy.get("samples") or {}).get("test"),
+        "regression_pairs": runs.get("regression_pairs"),
+        "regression_full_pairs": runs.get("regression_full_pairs"),
+        "benchmark_runs": runs.get("benchmark_runs"),
+    }
     return {
         "policy_hash": policy_hash(policy),
+        "trace_snapshot": (trace_state or {}).get("snapshot_id"),
+        "trace_state": trace_state or {"available": False},
         "target": ((policy.get("experiment") or {}).get("target") or "skill"),
         "algorithm": ((policy.get("experiment") or {}).get("algorithm") or "baseline"),
         "counts": counts,
         "metrics": metrics,
+        "judgment_capacity": {"potential": potential, "required_b": required,
+                              "alpha": alpha},
+        "cost_plan": cost_plan,
         "next_actions": actions,
         "warnings": warnings,
     }
@@ -203,6 +242,7 @@ def render_plan(plan: Dict[str, Any]) -> str:
         f"policy_hash: {plan.get('policy_hash', '')}",
         f"target: {plan.get('target', 'skill')}",
         f"algorithm: {plan.get('algorithm', 'baseline')}",
+        f"trace_snapshot: {plan.get('trace_snapshot') or 'unavailable'}",
         (
             "samples: {total} (candidate={candidate} active={active} "
             "field={field} core={core} test={test})"
@@ -213,6 +253,9 @@ def render_plan(plan: Dict[str, Any]) -> str:
             field=counts.get("field", 0),
             core=counts.get("core", 0),
             test=counts.get("test", 0),
+        ),
+        "cost_plan: " + ", ".join(
+            f"{key}={value}" for key, value in (plan.get("cost_plan") or {}).items()
         ),
         "next_actions:",
     ]

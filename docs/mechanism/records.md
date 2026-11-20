@@ -126,7 +126,7 @@ sample:
 ```yaml
 run:
   sample: VLLM-ASC-14871
-  versions: {protocol: p1, policy: policy-3, base_kb: 9f2c1a, candidate_kb: 9f2c1a, candidate: 4d8e0b, model: deepseek-flash, algorithm: baseline, algorithm_version: manual, budget: {}, seed: 0}
+  versions: {protocol: p1, policy: policy-3, base_kb: 9f2c1a, candidate_kb: 9f2c1a, candidate: C-14871-001, model: deepseek-flash, algorithm: baseline, algorithm_version: manual, budget: {}, seed: 0}
   metrics: {routing: true, case_hit: false, root_cause: null, fix: null, safety: pass}
   cost:
     source: provider_billed     # provider_billed / normalized / estimate
@@ -165,12 +165,12 @@ conclusion:
 |---|---|---|
 | 评估协议 | `protocol` | 样本分层、答案可见性、结论含义；改了它旧结论不可比 |
 | 可调策略 | `policy` | 主指标、阈值、样本量、成本预算、测试集划分 |
-| 基线知识库 | `base_kb` | 改动前 `knowledge/` 的内容哈希 |
-| 候选知识库 | `candidate_kb` | 改动后 `knowledge/` 的内容哈希 |
-| 候选改动 | `candidate` | 候选改动的提交；未提交或工作区不干净记 `dirty`，不出结论 |
-| 模型 | `model` | provider、model、思考等级 |
+| 基线知识库 | `base_kb` | 改动前检出的 HEAD 短 sha（`kb_rev` 同口径） |
+| 候选知识库 | `candidate_kb` | 候选 worktree 的 HEAD；有未提交补丁时写成 `<base>+patch:<补丁哈希>`，worktree 失效记 `unknown` |
+| 候选改动 | `candidate` | 候选 id；pilot 的补丁在隔离 worktree 内未提交，差异由 `candidate_kb` 的 patch 哈希标识 |
+| 模型 | `model` | provider、model、思考等级；trace 的 `model`、非 DSH agent 写入的显式值，或 `harness_session` 对应的 DSH 会话记录；取不到写 `unknown` |
 
-判定时协议、策略、基线知识库与模型必须相同；候选知识与候选改动可以不同，但差异必须等于候选补丁（`git diff base..candidate`）。两个知识库哈希都要记：基线是改动前的知识库，候选是改动后的，后者正是被检验的差异。
+判定时协议、策略、基线知识库与模型必须相同；候选知识与候选改动可以不同，但差异必须等于候选补丁。两个知识库版本都要记：基线是 HEAD 短 sha；候选是 HEAD，或候选 worktree 有未提交补丁时的 `<base>+patch:<补丁哈希>`；worktree 已失效记 `unknown`。
 
 两项记录的变更方式不同：改协议要单独走一次评审并升版本，旧结论标上当时的版本；改策略写在 `eval/policy.yaml`，加载时校验未知键、非法枚举与缺失字段，哈希写进 `versions.policy`。改过的策略与旧结论不可直接比较。
 
@@ -186,7 +186,7 @@ conclusion:
 | 判定池与回归池 | `.s2-replay/arena/pool-*.yaml` | 否 | `eval_arena.py --build-pool` |
 | 评估台影响记录 | `.s2-replay/arena/impact.yaml` | 否 | `eval_arena.py --gate` |
 | 内容流程执行记录 | `metrics/skill-exec-log.yaml` | 否 | `log_skill_exec.py` |
-| 结论与执行记录（v1） | `.s2-replay/evolve/conclusions.jsonl`、`runs.jsonl` | 否 | `evolve.py judge --record` |
+| 结论与执行记录（v1） | `.s2-replay/evolve/conclusions.jsonl`、`runs.jsonl` | 否 | `evolve.py judge --record`；`evolve.py pilot decide` |
 | 条目使用记录与本期读数（源） | `metrics/entry-activity.d/<周>.yaml`、`metrics/timeline.d/<期号>.yaml` | 是 | 汇总、结算与组装脚本 |
 | 记录生成物 | `metrics/entry-activity/<部署>.yaml`、`metrics/timeline.yaml` | 是，但不手改 | 主干 job 或本地重建 |
 | 会话与任务状态 | `proposals/sessions/`、`proposals/tasks/` | 否 | 会话脚本 |
@@ -262,7 +262,7 @@ schema 在 `metrics/skill-exec-log.yaml`，只追加；`scripts/log_skill_exec.p
 - 知识、先验、过程三类对象的评分器与 rubric：`object_types.py` 有描述表，评分器未实现。
 - core 样本与 `eval/core/`：目录不存在，core 样本仍是目标形态。
 - 旧数据迁移：现有样本散在 `eval/s2/`、`eval/golden/`、`eval/holdout.yaml` 与池文件里，尚未迁进样本队列。
-- 观察窗超时降级的正式状态（`unconfirmed_valid` / `unconfirmed` / `rolled_back`）：S1 断供持续两期以上再实现，此前用「标存疑加提醒人」；候选过期态 `stale` 参数待校准。
+- 观察窗超时降级的正式状态（`unconfirmed_valid` / `unconfirmed` / `rolled_back`）：现场反馈断供持续两期以上再实现，此前用「标存疑加提醒人」；候选过期态 `stale` 参数待校准。
 - 内容流程执行记录的服务化：目前是同一克隆内共享的本地文件。
 
 ### 5.3 已否决
@@ -271,7 +271,7 @@ schema 在 `metrics/skill-exec-log.yaml`，只追加；`scripts/log_skill_exec.p
 - `candidate` 待办态与旧的 `estimated_cost` 字段：前者与「产卡即执行」冲突，后者没有 token 记账时不产生实际约束（已由 `actual_cost` 取代）。
 - 每次 skill 调用都落一条执行记录：记录负担超过观测价值；diagnose 有 trace，不重复落。
 - 把计数与分数写回 case 文件：计数进记录、分数进索引生成物，case 只为内容层决定而改。
-- `predicted_value`、`first_hit`、`expected_window` 三个字段与「把结论写进期文件」：前者依赖 S1 现场反馈，而该通道当前没有数据；结论按次记、期文件按周记趋势，粒度不同。
+- `predicted_value`、`first_hit`、`expected_window` 三个字段与「把结论写进期文件」：前者依赖现场反馈，而该通道当前没有数据；结论按次记、期文件按周记趋势，粒度不同。
 
 ## 6 代码与文档入口
 

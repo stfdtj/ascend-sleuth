@@ -6,7 +6,7 @@
 
 范围：评估对象、评估集的构建与分层、rubric、判定、成本、版本，以及评估台（`scripts/eval_arena.py`）的池与结论。不含记录的存储与接口（[records.md](records.md)）、运行节奏（[operations.md](operations.md)）、诊断侧的字段（[diagnosis-observability.md](diagnosis-observability.md)）。
 
-本文不写会过期的数字。样本条数、已吸收条数、已评分条数由 `python3 scripts/eval_arena.py --stats` 的「N/M 条已评分」与 `held_out_skipped` 现算；S2 校准集的条数与强度分布读 `eval/s2/vllm-ascend.yaml`。
+本文不写会过期的数字。样本条数、已吸收条数、已评分条数由 `python3 scripts/eval_arena.py --stats` 的「N/M 条已评分」与 `held_out_skipped` 现算；issue 回放校准集的条数与强度分布读 `eval/s2/vllm-ascend.yaml`。
 
 ## 1 解决什么问题
 
@@ -86,6 +86,7 @@ python3 scripts/evolve.py sample ingest-issues --repo vllm-project/vllm-ascend \
 - `--dry-run` 只打印候选，不写样本库、不更新 state。正式运行成功后把实际创建的编号原子追加到 state 的 `processed`；失败不标，重复运行不会重复导入。
 - 评测样本的 `processed` 写在 state 的 `<source_id>/evaluation` 命名空间，和 case 沉淀的 `<source_id>` 分开；同一条 issue 可同时用于 case 和评测，不互相吃掉。默认 state 跟随当前检出，样本库/`run`/`brief` 仍锚主检出；显式 `--root` 才把两者都落到本地运行件。这样 worktree 里产出的 state 能随分支提交，候选不会在 worktree 清理时丢。
 - 维护者用 `sample set-answer --id ... --expected '<json>'` 补答案，再走 `sample check`、`sample review`。ingest 不自动把候选转 active；非诊断或无答案的候选留给 review 拒收。
+- `--quality-file` 接受 agent 产出的 issue 质量/答案 JSON：分数低于 0.6 或答案占位直接跳过；通过时把 answer/namespace/category 写进 expected，仍不自动 active。
 ```mermaid
 flowchart TD
   A[用户：补评测集] --> B[问 repo / labels / limit / dry-run]
@@ -99,7 +100,7 @@ flowchart TD
   G -->|拒绝| I[rejected，不进入评测池]
 ```
 
-- 数据源由 `scripts/evolve/sources/base.py` 的 `IssueSource` 定义：`source_id`、`list_issues`、`fetch_issue`。GitHub 是默认实现；`local` 读本地 JSON/YAML 导出（含 body），用 `--source local --cache <path>`。新增 GitCode 等源只实现这个 Protocol 并登记进 `registry.py`，过滤、建候选、state 仍走同一条管线；`source_id` 是 state 分区键，也是候选 `source` 的前缀。
+- holdout 隔离是硬检查：`ingest-issues`、`import-s2`、`sample new/review/promote` 会按 `eval/holdout.yaml` 的 fixture issue 号拒绝或跳过；holdout 样本不进入候选池、不参与演进。`source_id`、`list_issues`、`fetch_issue`。GitHub 是默认实现；`local` 读本地 JSON/YAML 导出（含 body），用 `--source local --cache <path>`。新增 GitCode 等源只实现这个 Protocol 并登记进 `registry.py`，过滤、建候选、state 仍走同一条管线；`source_id` 是 state 分区键，也是候选 `source` 的前缀。
 
 诊断标注由 agent 预标、维护者抽检，抽检覆盖每周新增样本的两成或两条，取大。case 与 reference 先做 10–20 条双标与裁决，再定 rubric 阈值。trace 先全审 10 条，再抽检。自动标注只做提名，不能直接当答案。
 
@@ -131,7 +132,17 @@ $$
 
 刷新规则：样本答案进知识库时转回归；每次判定前重算吸收状态，不重算就拒判；测试集一旦划出就固定，池内容变了才重划；保留测试集只整套替换，不单独改；反馈集随新 issue 增长；总判定不低于 13 条（field 评估至少 9 条，core 测试集 4 条）。
 
-补充样本按固定流程走，不让用户额外写提示词：诊断结束、case 沉淀、issue 关闭或导入、groom 改 case 四个触发点都调用 `python3 scripts/evolve.py sample new`（参数 `--id`、`--object-type`、`--source` 等），候选生成、脱敏提示、查重与状态转换在 `samples` 一处。候选与 field 样本放本地运行件，不进公开仓；core 样本放 tracked `eval/core/`，通过 PR 入库。一条候选一个 YAML，至少带 `status: candidate`、`source`、`object_type`、`origin`、`purpose`、`expected` 或 `rubric`。维护者用 `sample review` 审候选、`sample check` 校验来源与 schema、`sample promote` 把 field 的 origin 转成 core；答案进库时用 `sample absorb` 转回归或让 test 退休。
+补充样本按固定流程走，不让用户额外写提示词：诊断结束、case 沉淀、issue 关闭或导入、groom 改 case 四个触发点都调用 `python3 scripts/evolve.py sample new`，候选生成、查重与状态转换在 `samples` 一处。候选可以缺答案，`review` 前必须补。
+
+候选与 field 样本放本地运行件，不进公开仓；core 样本放 tracked `eval/core/samples/`，通过 PR 入库。`sample export-core --id <id>` 把本地 active/core 样本写进该目录并移除本地副本；`SampleStore` 同时读本地队列与 `eval/core/samples/`，同一 id 两边都有会报重复。
+
+已闭环案例也可以直接回流：走过 sleuth 的用 `sample new --from trace --trace <path>`；没走 sleuth 的先走 `to-postmortem` 产出 case YAML，再用 `sample new --from postmortem --case <path>`。先跑 `--dry-run` 看完整性。
+
+状态有 `ready`、`needs_answer`（缺根因与修复）、`needs_sanitize`、`needs_source`、`non_diagnostic`、`duplicate`、`absorbed`、`stale`。
+
+来源信息（`provenance`）记触发点、trace/report 引用、时间、`kb_rev`、是否脱敏、脱敏项、置信度与抽取方式。`sample status` 现算完整性；`sample set-answer --resolution` 补根因与修复，`--sanitized true` 确认可共享，之后去掉 `--dry-run` 写入本地队列。
+
+查重同时看本地队列、`eval/s2`、`eval/holdout.yaml` 与 `knowledge/`（按来源 issue 号，不按 case 前缀）；重复只提示，不静默丢弃。
 
 复核清单固定为六项：来源可追、输入已脱敏、expected 或 rubric 完整、对象类型与 origin 正确、无重复、未吸收。任一项不过就退回。
 
@@ -186,6 +197,8 @@ $$
 
 v1 已能按策略直接判一次二元配对：`python3 scripts/evolve.py judge --b <候选独家命中> --c <基线独家命中> --n <配对样本数>`，可选带成本；阈值读 `eval/policy.yaml`，加 `--record` 时结论追加进 `.s2-replay/evolve/conclusions.jsonl`。
 
+judge 本身也要校准：同一批样本让两个独立评分员各打 0/1，跑 `python3 scripts/evolve.py judge-calibration --a A.json --b B.json`。默认门槛 raw ≥ 0.8、Cohen's κ ≥ 0.6；不过门槛的 judge 只能提名，不能单独支撑 accept。
+
 ### 3.6 成本与版本
 
 成本是次要指标，参与预算与只看成本的接受，不单独决定主指标的胜负。成本是向量，至少记 tokens、工具调用（知识、源码、网页、命令分开）、工具耗时、交互轮次、纠偏次数、墙钟与人工时间；按常规、复杂与大日志、跨机场景切片，复杂场景单独定预算。
@@ -200,7 +213,7 @@ tokens 分 uncached、cache_read、cache_write、out、billed 五类，并记 `c
 
 评估台把回放结果配成对、给出结论，并记下这次判定。它作用在检索与路由层的改动上，也就是 triage 分支文本、quickly_check、case 内容与排序这一层。
 
-池从已跟踪的 S2 校准集机械重建，一条命令派生，不依赖某次会话留下的本地文件：
+池从已跟踪的 issue 回放校准集机械重建，一条命令派生，不依赖某次会话留下的本地文件：
 
 - 候选来自 ingest 状态里已处理的 issue，去掉答案已进知识库的。
 - 筛选规则：issue 处于 closed 且 `state_reason=completed`；内容是实体缺陷或用法问题，排除文档类、营销类与 not_planned；标题带流程或文档类前缀的硬拒。
@@ -222,9 +235,9 @@ tokens 分 uncached、cache_read、cache_write、out、billed 五类，并记 `c
 2. 非诊断样本不进命中率。issue 正文里没有可判别的现象，任何诊断都不可能有结论；判据由人读校准集那一行的输入下，代码不按正文长度猜。
 3. 重放版本只告警不拒判。一批结果跨若干次 `git pull` 才跑完时，跨版本混算的分数前后不可比；`--stats` 收 `kb_rev` 写进 `replay_revs`，混版本打印警告，`--gate` 记进影响记录。
 
-命中低是设计的结果：S2 池从未沉淀的 closed issue 里选样，池本身就是用来暴露覆盖缺口的，不命中即库里没有这条知识，走补 case 候选。它不是已有 case 的外部验证通道。
+命中低是设计的结果：issue 回放池从未沉淀的 closed issue 里选样，池本身就是用来暴露覆盖缺口的，不命中即库里没有这条知识，走补 case 候选。它不是已有 case 的外部验证通道。
 
-S2 未命中有三种解释：路由错、缺 case、内容错。它只看到没命中，区分不了三者，因此只能产出检索层候选（查路由、查覆盖缺口），不能据此判定 case 内容错。命中但结论不符不是未命中，它有区分力：说明被命中的那条 case 内容或判别力有问题，是复审的合法证据。
+issue 回放未命中有三种解释：路由错、缺 case、内容错。它只看到没命中，区分不了三者，因此只能产出检索层候选（查路由、查覆盖缺口），不能据此判定 case 内容错。命中但结论不符不是未命中，它有区分力：说明被命中的那条 case 内容或判别力有问题，是复审的合法证据。
 
 交叉验证样本是另一类：与某条 case 的来源 issue 不同、但错误签名与该 case 对得上的 issue。它只收已关闭且有维护者结论的条目；结算前先查该 case 正文有没有引用这个 issue 号，引用了就记 `self_consistent`，不计为外部验证。
 
@@ -232,7 +245,111 @@ S2 未命中有三种解释：路由错、缺 case、内容错。它只看到没
 
 `--self-test` 用合成样本复现三种结论，CI 跑它（`kb-checks` 的 `arena-gate-rule`）；判据写坏、只会判 `accept` 时 CI 就红。
 
-### 3.8 算法适配器
+### 3.8 算法适配器与 RSI stage
+
+实验记录有两种来源：`baseline` 是对照臂，只记录 seed/包络，不产生候选；agent 可以用 `experiment propose --draft <json>` 为任意 target 提交结构化提案（target、改动、预期、风险、回滚），由 target 的评估器决定后续验证。`--draft` 只做结构校验，不代表 target-specific 改动一定可执行。
+
+`propose.agent` 是**提案节点的一种实现**，不是整条 RSI 算法。它按 target 的 ProposalPort 生成结构化草案：先跑 `experiment request --target <t> --component <region>` 拿提示、允许路径与输出 schema，再由 agent 写 draft；`baseline` 只作对照臂，不提案。GEPA 是 `select.pareto + propose.agent` 的节点组合，`select`、`judge`、`gate` 各自还有独立实现；不要把“启发式 agent 提案”等同于“GEPA 或整条自演进管线”。
+
+自演进实验按六个节点固定算法：`attribute`、`select_region`、`select_candidate`、`propose`、`judge`、`gate`。当前注册：`attribute.trace_rule`/`attribute.agent`、`select.region_hardcount`/`select.region_agent`、`select.none`/`select.best`/`select.pareto`、`propose.none`/`propose.agent`/`propose.reflection`（兼容别名）、`judge.subagent`、`gate.paired`。默认 agent heuristic 是 `select_candidate.best` + `propose.agent`；GEPA 是 `select_candidate.pareto` + `propose.agent` 的组合。归因/选 region 先规则，规则不确定才让 agent 补证据；agent 不能把推断写成 hard，也不做最终 gate。`policy.experiment.stages` 是可覆盖的默认组合；实验记录保存解析后的 stages，禁止把算法写错节点。
+
+### 3.9 知识使用效率
+
+知识使用的可变异区是 `diagnose.knowledge_usage`，只改检索顺序、读索引/全文时机、候选数、reference 查询与停止条件；不改 case/reference 内容，也不改 trace schema。归因组件用 `knowledge_usage`、`case_retrieval`、`case_loading`、`reference_lookup`。
+
+每个 rollout 记录一行：
+
+```json
+{"sample_id":"S-1","hit":true,"first_hit_step":2,"candidates_examined":2,
+ "full_body_reads":1,"reference_lookups":0,"wrong_cases":0,
+ "resolution_ok":true,"tokens":1200}
+```
+
+`hit=true` 必须有 `first_hit_step`；缺失字段记 unknown，不补 0。入口：
+
+```bash
+# 现有 diagnose trace 直接导出 usage；trace 放在演进评估目录，不写真实 traces/
+python3 scripts/evolve.py knowledge-usage from-trace \
+  --trace .s2-replay/evolve/usage-traces/<session>.yaml --expected-case <case-id>
+python3 scripts/evolve.py knowledge-usage evaluate --file usage.json
+python3 scripts/evolve.py knowledge-usage compare --baseline base.json --candidate cand.json
+```
+
+演进评估的 trace 统一放 `.s2-replay/evolve/usage-traces/`（本地运行件，git-ignored），不得写入 `traces/`；真实诊断 trace 与演进评估 trace 分开。`from-trace` 从 `load_index`/`load_full`/`quickly_check`/`reference_lookup`/`hit` 推导，token 不在 trace 里时保持 null。
+
+`candidates_examined` 记筛出的短列：`load_full` 点名的候选与 `quickly_check` 点名的 case 取并集；没有这两类事件时记 unknown，不拿索引视图行数顶替。
+
+`full_body_reads` 数 `load_full` 事件里点名的候选：`case` 或 `candidates` 列表，两者都写时取并集。没有带 `case` 或 `candidates` 的 `load_full` 事件时，退回 `quickly_check` 的 `case`。
+
+判定准确率看两处：judge 绑定的 `resolution_ok`（两侧齐全时比 resolved 数）与 `hits`；`hits` 下降一律算 `accuracy_regressed`。`resolution_ok` 缺失时退回 `wrong_cases`，再缺记 `wrong_cases_unknown`。
+
+`compare` 逐样本配对。同一效率项只在两侧都有值的样本上求均值，样本 id 集合仍要求两侧一致。同一字段在两侧可测的样本数不同时，各自求均值会把「一侧缺数据」算成「另一侧变好或变差」。
+
+某项只有部分样本可测时，差值照报，但不算改善或回退；超过 1e-9 时记 `efficiency_partial_unknown`，结论不能是 `accept`。`elapsed_ms` 例外：部分覆盖时方向记未知，正差值记 `elapsed_inconclusive` 并阻断 `accept`，负差值不算改善。
+
+`compare` 只有在准确率不降、至少一个效率项改善、且没有效率项变差时给 `accept`；准确率或效率回退给 `reject`；没有改善或证据不全给 `insufficient`。实验记录的 `knowledge_usage.decision` 若存在，整体 `accept` 必须同时为 `accept`。每个效率项同时报配对差值的均值与置信区间（`ci`）。计数项用点估计与 1e-9 阈值；`elapsed_ms` 是连续项，方向只在区间排除 0 时成立，区间跨 0 且差值为正时记 `elapsed_inconclusive`，结论不能是 `accept`。
+
+判定容量在 `brief` 算：同一评估池第 k 次判定时 `alpha_eff = alpha/(k+1)`，达成证据所需的最少独家命中数 `required_b` 是 `min{b: 2^-b <= alpha_eff}`。池样本数（field 加待审候选）少于 `required_b` 时记 `judgment_capacity_short`；这是入池前提示，不改判定结论，判定记录里不重复算。预检按 k=0 算，因为不知道下一次会复用哪个池。
+
+`pilot prepare` 只收 field/探索样本：`purpose=test` 或 `regression` 的封存样本会被拒绝，来源命中 `eval/holdout.yaml` 的样本也会被拒绝，避免拿终判集或封存对照集调参；regression 只用于硬回退，不参与 pilot 对照。
+
+成本控制：`eval/policy.yaml` 的 `cost.runs.max_pairs` / `max_tokens` / `early_stop` 写进 `tasks.json` 的 `budget` 与 `stop_rules`；每跑完一对样本跑 `pilot checkpoint`，若 `b + 剩余 < required_b`（futility）或预算用完，就停，不再跑满全部样本。早停只用于停止无望的实验，不用于提前 accept。
+
+baseline 复用：`pilot prepare --baseline-traces <dir>` 会把已有的 `traces/` 与 `out/` 复制进 pilot 的 baseline 目录，只让外部 runner 跑 candidate；缺任一条会整体拒绝，`tasks.budget.baseline_reused` 与 `baseline_source` 记录来源。复用要求模型、知识库和输入没变，不能拿旧版本冒充当前 baseline；`baseline.json` 里有 `base_rev` 时和 candidate 的 `base_rev` 比对，不一致直接拒绝。
+
+test 门禁：`stage report --stage test` 要求 `candidate_id` 不是 `HEAD`、存在同一候选的 field accept Conclusion、所有选中样本的 trace/out/judge 齐全；缺任一条都拒绝出结论。adapter 在 agent 没写 trace 时会生成 `adapter_fallback: true` 的最小 trace；report 一律拒绝这种证据；`echo` 只写合成 trace，供冒烟用。`test-stage.yaml` 的 `sealed_sha256` 在 plan 时校验样本文件哈希，样本改动即拒绝。
+
+证据与成本：judge 的 `meta`（模型、tokens、时间）会写进 Conclusion 的 `metrics.judge`；regression 报告要求 candidate trace/out 与 judge 分数齐全，缺一条就报硬错误。`stage plan --where key=value` 按 `sample.input` 选 regression 子集；`readback --measure` 会再跑 EV 卡的 predicted_effect.measure。
+
+确定性 benchmark：工具或检索类改动如果有一条可重复的命令，用 `python3 scripts/evolve.py benchmark --baseline-root <a> --candidate-root <b> --argv '["python3","-m","pytest",...]'`，重复 `cost.runs.benchmark_runs` 次比中位耗时与退出码，不跑完整诊断。它只证明这一步的差异，不替代行为类候选的 pilot。
+
+regression 预算：`cost.runs.regression_pairs` 默认 6，`regression_full_pairs` 默认 30；常规候选先跑受影响子集，高风险或发版前才跑满。
+
+test / regression runner：`stage plan --stage test|regression` 生成任务，`stage run` 按外部 command 执行每个样本/arm，`stage report` 对 test 走 exact gate、对 regression 走硬失败；`--update-stage` 会在 test 报告后把 `eval/core/test-stage.yaml` 标成 `complete`。test 只用 `test-stage.yaml` 的 `selected`，regression 默认取 `regression_pairs` 条，`--full` 取全量。command 通过环境变量拿到 `SLEUTH_TRACE` / `SLEUTH_OUT` 等路径，必须写出这两个文件；runner 本身不调用模型。仓库提供一个参考 adapter：`python3 scripts/agent_adapter.py --agent dsh` 默认走 DSH headless，`--agent claude` 走 Claude Code，`--agent echo` 只用于冒烟，`--agent command` 读 `SLEUTH_AGENT_CMD`。stage plan 会拒绝来源命中 `eval/holdout.yaml` 的 test/regression 样本。
+
+judge：`stage judge --output <dir> --agent dsh --calibration <json>` 对每个样本/arm 调一次 judge adapter，写出带 `meta.agent` 与 `meta.calibration` 的 `judge.json`；`stage report --stage test` 拒绝没有来源或校准未通过的 judge。adapter 没写 trace 时生成的 fallback trace 一律拒绝，生产路径没有放行开关。
+
+`pilot collect` 之后跑 `pilot decide`。它把每条 rollout 写成一条执行记录（`Run`，见 records.md），把一次对照写成一条结论（`Conclusion`，同篇）。`judge --record` 与 `pilot decide` 都收 `--card EV-YYYY-NNN`，把结论绑到对应卡；合入后跑 `python3 scripts/evolve.py readback --card EV-YYYY-NNN` 读回最近一条结论（decision/b/c/n/model/cost）；自演进页的卡详情也会显示「结论回读」一节。模型的来源是 `collect` 里每条 rollout 的 `model`（多个不同值用逗号连接）；成本只累加 **baseline 与 candidate 都有 token** 的配对样本，缺失数写进 `cost.missing`，不补 0。
+
+记录写在 pilot 输出目录的父目录（常规位置是 `.s2-replay/evolve/`）：`runs.jsonl` 与 `conclusions.jsonl`。重复执行不会重复记 `Run`；同候选、同池、同参数、同约束的结论只写一次。
+
+`candidate_kb` 在候选 worktree 有未提交补丁时写成 `<基础版本>+patch:<补丁哈希>`；worktree 已失效时记 `unknown`，不用基础版本冒充。
+
+pilot 的样本可以用 `sample import-pilot --tasks <tasks.json>` 注册进本地样本队列；重复导入跳过，不改已有状态。
+
+### 3.10 源码访问效率
+
+`diagnose.source_usage` 只改源码访问策略：缓存优先、固定 ref、限定路径与 grep 范围、失败停止；不改知识内容/schema。归因组件用 `source_usage`、`source_fetch`、`source_query`、`source_analysis`。
+
+真实 trace 的 `source_analysis` 可导出：
+
+```bash
+python3 scripts/evolve.py source-usage from-trace \
+  --trace .s2-replay/evolve/usage-traces/<session>.yaml
+python3 scripts/evolve.py source-usage evaluate --file source-usage.json
+python3 scripts/evolve.py source-usage compare --baseline base.json --candidate cand.json
+```
+
+记录 repo/ref、files_read、tool_calls、fetch_calls、grep_calls、followups、elapsed；cache/download/bytes 只做可选观测，不进门禁。`compare` 与知识使用效率一样逐样本配对：只在两侧都有值的样本上算该项总数。某项只有部分样本可测时，差值照报，但不算改善或回退。它的差值仍超过判定阈值（1e-9）时记 `source_efficiency_partial_unknown`。
+
+`compare` 要求源码结论 correctness 不降，且 files/tool/fetch/grep/elapsed 至少一项改善、没有项变差；correctness 或效率 unknown 只能记 `insufficient`。`elapsed` 的方向与知识使用效率一样按配对区间判，跨 0 的正差值记 `source_elapsed_inconclusive`。
+
+### 3.10.1 工具使用与工具性能
+
+`tooling` 改的是工具本身（`scripts/src_fetch.py` 的缓存/重试/ref 解析、`source-catalog.d/` 的路由数据），不是使用工具的提示文本。归因组件用 `source_fetch`、`source_cache`、`source_retry`、`source_catalog`。
+
+`scripts/evolve/tool_usage.py` 从 trace 的 `source_analysis` 事件读每个样本的工具指标：`tool_calls`、`fetch_calls`、`grep_calls`、`retries`、`cache_hits`、`tool_ms`、`failures`，结论正确性由 judge 绑定成 `resolved`。入口：
+
+```bash
+python3 scripts/evolve.py tool-usage from-trace --trace <trace.yaml> --resolved true
+python3 scripts/evolve.py tool-usage compare --baseline base.json --candidate cand.json
+```
+
+`compare` 与另两处一样逐样本配对：`resolved` 不降，且至少一项工具指标改善、没有项变差才给 `accept`。`replay_trace` 的 `experiment gate` 直接读这两份 JSON。
+
+工具补丁走 `target_kind: tooling` 的 candidate：文件只能落在 region 登记的 `paths`（`tooling.source_fetch` 是 `scripts/src_fetch.py` 与 `source-catalog.d`），不能碰 `skills/`、`knowledge/`、`eval/`、`tests/`、`.github/`。补丁可带 `checks`，取值是固定枚举：`py_compile`（编译补丁文件）、`diff_check`（`git diff --check`）、`src_fetch_self_test`（只对 `tooling.source_fetch` 与 `tooling.source_catalog`）。检查按 argv 在 worktree 内执行，不走 shell；任一失败回滚文件并删除 worktree。
+
+### 3.11 算法适配器
 
 算法只做提案者，不做判定、不直接写库、不合入。`scripts/evolve/ports.py` 定义 `Optimizer`，`scripts/evolve/algorithms/registry.py` 是静态注册表；当前只有 `baseline`。`policy.experiment.target`/`algorithm` 选目标与算法，`Version.algorithm`/`algorithm_version` 记身份，`budget`/`seed` 记实验条件。GEPA/AEL/SkillProx/EvolveMem 只在后续的实验适配器里接入，一次只接一个组件；没有动态插件加载。
 
@@ -240,9 +357,9 @@ S2 未命中有三种解释：路由错、缺 case、内容错。它只看到没
 
 | target | 改什么 | 评测面 | 端到端 evaluator | 授权 | 默认算法 |
 |---|---|---|---|---|---|
-| skill | skill 文本、步骤、流程 | arena 配对门禁（golden/S2 旁路） | 已接（`arena`） | A2 | baseline |
+| skill | skill 文本、步骤、流程 | arena 配对门禁（golden 与 issue 回放旁路） | 已接（`arena`） | A2 | baseline |
 | knowledge | case/reference 内容 | rubric + 效用审计 | 已接（`rubric` 评分） | A2 | baseline |
-| tooling | 工具路由、分支、重试 | replay + trace 工具使用 | 未接（`replay_trace`） | A2 | baseline |
+| tooling | 工具路由、缓存、重试、目录数据 | replay + trace 工具使用 | 已接（`replay_trace`） | A1 | baseline |
 | harness | 调度与控制流 | 端到端回放 + 回归 | 未接（`end_to_end`） | A1 | baseline |
 
 `evaluations/registry.py` 把 target 映射到 `EvalProfile`，`implemented` 只表示当前有没有端到端 scorer/gate，不表示有真实数据。未接的 target 仍可记录 baseline Patch，但 `experiment propose` 会打印 `eval_ready: false` 并警告“记录但不 gate-ready”；不把目标分发误当评测完成。
@@ -254,9 +371,14 @@ python3 scripts/evolve.py experiment gate --target knowledge --sample K-1 \
   --scores '{"来源可追": 2, "根因完整": 2, "可复用": 1}'
 ```
 
-通过退出 0，拒绝退出 1，输入或 evaluator 未接退出 2。该命令只判一个已有 rubric 的样本，不替代双标、不生成 rubric。
+通过退出 0，拒绝退出 1，输入或 evaluator 未接退出 2。rubric 分支只判一个已有 rubric 的样本，不替代双标、不生成 rubric；tooling 分支读两份 tool usage JSON：
 
-`targets/registry.py` 只允许 target 白名单内的算法；未注册的算法不会静默回退。GEPA 适配器已注册在 `algorithms/gepa.py`，只接 `skill` target；它不在 CLI 里伪造 evaluator/model，调用方必须在 `budget.gepa` 提供 `seed_candidate`、`trainset`、`evaluator`、`task_lm`、`reflection_lm`，并安装 `gepa`（Python ≥3.10）。未安装或配置缺失会报可照做的错误，不产生 Patch。加一个 target 或算法各改一个静态注册表，主循环、评测协议和记录格式不动。`experiment propose --target skill --component <组件>` 会调用当前 optimizer 生成一个 Patch 并写本地 `experiments.jsonl`；`experiment records` 读取最近记录。baseline 仍是人工提案，不会自动改文件或合入。
+```bash
+python3 scripts/evolve.py experiment gate --target tooling \
+  --baseline base-tool.json --candidate cand-tool.json
+```
+
+`targets/registry.py` 只允许 target 白名单内的算法；未注册的算法不会静默回退。官方 GEPA 库没有注册：它需要外部 endpoint 和同步 `task_lm`/`reflection_lm`，不属于本框架的自包含路径。GEPA 效果由 agent-native 实现承担：`select_candidate.pareto` + `propose.agent`，由 subagent 执行 task/judge/reflection，不调用官方库。`experiment propose --target skill --component <组件>` 会调用当前 optimizer 生成一个 Patch 并写本地 `experiments.jsonl`；`experiment records` 读取最近记录。baseline 仍是人工提案，不会自动改文件或合入。
 
 ## 4 边界与失败模式
 
@@ -284,14 +406,14 @@ python3 scripts/evolve.py experiment gate --target knowledge --sample K-1 \
 - 池按吸收状态分流、吸收状态在运行期重判：`--build-pool` 与 `absorption_rev`；非诊断样本剔出命中率、结论一致率与配对。
 - 适配器层与旧脚本薄壳：`scripts/evolve/adapters/` 已落地；旧脚本仍是实现源，适配器只做包装，不复制评分与派发规则；`judge-stats` 对跨池和吸收失效有守卫。
 - 无回归范围、`ground_truth` 与重放版本写进影响记录。
-- S2 单池校准集、交叉验证样本与保留测试集：`eval/s2/`；`eval/holdout.yaml` 按内容哈希封存（`scripts/holdout.py --check`）。
+- issue 回放校准集、交叉验证样本与保留测试集：`eval/s2/`；`eval/holdout.yaml` 按内容哈希封存（`scripts/holdout.py --check`）。
 
 ### 5.2 蓝图
 
 以下是设计保留、触发条件出现才实现的部分：
 
 - 评估台的测试集分离：判定池的可评样本数达到触发线才划出终判子集（算法见 3.4）。
-- S2 单池校准集的 selection 与 test 分离：判定池中未被本系统沉淀过的样本条数够支撑判定之后再分；与上一行是两处不同的池，各自独立。
+- issue 回放校准集的 selection 与 test 分离：判定池中未被本系统沉淀过的样本条数够支撑判定之后再分；与上一行是两处不同的池，各自独立。
 - 归因层与交互层进评估台、分数进 timeline：两层各自有可用评测集后；分数在样本规模达标且带分母后。
 - 判定池扩容、知识/先验/过程三类对象的评分器：扩容继续补未吸收样本；评分器只有描述表。
 
@@ -310,7 +432,7 @@ python3 scripts/evolve.py experiment gate --target knowledge --sample K-1 \
 | 回放与对照评分 | `scripts/s2_replay.py`、`eval/s2/` |
 | 校准集生成 | `scripts/s2_calibration.py`、`NON_DIAGNOSTIC_PREFIXES` |
 | 评估台（池、出分、结论、影响记录） | `scripts/eval_arena.py`（`--build-pool` / `--pool` / `--stats` / `--gate` / `--rc-check` / `--self-test`） |
-| S2 结算进 case | `scripts/settle_s2_feedback.py` |
+| issue 回放结算进 case | `scripts/settle_s2_feedback.py` |
 | 保留测试集与 golden 全量回归 | `eval/holdout.yaml`、`scripts/holdout.py --check`；`scripts/replay_golden.py` |
 | 重放版本 | `scripts/kb_rev.py`、`replay_revs` |
 | 评估协议与策略 | `eval/policy.yaml`（唯一调参入口） |

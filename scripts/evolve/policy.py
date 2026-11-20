@@ -15,6 +15,7 @@ import yaml
 
 from .algorithms.registry import ALGORITHMS
 from .targets.registry import TARGETS, get_target
+from .stages import get_stage
 from .decision import DECISION_METHODS
 from .metrics import DEFAULT_METRICS
 
@@ -56,6 +57,15 @@ DEFAULTS: Dict[str, Any] = {
         "B": 0.10,
         "epsilon": 0.10,
         "delta": 0,
+        "runs": {
+            "max_pairs": 9,
+            "max_tokens": None,
+            "early_stop": True,
+            "baseline_reuse": True,
+            "regression_pairs": 6,
+            "regression_full_pairs": 30,
+            "benchmark_runs": 3,
+        },
     },
     "rubrics": {
         "case_version": "case-v1",
@@ -66,6 +76,14 @@ DEFAULTS: Dict[str, Any] = {
     "experiment": {
         "target": "skill",
         "algorithm": "baseline",
+        "stages": {
+            "attribute": "attribute.trace_rule",
+            "select_region": "select.region_hardcount",
+            "select_candidate": "select.best",
+            "propose": "propose.agent",
+            "judge": "judge.subagent",
+            "gate": "gate.paired",
+        },
         "budget": {},
         "seed": 0,
     },
@@ -204,6 +222,31 @@ def validate_policy(policy: Dict[str, Any]) -> None:
     if not isinstance(cost, dict):
         errors.append("cost must be an object")
     else:
+        runs = cost.get("runs")
+        if runs is not None:
+            if not isinstance(runs, dict):
+                errors.append("cost.runs must be an object")
+            else:
+                max_pairs = runs.get("max_pairs")
+                if max_pairs is not None and (
+                        not isinstance(max_pairs, int) or isinstance(max_pairs, bool)
+                        or max_pairs < 0):
+                    errors.append("cost.runs.max_pairs must be a non-negative integer or null")
+                max_tokens = runs.get("max_tokens")
+                if max_tokens is not None and (
+                        not isinstance(max_tokens, int) or isinstance(max_tokens, bool)
+                        or max_tokens < 0):
+                    errors.append("cost.runs.max_tokens must be a non-negative integer or null")
+                if not isinstance(runs.get("early_stop", True), bool):
+                    errors.append("cost.runs.early_stop must be boolean")
+                if not isinstance(runs.get("baseline_reuse", True), bool):
+                    errors.append("cost.runs.baseline_reuse must be boolean")
+                for key in ("regression_pairs", "regression_full_pairs", "benchmark_runs"):
+                    value = runs.get(key)
+                    if value is not None and (
+                            not isinstance(value, int) or isinstance(value, bool)
+                            or value < 0):
+                        errors.append(f"cost.runs.{key} must be a non-negative integer or null")
         if cost.get("primary_dimension") not in COST_DIMENSIONS:
             errors.append(
                 f"cost.primary_dimension must be one of {list(COST_DIMENSIONS)}, "
@@ -238,6 +281,21 @@ def validate_policy(policy: Dict[str, Any]) -> None:
                 f"experiment.algorithm must be one of {sorted(ALGORITHMS)}, "
                 f"got {experiment.get('algorithm')!r}"
             )
+        stages = experiment.get("stages")
+        if not isinstance(stages, dict):
+            errors.append("experiment.stages must be an object")
+        else:
+            for point, stage_id in stages.items():
+                try:
+                    spec = get_stage(str(stage_id))
+                except ValueError as exc:
+                    errors.append(f"experiment.stages.{point}: {exc}")
+                    continue
+                if spec.point != point:
+                    errors.append(
+                        f"experiment.stages.{point} must be a {point} stage, "
+                        f"got {spec.id!r}"
+                    )
         if not isinstance(experiment.get("budget"), dict):
             errors.append("experiment.budget must be an object")
         _validate_int(experiment.get("seed"), "experiment.seed", errors, minimum=0)

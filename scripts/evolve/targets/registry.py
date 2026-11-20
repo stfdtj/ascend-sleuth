@@ -10,7 +10,7 @@ TARGETS: Dict[str, TargetSpec] = {
     "skill": TargetSpec(
         id="skill", change_surface="skill text / flow / prompt",
         eval_profile="arena 配对门禁（golden/S2 旁路）", eval_profile_id="arena", authority="A2",
-        allowed_algorithms=("baseline", "gepa"), default_algorithm="baseline",
+        allowed_algorithms=("baseline",), default_algorithm="baseline",
         description="改 skill 的文本、步骤与流程；评测走 golden/S2/rubric",
     ),
     "knowledge": TargetSpec(
@@ -20,8 +20,8 @@ TARGETS: Dict[str, TargetSpec] = {
         description="改知识条目内容；评测走 rubric，效用审计可后置",
     ),
     "tooling": TargetSpec(
-        id="tooling", change_surface="tool routing / retry / branch policy",
-        eval_profile="replay + trace tool usage", eval_profile_id="replay_trace", authority="A2",
+        id="tooling", change_surface="tool routing / retry / cache / catalog",
+        eval_profile="replay + trace tool usage", eval_profile_id="replay_trace", authority="A1",
         allowed_algorithms=("baseline", "ael"), default_algorithm="baseline",
         description="改工具选择、分支、重试；评测看 replay/trace",
     ),

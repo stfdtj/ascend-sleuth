@@ -120,6 +120,12 @@ class VersionRunConclusionTest(unittest.TestCase):
         with self.assertRaises(ContractError):
             Version.from_dict({**version.to_dict(), "extra": "x"})
 
+    def test_placeholder_answer_is_rejected_for_active_but_retireable(self):
+        active = make_sample(status="active", expected={"resolution": "（待补：维护者结论）"})
+        self.assertTrue(any("placeholder" in error for error in active.errors(require_answer=True)))
+        retired = make_sample(status="retired", expected={"resolution": "（待补：维护者结论）"})
+        self.assertFalse(any("placeholder" in error for error in retired.errors()))
+
     def test_version_carries_algorithm_identity(self):
         version = Version(
             protocol="p1", policy="policy-3", base_kb="a", candidate_kb="a",
@@ -170,6 +176,7 @@ class VersionRunConclusionTest(unittest.TestCase):
             delta_q=4 / 9,
             cost_ratio=1.05,
             sample="S-1",
+            card="EV-2026-001",
             pool="pool-x",
             pool_hash="abc123",
             at="2026-11-17T09:35:00+08:00",
@@ -177,6 +184,7 @@ class VersionRunConclusionTest(unittest.TestCase):
         data = conclusion.to_dict()
         self.assertAlmostEqual(data["cost_ratio"], 1.05)
         self.assertEqual(data["sample"], "S-1")
+        self.assertEqual(data["card"], "EV-2026-001")
         self.assertEqual(data["pool"], "pool-x")
         self.assertEqual(Conclusion.from_dict(data), conclusion)
 
