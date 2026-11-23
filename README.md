@@ -23,6 +23,8 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 本轮比较新增参考词条和分析器是否能让诊断更准确、补证更具体。实验组织者在能读取原始日志的工作机上，用一个 Codex 对话调度 6 个子代理。普通使用者可直接看下方「快速开始」。
 
+实验分支保留的上游文件适用其各自的许可记录。[分析器来源和许可](scripts/analyzers/NOTICE.md)
+
 ### 做完得到什么
 
 得到两道题各三份诊断报告，以及一份人工评分表。逐题比较证据准确性、处置建议和补证质量。本轮结果用于判断这两类 iBMC 案例中的收益。
@@ -44,26 +46,27 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 ### 步骤
 
-1. **导入固定版本。** 工作机需要 Git、Python 3 和可用子代理的 Codex。通过内部渠道取得 `analyzer-model-trial.bundle` 后，在工作机的实验目录运行下列命令。将 bundle 路径替换为实际位置。已有本分支的完整克隆时，进入该目录并跳过前两行。
+1. **检出实验分支。** 工作机需要 Git、Python 3、PyYAML 和可用子代理的 Codex。在工作机的实验目录运行以下命令。已有本分支的克隆时，在该目录执行 `git pull --ff-only`，再检查 Python 依赖并记录本轮提交。
 
    ```powershell
    git clone --single-branch --branch kb/analyzer-model-trial https://github.com/stfdtj/ascend-sleuth.git analyzer-model-trial
    Set-Location analyzer-model-trial
-   $trialBundle = 'D:\transfer\analyzer-model-trial.bundle'
-   git bundle verify $trialBundle
-   git fetch $trialBundle refs/heads/kb/integrate-analyzers:refs/heads/trial/integration
-   git rev-parse trial/integration
+   python -c "import yaml"
+   $trialCommit = git rev-parse HEAD
+   $trialCommit
    ```
 
-   最后一条应输出 `33d41775fdd766987a8f311b4d1a16ab28fa746f`。原版诊断固定在 `75f6e39ff8e24afb1b9560a1e66f1b816d493b48`。
+   把打印的提交固定为 C 组版本。原版诊断固定在 `75f6e39ff8e24afb1b9560a1e66f1b816d493b48`。[分析器目录和用法](scripts/analyzers/README.md)
 
 2. **建 6 个独立本地克隆。** 每个案例和版本组合各用一个克隆。在各克隆检出表中指定的提交，把诊断记录、报告和工具产物写到该次运行的独立目录。此仓库同一克隆内的多个 worktree 默认共享 `traces/`，因此这里用独立克隆。
 
    | 版本 | 检出 | 提供给子代理的能力 |
    |---|---|---|
    | A | `75f6e39` | 原版 `diagnose`。 |
-   | B | `75f6e39` | 原版 `diagnose`，加一份从 `33d4177` 导出的 `references/tools/bmc-dump-analyzer.yaml`。 |
-   | C | `33d4177` | 与 B 同一份参考词条，加内置分析器及其调用流程。 |
+   | B | `75f6e39` | 原版 `diagnose`，加一份从 `$trialCommit` 导出的 `references/tools/bmc-dump-analyzer.yaml`。 |
+   | C | `$trialCommit` | 与 B 同一份参考词条，加内置分析器及其调用流程。 |
+
+   在 C 的两个克隆各运行 `python scripts/build_ref_summary_index.py`，让诊断能查到本分支新增的词条。
 
    每个克隆将 `.local/settings.json` 的 `sync.enabled`、`sync.auto_merge`、`sync.check_enabled` 设为 `false`。建诊断记录时给 `scripts/trace_begin.py` 传 `--no-sync`，C 调用分析器时显式传本次运行的 `--out-dir`。实验期间停用自动同步和知识沉淀。
 
@@ -81,7 +84,7 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 ### 怎么确认做对了
 
-开跑前核对同一题三组的输入副本一致，记录各工作目录的 `git rev-parse HEAD`。从每个克隆运行 `python scripts/shared_dir.py traces`，确认 6 个输出路径各自独立。在 C 的运行环境执行 `python analyzers/cli.py status --json`，确认 `enabled` 为 `true`。C 若调用失败或没有调用也保留结果和原因。
+开跑前核对同一题三组的输入副本一致，记录各工作目录的 `git rev-parse HEAD`。从每个克隆运行 `python scripts/shared_dir.py traces`，确认 6 个输出路径各自独立。在 C 的运行环境执行 `python scripts/analyzers/cli.py status --json`，确认 `enabled` 为 `true`，`ibmc_analyzer` 的 `installed` 为 `true`。C 若调用失败或没有调用也保留结果和原因。
 
 六份报告收齐后，隐藏版本标签，交两位评审独立打分。分别评根因、证据、观察项处理、缺证据处理、补证。每项 0–2 分，满分 10 分。记录分歧及其依据，另记工具执行状态。
 
@@ -89,7 +92,7 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 ### 出错了怎么办
 
-- `git bundle verify` 提示缺少前置提交时，改用包含 `75f6e39` 的完整克隆，再导入 bundle。
+- 检出 `75f6e39` 时报提交不存在，检查克隆是否用了 `--depth`。浅克隆可从实验分支执行 `git fetch --unshallow` 补齐历史。
 - 找不到合适的真实材料时，可用仓库样例试跑流程，将结果标为开发验收。后续用两份新案例做效果对照。
 - 任一子代理读到了历史案例、答案或其他组结果时，保留该次记录，用干净目录重跑该次。并发不足时，按案例分两批。
 

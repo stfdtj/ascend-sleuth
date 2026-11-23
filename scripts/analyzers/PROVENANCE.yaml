@@ -5,8 +5,8 @@ upstream:
   author: hu669293657
   license: none-declared
   license_evidence: "仓库根与子目录没有 LICENSE/COPYING/NOTICE；源文件无 SPDX 头"
-  authorization: "作者口头授权迁入与再分发，用户确认；见实验提交 33d4177 中 proposals/tool-analyzer-integration.md 的迁移批次与维护归属两节"
-  redistribution_status: "未获书面许可；不推送、不发布，仅在隔离工作区做实验"
+  authorization: "作者口头授权迁入与再分发，用户确认；见本地实验提交 33d4177 中 proposals/tool-analyzer-integration.md 的迁移批次与维护归属两节"
+  redistribution_status: "按实验组织者要求推送到公开 fork 的 kb/analyzer-model-trial 实验分支；尚无书面许可记录"
 vendored_at: scripts/analyzers/vendor
 analyzers:
   - name: ibmc_analyzer
