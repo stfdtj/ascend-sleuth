@@ -19,6 +19,84 @@
 
 skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Claude Code、Codex、DeepSeek Harness（DSH）等支持该标准的 agent 中运行。
 
+## 在工作机上跑 iBMC 诊断对照
+
+本轮比较新增参考词条和分析器是否能让诊断更准确、补证更具体。实验组织者在能读取原始日志的工作机上，用一个 Codex 对话调度 6 个子代理。普通使用者可直接看下方「快速开始」。
+
+### 做完得到什么
+
+得到两道题各三份诊断报告，以及一份人工评分表。逐题比较证据准确性、处置建议和补证质量。本轮结果用于判断这两类 iBMC 案例中的收益。
+
+### 准备材料
+
+用未参与迁移开发或测试的两个已定位案例。每题保留首轮可见的原始材料和文件结构，供三组读取相同的只读副本。
+
+| 要找的案例 | 首轮材料 |
+|---|---|
+| 已确认 NPU 多 bit ECC 异常 | 一键收集包或完整 `dump_info/`。优先找含 `AppDump/CpuMem/npu_info`、`AppDump/CpuMem/npu_ecc_info.json` 的包，保留能核对卡号和计数的原始文件。 |
+| 已确认电源输入异常，同时缺 NPU 在位证据 | 一键收集包或完整 `dump_info/`，保留 `AppDump/sensor_alarm/current_event.txt`、`AppDump/BMC/psu_info.txt`。优先选原包就缺 `AppDump/CpuMem/npu_info` 的案例。若用完整包模拟缺文件，先在副本中移除该文件，再为三组复制同一份输入。评审标记为模拟缺项。 |
+
+每题另备一份简短题干，写现场现象、发生时间和当时已知的环境。另存评审答案，写已核实的根因、关键证据所在文件和原值、当时采取的处置及结果，以及首轮不能确定的事项。若允许追问，提前写好可补充的事实。
+
+新增词条已有电源输入丢失、缺 `npu_info` 的示例。第二题选独立的现场事件，用不同的告警或读数检验能否把规则用到新材料上。
+
+案例目录和题干文件用中性编号，包内文件名保持原样。评审答案、工单结论和事后分析放在实验检出之外，评审时再打开。日志与报告留在工作机的获准目录，使用该环境获准处理日志的模型。
+
+### 步骤
+
+1. **导入固定版本。** 工作机需要 Git、Python 3 和可用子代理的 Codex。通过内部渠道取得 `analyzer-model-trial.bundle` 后，在工作机的实验目录运行下列命令。将 bundle 路径替换为实际位置。已有本分支的完整克隆时，进入该目录并跳过前两行。
+
+   ```powershell
+   git clone --single-branch --branch kb/analyzer-model-trial https://github.com/stfdtj/ascend-sleuth.git analyzer-model-trial
+   Set-Location analyzer-model-trial
+   $trialBundle = 'D:\transfer\analyzer-model-trial.bundle'
+   git bundle verify $trialBundle
+   git fetch $trialBundle refs/heads/kb/integrate-analyzers:refs/heads/trial/integration
+   git rev-parse trial/integration
+   ```
+
+   最后一条应输出 `33d41775fdd766987a8f311b4d1a16ab28fa746f`。原版诊断固定在 `75f6e39ff8e24afb1b9560a1e66f1b816d493b48`。
+
+2. **建 6 个独立本地克隆。** 每个案例和版本组合各用一个克隆。在各克隆检出表中指定的提交，把诊断记录、报告和工具产物写到该次运行的独立目录。此仓库同一克隆内的多个 worktree 默认共享 `traces/`，因此这里用独立克隆。
+
+   | 版本 | 检出 | 提供给子代理的能力 |
+   |---|---|---|
+   | A | `75f6e39` | 原版 `diagnose`。 |
+   | B | `75f6e39` | 原版 `diagnose`，加一份从 `33d4177` 导出的 `references/tools/bmc-dump-analyzer.yaml`。 |
+   | C | `33d4177` | 与 B 同一份参考词条，加内置分析器及其调用流程。 |
+
+   每个克隆将 `.local/settings.json` 的 `sync.enabled`、`sync.auto_merge`、`sync.check_enabled` 设为 `false`。建诊断记录时给 `scripts/trace_begin.py` 传 `--no-sync`，C 调用分析器时显式传本次运行的 `--out-dir`。实验期间停用自动同步和知识沉淀。
+
+   由主代理为 C 组的 `status`、`list` 和 `run` 命令提供 `SLEUTH_ANALYZERS=on`。若命令各用一个新 shell，就在每条命令的同一 shell 中设置。A、B 的开关为 `off`。
+
+3. **从一个 Codex 对话派发。** 把下面这段交给主代理，同时给它两个题干和日志路径。并发不足时分批运行，每题每版仍使用全新子代理。
+
+   ```text
+   按本节的 A、B、C 设置，从两个案例各新建三个独立子代理。每个子代理只接收对应的题干、只读材料路径、工作目录、输出目录、允许使用的参考词条和工具。使用相同模型和推理设置，启动时不继承主对话。各版用同一条诊断要求：按 diagnose 从本次材料独立排查，给出证据、判断、下一步和待补材料。
+
+   所有子代理跳过 knowledge/、postmortems/、历次 traces、proposals/、eval/、tests/fixtures/ 和实验说明。三组都可以读日志、搜索文本、运行通用 Python，按需使用共同已有的参考词条。B、C 还可以读本轮新增的同一份 iBMC 词条。C 可以按本版流程调用分析器，并读所需的工具使用说明。跳过联网检索和生产操作。题干与材料以外的信息只按统一的补充规则提供。
+
+   收齐六份结果再汇总。保留每次运行的提交、模型、报告、诊断记录、用时和工具状态。需要复跑时换干净目录和全新子代理，保留原结果。
+   ```
+
+### 怎么确认做对了
+
+开跑前核对同一题三组的输入副本一致，记录各工作目录的 `git rev-parse HEAD`。从每个克隆运行 `python scripts/shared_dir.py traces`，确认 6 个输出路径各自独立。在 C 的运行环境执行 `python analyzers/cli.py status --json`，确认 `enabled` 为 `true`。C 若调用失败或没有调用也保留结果和原因。
+
+六份报告收齐后，隐藏版本标签，交两位评审独立打分。分别评根因、证据、观察项处理、缺证据处理、补证。每项 0–2 分，满分 10 分。记录分歧及其依据，另记工具执行状态。
+
+每项按同一尺度打分。0 分表示错误或漏答，1 分表示方向合理但说不清证据或动作，2 分表示判断与证据一致，或行动具体且适合现有证据。首轮确实缺证据时，说明未知并准确提出补证，也可得满分。
+
+### 出错了怎么办
+
+- `git bundle verify` 提示缺少前置提交时，改用包含 `75f6e39` 的完整克隆，再导入 bundle。
+- 找不到合适的真实材料时，可用仓库样例试跑流程，将结果标为开发验收。后续用两份新案例做效果对照。
+- 任一子代理读到了历史案例、答案或其他组结果时，保留该次记录，用干净目录重跑该次。并发不足时，按案例分两批。
+
+### 怎么结束和清理
+
+把报告、评分表和版本记录移到工作机上指定的留存目录，再移除临时克隆。原始材料和评审答案保留在各自的目录。
+
 ## 快速开始
 
 ### 安装
