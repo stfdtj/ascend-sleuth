@@ -1,0 +1,63 @@
+schema_version: 1
+upstream:
+  repository: https://github.com/hu669293657/skills
+  commit: 6519f6f73ba68c6eaf51d9374644e4b60c84be0c
+  author: hu669293657
+  license: none-declared
+  license_evidence: "仓库根与子目录没有 LICENSE/COPYING/NOTICE；源文件无 SPDX 头"
+  authorization: "作者口头授权迁入与再分发，用户确认；见实验提交 33d4177 中 proposals/tool-analyzer-integration.md 的迁移批次与维护归属两节"
+  redistribution_status: "未获书面许可；不推送、不发布，仅在隔离工作区做实验"
+vendored_at: scripts/analyzers/vendor
+analyzers:
+  - name: ibmc_analyzer
+    upstream_path: ibmc_analyzer
+    local_path: scripts/analyzers/vendor/ibmc_analyzer
+    entry: scripts/run_bmc_report.py
+    adapter: scripts/analyzers/ibmc_analyzer/run.py
+  - name: issue-analyzer
+    upstream_path: issue-analyzer
+    local_path: scripts/analyzers/vendor/issue-analyzer
+    entry: scripts/log_analyzer.py
+    adapter: scripts/analyzers/issue-analyzer/run.py
+  - name: ascend-dump-analyzer
+    upstream_path: ascend-dump-analyzer
+    local_path: scripts/analyzers/vendor/ascend-dump-analyzer
+    entry: references/compare_dumps.py
+    adapter: scripts/analyzers/ascend-dump-analyzer/run.py
+  - name: prof-compare
+    upstream_path: prof-compare
+    local_path: scripts/analyzers/vendor/prof-compare
+    entry: scripts/main_analyzer.py
+    adapter: scripts/analyzers/prof-compare/run.py
+  - name: cluster-analysis
+    upstream_path: cluster-analysis
+    local_path: scripts/analyzers/vendor/cluster-analysis
+    entry: scripts/run_workflow.py
+    adapter: scripts/analyzers/cluster-analysis/run.py
+  - name: cluster-compare
+    upstream_path: cluster-compare
+    local_path: scripts/analyzers/vendor/cluster-compare
+    entry: scripts/generate_cluster_report.py
+    adapter: scripts/analyzers/cluster-compare/run.py
+  - name: cpu-host-performance
+    upstream_path: cpu-host-performance
+    local_path: scripts/analyzers/vendor/cpu-host-performance
+    entry: analyzer/analyze_cpu_trace.py
+    adapter: scripts/analyzers/cpu-host-performance/run.py
+documentation_only:
+  - upstream_path: vllm-ascend-tuning
+    local_path: scripts/analyzers/vendor/vllm-ascend-tuning
+    contents: "提示词、调优说明与配置模板"
+patches:
+  - file: scripts/analyzers/vendor/prof-compare/scripts/run_compare.py
+    change: "删除 pip_install；缺 msprof-analyze 时直接失败"
+    reason: "禁止诊断过程中自动安装依赖"
+  - file: scripts/analyzers/vendor/ascend-dump-analyzer/references/compare_dumps.py
+    change: "JSON 读取改用 utf-8-sig"
+    reason: "接受带 BOM 的 dump"
+  - file: scripts/analyzers/vendor/ibmc_analyzer/scripts/run_bmc_report.py
+    change: "zip 解包逐条校验路径与符号链接；解压失败时直接失败，不再把压缩包当目录解析"
+    reason: "阻止压缩包越界写出，也避免解压失败后生成空报告"
+  - file: scripts/analyzers/vendor/cpu-host-performance/analyzer/analyze_cpu_trace.py
+    change: "stdout/stderr 固定 UTF-8"
+    reason: "Windows 默认代码页下中文输出会抛 UnicodeEncodeError"

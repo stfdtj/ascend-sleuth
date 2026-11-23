@@ -1,0 +1,48 @@
+id: sleuth-analyzers
+type: tool
+title: '内置分析器 CLI（scripts/analyzers/cli.py）：整包性能 / BMC / 日志数据的离线取证入口——先 status，再按数据形态选一个'
+summary: '内置分析器 CLI（scripts/analyzers/cli.py）的调用与读法：status / list / run 三个子命令，默认关闭，需 SLEUTH_ANALYZERS=on；结果写 result.json 的 findings / missing / artifacts / data_needed，工具给出的是事实与候选解释，不是根因。'
+
+sources:
+  - type: engineer-input
+    engineer: "ascend-sleuth 维护者（本次迁入的适配层作者）"
+    document: "scripts/analyzers/cli.py、scripts/analyzers/registry.py、scripts/analyzers/_lib.py、scripts/analyzers/README.md、skills/diagnose/references/analyzer-dispatch.md"
+    input_session: "session-b307be67-960e-48dd-a1ef-ee10a2d91d24"
+    confirmed_at: 2026-11-22
+    verification: cross-checked-source
+
+applies_to:
+  platforms: [cross]
+  categories: [interrupt, precision, performance]
+
+related_references: [bmc-dump-analyzer, bmc-alert-patterns, bmc-sensor-thresholds, profiler-analysis-cli, msprof-collect-parse]
+
+status: active
+last_verified: 2026-11-22
+
+content:
+  tool_name: "内置分析器 CLI（scripts/analyzers/cli.py，7 个适配器：ibmc_analyzer / issue-analyzer / ascend-dump-analyzer / prof-compare / cluster-analysis / cluster-compare / cpu-host-performance）"
+  invocation: >-
+    先 `python3 scripts/analyzers/cli.py status` 看开关与安装状态，输出 `analyzers: enabled` 才继续；
+    再 `python3 scripts/analyzers/cli.py run <名字> --inputs "<绝对路径>" --session-id <sid> --purpose "<一句话>"`。
+    开关是环境变量 `SLEUTH_ANALYZERS`：`on` 启用，未设置或 `off` 关闭（默认关闭，A/B 对照实验用）。
+  commands:
+    status: "`python3 scripts/analyzers/cli.py status`（给人看）；`status --json` 取 enabled / source / upstream_commit / 每个分析器的 installed 与输入形态"
+    list: "`python3 scripts/analyzers/cli.py list --json` 取分析器名、输入形态与用途；这是「这台机器上现在能跑哪些分析器」的唯一入口"
+    run: "`python3 scripts/analyzers/cli.py run <名字> --inputs <路径>`；多路径用换行分隔或传 JSON 数组；两组数据比对按 A（基准）、B（对比）顺序传"
+    single_adapter: "`python3 scripts/analyzers/<名字>/run.py --help`——与 CLI 共用开关、预算与结果格式，调试时用"
+  output_meaning:
+    - "终端打印四样：状态、≤500 字摘要、≤5 条关键发现、结果路径；末行 `RESULT_JSON=<路径>` 给机器读"
+    - "`result.json` 字段：schema_version / analyzer / analyzer_version / status / summary / findings / missing / artifacts / data_needed / duration_ms / exit_code"
+    - "`status` 取 ok / partial / blocked / failed，只描述这次工具执行，不映射诊断终态；`partial` 的 `missing` 是可选数据缺口，不阻塞结论"
+    - "`findings` 里标 `kind: candidate` 的是候选解释，进报告必须标未验证；`kind: fact` 的也只在本次数据范围内成立"
+    - "`artifacts` 是分析器自己写的 HTML / Markdown / JSON / xlsx 路径，给用户看路径，不把内容读进上下文"
+    - "`data_needed` 只在缺输入时非空；开关没开、缺依赖、超时时为空，这时不要向用户要材料"
+  pitfalls:
+    - "**默认关闭**：`status` 报 disabled 时当它不存在，回原诊断路径，不要自己改开关——这是实验分组，不是故障"
+    - "**工具成功不等于诊断解决**：跑出报告只说明数据读完了，根因、fix、severity 仍由主持 agent 判"
+    - "**不整份读 result.json**：先看摘要与 findings，要复核时按 findings 里的证据位置回原文"
+    - "**缺依赖不装**：`prof-compare` 读 xlsx 要 openpyxl、从两份 prof 目录生成 compare 要 `msprof-analyze`；缺了返回 dependency-missing，不在诊断里 pip/apt"
+    - "**不执行采集与改机脚本**：`cpu_trace_collect.sh`、`bind_cpu.sh`、`taskset` 与各 vendor 下的采集器只作人工参考，不在自动调用图里"
+    - "**失败不重试同一输入**：`analyzer-failed` / `timeout` 记下来就退，不换参数原地重跑"
+    - "`cluster-analysis` 多卡模式沿用上游行为，会在 prof 根目录写 `cluster_analysis_output/`；要求输入只读时先把 prof 目录复制到工作区"
