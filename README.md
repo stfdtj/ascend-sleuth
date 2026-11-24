@@ -1,27 +1,119 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <img alt="ascend-sleuth" src="docs/assets/logo.svg" width="460">
-  </picture>
-</p>
+# 原作者工作机实验计划
 
-<h1 align="center">昇腾 NPU 训练与推理故障诊断知识库</h1>
+原作者在能读取测试集和验证集的工作机上运行本实验。收到本页的主 agent 负责盘点数据、组织盲测和汇总结果。实验要回答两个问题：Sleuth 接入后能否从原始材料提取正确证据？在诊断质量达到同一要求时，开放分析器能否减少模型的工具调用、补证、耗时和读入文本量？
 
-<p align="center">
-  <a href="https://www.hiascend.com/"><img alt="platform: Ascend NPU" src="https://img.shields.io/badge/platform-Ascend%20NPU-CC0000?logo=huawei&logoColor=white"></a>
-  <a href="https://agentskills.io/"><img alt="Agent Skills compliant" src="https://img.shields.io/badge/Agent%20Skills-compliant-8B5CF6.svg"></a>
-  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
-</p>
+## 第一步：原作者提供路径，主 agent 盘点并选题
 
-训练或推理在昇腾 NPU 上中断、精度异常、性能退化时，把日志与版本信息交给 agent。它按症状路由，查先验知识（官方文档与已沉淀事实）框定方向，再加载候选 case 逐条验证。未命中时继续深度排查，可按版本拉源码分析。输出定位结论与修复方案。
+原作者只需给主 agent 能读取的数据路径。两套数据放在一起时给一个根目录即可；答案单独存放时附上答案路径。
 
-定位结束后，新知识进待审队列，每周例行维护去重、升格为 case，同类问题下次直接命中。共性另归纳成先验知识。系统也按使用记录演进：未命中、执行出错、条目过期先记为 signal；深度轮只分诊，确定性 bug 走回归测试，内容缺口走内容 skill，行为质量才显式进入 RSI，高风险改动另做授权。所有改动最终仍走 PR 人审。
+主 agent 自行识别目录、压缩包、清单或表格，检查索引和样本结构，再建本地案例清单，每行记匿名编号、原始输入位置、所属集合、适用分析器、答案来源、开发或调试时是否用过、首轮可见材料、可按需补充的材料。保持原件，用独立副本运行。
 
-skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Claude Code、Codex、DeepSeek Harness（DSH）等支持该标准的 agent 中运行。
+按实际用途选题。测试集中开发时用过的样本适合检查工具接入。正式诊断对照优先用有独立答案、开发时未用过的验证案例。两个集合若有同一事件的副本或派生包，只计一个案例。主 agent 将集合用途或答案来源存疑的案例标为待核，先运行材料可核实的题。只有预期工具输出的案例用于工具核对，缺独立答案的题记录为无法盲评。
+
+下列七项独立实验各优先选两个独立事件，各出一题。材料不足时记下缺口和实际题数。人为移除字段的题标为模拟缺项。主 agent 依据已有答案和原件，在开跑前固定每题可接受的结论、必需证据位置与原值、未知范围、最少补证和误判条件。答案只交给评审。
+
+## 第二步：用测试集验收接入
+
+固定上游版本和 Sleuth 运行版本。所有正式组使用独立克隆，检出 `da23174e6ec1f4488ffe1d68131a774076e0b882`。准备 Python 3、PyYAML，在该提交运行 `python -m unittest tests.test_analyzers`。启用 `SLEUTH_ANALYZERS=on` 后运行 `python scripts/analyzers/cli.py status --json` 核对安装状态。
+
+主 agent 在原作者的工作机上用同一测试输入分别跑原工具和 Sleuth 适配器，只比较双方保留的功能。每次记录输入、命令、版本、状态、关键读数、单位、缺项和原始证据位置。差异按原件及预期答案裁定。先排练一次会话记录导出，确认工具请求、返回正文和真实起止时间可回查。需要修实现时记录失败样本，新版本另起一轮对照。
+
+## 第三步：主 agent 分批派发验证集
+
+每个实验单独成批，按材料就绪情况排期。六项 CLI 实验每项两题，各派 A、B、C 三组，共 36 次诊断。prof-compare 单独比较 A、B，两题共 4 次。七项备齐时共 14 题、40 次诊断。同机每次只运行一个正式计时会话，跨题轮换 ABC、BCA、CAB 顺序。并发名额有限时顺次派发，同一 subagent 只做一题一组。
+
+| 组 | 发给子代理的材料与能力 |
+|---|---|
+| A | 题干、初始材料和共用参考资料，可搜索、读文件、跑通用 Python。分析器开关 off。 |
+| B | A 的能力，加一条提前固定的当题判读提示。分析器开关 off。 |
+| C | 与 B 逐字相同的提示和材料，开关 on，可查分派手册并自行选择分析器。 |
+
+组织者提前为每类题写一条不含答案和工具命令的提示，例如双集群题用“先核对负载、rank 映射和共同 Step，再计算阶段差值”。三组固定模型、推理设置、输出限制和预算。每次使用独立克隆、会话、输入副本和输出目录。关闭自动同步，启动 trace 时传 `--no-sync`，分析器显式指定 `--out-dir`。多卡采集使用可写副本。
+
+给每个子代理单独派发下面的指令，填入对应组的权限和路径。子代理从空白上下文启动，组织者保管本页及案例清单。
+
+> 在指定工作目录按 diagnose 从头诊断这份材料。给出结论或目前能确定的范围，列出原始证据位置、值和单位，说明下一步及最少补证。只使用派发的材料和权限。跳过已有案例、历史复盘、旧 trace、测试集答案、实验说明和其他会话结果。A、B 跳过分析器手册、适配器和 vendor 目录。把报告与本次 trace 写到独立输出目录。
+
+主 agent 按事先固定的补证内容答复。保留 C 未调用、选错、失败、部分成功及回查原文的记录。发生串组或答案泄露时记录原因，为同题所有参评组重新派发干净会话。
+
+## 第四步：盲评诊断质量，再算效率
+
+收齐同题各组报告后隐藏组名、工具身份及效率数据，保留可核对的证据编号。两名评审独立按原五项评分：结论、原始证据、观察项处理、缺证据处理、补证。每项 0–2 分，总分 10。0 分为错误或漏答，1 分为方向合理但证据或动作不清，2 分为判断与证据吻合或动作具体适用。证据不足时准确说明未知和所需补证也可得满分。保留两份逐项评分及分歧依据。
+
+### 正确性指标
+
+主 agent 在盲测前按独立答案列出每题必报事实、可接受的结论、必须保留为未知的事项和数值允许误差。评审逐项回原件核实。工具输出和模型报告各算一份，方便定位错误发生在哪一步。工具之间读数一致时仍需对照原件。以下指标另报原始计数，不折进原 10 分。
+
+| 指标 | 计数方式 |
+|---|---|
+| 必报事实召回率 | 正确报告的必报事实数 / 答案中必报事实总数。要求数值落在事前约定的误差内，并核对单位、对象和时间窗。 |
+| 事实准确率 | 原件支持的事实声明数 / 输出中可核验的事实声明总数。同一事实重复出现只计一次。另列错值、错单位、错对象和原件不支持的声明。 |
+| 证据引用正确率 | 能按所引位置找到原值且支撑对应声明的引用数 / 全部引用数。必报事实缺引用时另记漏引数。 |
+| 结论命中率 | 最终判断落在预先约定的可接受范围内的题数 / 有独立判定依据的题数。缺项题以首轮实际可见材料为准，允许正确判断为未知或不可比；收到补证后按当时可见材料评定。 |
+| 缺证据误判数 | 逐题记录把缺项当零、把不可比数据直接归因、把观察项升为已证实故障的次数，附原句及原件位置。另报发生此类误判的边界题数 / 可评边界题数。 |
+
+分母为零记“不适用”，缺独立依据记“无法核验”。工具只承担提取时，结论命中率用于诊断报告。分项结果按实验、组别和材料是否充足列出。
+
+同题先比 B → C，回答增加分析器的效果。另比 A → B，回答提示的效果。两组均达到该题预先固定的验收条件后，再给四项效率分。每项独立报原值、差值和 0–2 分。达到下表改善幅度给 2 分，反向达到同一幅度给 0 分，其余给 1 分。
+
+| 指标 | 计数口径 | 改善幅度 |
+|---|---|---|
+| 取证工具调用 | 按模型发起的实际请求计读、搜、Python、分析器查询和执行、回读、失败及重试。并行请求分别计，一次 shell 请求计一次。另列诊断窗口内全部工具调用数和已知子进程数。 | 至少少 1 次 |
+| 补证轮数 | 一条补证消息计一轮，另记该轮索取的材料及能否提供。 | 至少少 1 轮 |
+| 有效诊断耗时 | 从收到题干到提交最终报告的墙钟时间，扣除仅等待人工答复的时间。计入工具运行和重试。 | 至少缩短 30 秒和基准耗时 10% 中的较大者 |
+| 工具返回文本量 | 累加模型实际收到的工具响应正文 UTF-8 字节，包括截断后的正文、错误及重复读取。 | 至少减少 1 字节和基准字节数 10% 中的较大者 |
+
+## 交付物
+
+每批在工作机保存案例清单与版本、上游和适配器对照表、匿名诊断报告、会话工具记录、诊断 trace、工具产物、两份盲评分和逐题配对表。汇总表每行写题号、比较组、两组质量分、四项原值和差值、工具状态及证据位置。缺记录填“无法比较”，质量未达标的配对保留原始读数和原因。
+
+交给原作者的批次小结写清哪些输入有收益、哪些增加回查或误判、哪些材料仍缺。最终按指标报告改善、持平、变差和无法比较的题数及有效分母。原始材料和答案留在获准工作目录，对外分享脱敏汇总。
+
+以下七项各自选题、派发子代理、评分并交付一份结果表。跨项汇总时保留各项的样本数和证据，不同分析器的得分分开列出。
+
+## iBMC 硬件告警实验
+
+- **材料与操作**：充分题用能核对告警、设备位置和读数的一键收集包。缺项题选有电源事件但缺 NPU 在位记录的包。用测试集对照原解析器与 `ibmc_analyzer`，重点回查电源类型、ECC 计数和原事件位置。
+- **交付与验收**：提交逐设备的告警、原始读数与缺项表。验收时核对在位未知是否被误判为丢卡、电源阈值是否适用当前设备。三组均按上述质量和效率标准比较。
+
+## issue-analyzer 多机中断日志实验
+
+- **材料与操作**：充分题提供失败 rank 的框架栈、设备与 Host 日志，时间窗可对齐。缺项题只给设备侧日志或移除跨机时间对应关系。比较工具提取的首条有效事件与原文。
+- **交付与验收**：提交含主机、rank、时间和原始位置的事件表。评审核对重复报错的归并依据，以及缺少时间对应关系时能否限定跨机先后判断。
+
+## ascend-dump-analyzer 环境快照实验
+
+- **材料与操作**：两题各准备至少两份快照 JSON。充分题含已知变更及复测记录，缺项题至少一端缺关键版本。用原作者的 `compare_dumps.py` 和适配器核对字段差异。
+- **交付与验收**：提交两端原值、差异方向、缺字段和复测依据。验收时分别核对配置漂移与故障归因；只有版本差异时，报告应保留因果判断。
+
+## prof-compare 性能基准判读实验
+
+- **材料与操作**：充分题提供同负载、同采集范围的基准和对比读数，保留单位与绝对耗时。边界题缺关键指标或使用不同采集窗口。可用现成工作簿，也可用可回查的明细表。主 agent 先用有答案的测试样本核对词条读法。
+- **派发与验收**：当前分支仅保留判读词条。每题派两个新子代理，A 使用共同资料，B 另读 `references/methodologies/performance-baseline-comparison-reading.yaml`。提交可比条件、两端原值、绝对差和相对差。评审重点核对 A/B 方向、单位、零基准处理和归因边界。按共用标准报告 A → B 的质量与效率差值。
+
+## cluster-analysis 单次集群采集实验
+
+- **材料与操作**：充分题提供一次多卡采集、预期 rank 和 Step 范围。边界题只覆盖部分 rank 或目标 Step。为各组复制输入目录，通过同一 Step 的计算、通信和等待数据核对慢 rank。
+- **交付与验收**：提交实际覆盖与预期覆盖、疑似慢 rank、同窗口证据和竞争解释。只覆盖部分 rank 时，报告须写明可以判断的范围。
+
+## cluster-compare 双集群对比实验
+
+- **材料与操作**：充分题提供两份已有集群结果、基准方向、共同 Step 和 rank 映射。边界题缺共同 Step 或映射。各组先检查可比条件，再核对阶段耗时差值。
+- **交付与验收**：提交两端负载、采集窗、对齐依据和差值表。评审回查数值、单位和方向。无法对齐的项目写明缺什么材料才能比较。
+
+## cpu-host-performance 主机调度实验
+
+- **材料与操作**：充分题提供带线程身份的 Host trace 和同期 NPU 对照。边界题仅给 Host 侧读数。对照工具产物与原 trace 中的线程、时间窗和调度延迟。
+- **交付与验收**：提交线程级观察、同期 NPU 证据和待验证项。评审分开判断 Host 现象与 NPU 影响。绑核建议仅供审阅。
+
+<details>
+<summary>上一轮 iBMC 复跑记录与操作步骤</summary>
 
 ## 在工作机上跑 iBMC 诊断对照
 
-本轮比较新增参考词条和分析器是否能让诊断更准确、补证更具体。实验组织者在能读取原始日志的工作机上，用一个 Codex 对话调度 6 个子代理。普通使用者可直接看下方「快速开始」。
+以下为上一轮的复跑说明。原作者本次执行页首的新实验计划。
+
+本轮比较新增参考词条和分析器是否能让诊断更准确、补证更具体。实验组织者在能读取原始日志的工作机上，用一个 Codex 对话调度 6 个子代理。
 
 实验分支保留的上游文件适用其各自的许可记录。[分析器来源和许可](scripts/analyzers/NOTICE.md)
 
@@ -104,126 +196,4 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 把报告、评分表和版本记录移到工作机上指定的留存目录，再移除临时克隆。原始材料和评审答案保留在各自的目录。
 
-## 快速开始
-
-### 安装
-
-```bash
-git clone https://github.com/pillumina/ascend-sleuth.git
-cd ascend-sleuth
-python3 scripts/enable_agent_skills.py
-```
-
-脚本检测本机已安装的 agent，为它们建项目级 skills 链接（幂等，可重复执行）。Linux 与 macOS 上 DSH 不跑这个脚本也够用：`.dsh/skills` 是仓库跟踪的 symlink，clone 后即可用。`git pull` 更新 SKILL.md 即时生效。
-
-诊断开单会自动同步知识库：`trace_begin.py` 建单时 fetch 远端，条件满足时做一次快进合并。
-
-配置与开关（`sync.remote` / `sync.branch` / `sync.enabled` / `sync.auto_merge` / `sync.check_enabled` / `sync.check_minutes` / `sync.check_full_access`）在 `.local/settings.json`。`sync.enabled` 与 `sync.auto_merge` 只管诊断读侧的自动路径，groom 不受影响；`sync.check_enabled` / `sync.check_minutes` 是诊断状态条的知识库提醒开关与检查间隔（可在「Ascend Sleuth · 知识库」页设置）。没有这个文件时用默认值：`origin`、当前分支上游（取不到用 `main`）、同步开、自动合并开。
-
-当前状态用 `python3 scripts/kb_sync.py --show` 查看（只读，不联网）。
-
-Windows 上 Git 默认不还原 symlink，`.dsh/skills` 会落成一个内容为 `../skills` 的文本文件，agent 发现不了 skills，而 `git status` 此时可能是干净的。脚本会把这条 symlink 建好；自动检测认不出的 agent 用 `--all`。`--check` 只读自检状态（不写盘），`--fix-copy` 把 Git Bash 建出的目录副本换成链接。自检与两条修法见 [windows-setup.md](docs/guide/windows-setup.md)。
-
-装完在 agent 中调用 `/skill:<name>`。
-
-### 使用示例
-
-在 agent 中调用 `/skill:diagnose`，把客户给的症状、框架版本与日志片段粘贴给它：
-
-```
-/skill:diagnose
-
-客户 A5-950 训练在 step ~3000 hang，all_to_all timeout，world_size=128。
-框架 mindspeed-llm 2.5.0。报错栈尾：
-[粘贴相关 rank 的日志片段]
-```
-
-agent 按症状路由到 `training/mindspeed-llm/`，匹配并验证 case。命中时输出四段：结论、依据链（含命中的 `<CASE-ID>`、历史 `hits` 与 `misdiagnoses`）、修复方案与 rollback、可靠度与残余风险。未命中时转深度排查。信息不足时，agent 指出还要向客户补什么。
-
-诊断全程写 trace。被打断时可用 `/skill:resume-diagnosis` 续接。
-
-### 在其他项目中试用
-
-```bash
-npx skills@latest add pillumina/ascend-sleuth -s diagnose -s to-postmortem -s to-reference -s issue-ingest -s knowledge-groom -s resume-diagnosis
-```
-
-该方式安装的是 `skills/` 副本，更新需重新安装，也不沉淀回本仓。要在其他仓库中沉淀知识，按 [知识获取：三种起步形态](docs/guide/knowledge-acquisition.md) 配置。
-
-## 背景
-
-昇腾训练与推理的日常问题集中在三类：中断（hang、crash、OOM）、精度异常（loss 发散、FP8 衰减）、性能退化（吞吐下降、通信占比过高）。根因高度重复，相关知识却散落在个人笔记、IM 聊天与各处 wiki。新 case 每周都在出现，A2-910B / A3-910C / A5-950 三代平台的差异还在扩大，靠个人手工维护的知识库跟不上这个速度。
-
-ascend-sleuth 把这些经验沉淀为结构化知识库。诊断时按症状路由到已验证的 case。定位结束后，新知识进入待审队列，由例行维护完成去重、升格与退休。人工沉淀按周批处理，自动化导入源可以直接升格。
-
-## 工作原理
-
-知识分三层按需加载，控制进 agent 上下文的量：
-
-| 层 | 内容 | 加载时机 |
-|---|---|---|
-| Tier 1 | `triage-tree.yaml`：症状到命名空间的映射 | 始终加载 |
-| Tier 2 | `knowledge/` 下的 case 规则 | 命中症状后两阶段加载：先读该命名空间与类别的读侧视图过滤候选，再加载全文验证 |
-| Tier 3 | `postmortems/` 下的原始定位记录 | 前两层未命中时关键词检索 |
-
-知识库本体在 `knowledge/`，按框架与类别分目录：
-
-```
-knowledge/
-├── _index.yaml / _index/   总表与读侧视图（scripts/build_index.py 生成；合入后由主干 job 重建）
-├── training/{mindspeed-llm,mindspeed-mm,verl}/
-├── inference/{vllm-ascend,sglang}/
-├── common/                 多框架共用的权威记录（由 groom 提升）
-└── _archive/               软退休的过期 case
-```
-
-命名空间下面按性质分目录（如 `inference/vllm-ascend/interrupt/`）。先验知识层在 `references/`，放官方文档与案例沉淀的事实、工具词条与流程，不参与候选路由。
-
-问题按两个维度拆。在哪查：训练还是推理、用什么框架，决定命名空间（如 `training/mindspeed-llm/`）。什么性质：中断、精度还是性能，决定匹配形态（中断用错误签名 grep，精度用数值阈值断言，性能用 profiler 指标比对），三者不混用。
-
-诊断全程写 trace：加载了哪些命名空间、按什么顺序做了哪些检查、工程师提供了什么证据。误诊归因靠它区分 case 错（改知识 YAML）与执行错（改 skill 正文）。两者的修法不同，混在一起会改坏本来正确的 case。
-
-三个闭环驱动整个系统：
-
-| 闭环 | 什么时候发生 | 入口 | 产出 |
-|---|---|---|---|
-| 诊断闭环 | 每次问题（分钟级） | `/skill:diagnose` | 修复建议 + trace |
-| 沉淀闭环 | 定位结束后 / 定期批量 | `/skill:to-postmortem`、`/skill:to-reference`、`/skill:issue-ingest` | 待审队列 → case / reference 词条 |
-| 演进闭环 | 内容流程收尾 / 全库体检轮 | `/skill:evolve-check`、`/skill:self-evolve` | signal → 分诊 → 确定性修复 / 内容 / 显式 RSI / 高风险授权 → PR（人审） |
-
-![ascend-sleuth 架构](docs/diagrams/ascend-sleuth-architecture.png)
-
-每个机制配了什么护栏、每周实际要做什么，见 [自演进元机制](docs/mechanism/rsi-mechanism.md)。
-
-## 适用范围与限制
-
-- 诊断 agent 不访问客户环境，也不改生产：日志、版本与报错由工程师提供，修复建议由人应用。
-- 诊断质量随 agent 变化：prompt 纪律是概率性的，换一个 agent 或换一次会话，结果与 trace 质量可能不同。团队内建议统一 agent。跨 agent 对比时先归因执行差异，再判断是不是知识本身错。
-- `data-loss-risk` 的根因不给修复方案，只输出停机、保留现场、通知 owner。
-- 版本匹配是软判据：`compat` 不匹配只降 confidence，不排除 case。
-- 输出是给人看的建议，不对接 on-call 或 IM 通知链路。
-
-## skill 清单
-
-<!-- BEGIN generated: skill-roster (scripts/build_docs_index.py；由 docs/_manifest.yaml 生成，勿手改) -->
-本仓共 **14 个面向使用者的 skill**，按使用场景分 4 组：
-- **日常问答**（1）：`ask`（一句话能问完的问题直接答（码、变量值、某类怎么定位、术语、库里有吗），症状定位转 diagnose）
-- **日常诊断**（2）：`diagnose` · `resume-diagnosis`
-- **知识沉淀**（4）：`to-postmortem` · `to-reference` · `issue-ingest` · `reference-ingest`
-- **维护与演进**（7）：`eval-ingest`（评测集补充入口：从 GitHub/本地 issue 建 candidate，补答案、复核入池；不产 case、不自动 active） · `knowledge-groom` · `self-evolve` · `evolve-check`（内部协议，由内容流程收尾自动转接，不单独调用） · `skill-review`（内部协议，由用户显式触发做 skill 质量审视） · `preload-panel`（仅 DSH：按本机给模型的工具定装载路，有 cordis_define / cordis_run 热加载，有 plugin_manager 装常驻插件包，DSH Desktop 用安装目录自带的 dsh 命令行装（profile 记成 link），另有脚本经 /api 通路装与插件页粘贴两条备用路；含「装了但 tab 不出现」的排查顺序） · `doctor`（本机环境体检：一条命令报「哪些流程能跑、哪些会降级」并给修法；只读，不装包）
-<!-- END generated: skill-roster -->
-
-每个 skill 的触发条件与操作细节见各自的 `skills/<name>/SKILL.md`。
-
-## 文档
-
-- [文档总目录](docs/README.md)：全部文档按"什么时候读"分层
-- [演示走查](docs/demo-walkthrough.md)：从一次诊断到知识演化的完整演示，不需要动手
-- [诊断面板](dsh-plugins/ascend-panel/README.md)：DSH 会话中的可视化面板（可选增强）
-- [知识获取](docs/guide/knowledge-acquisition.md)：三种起步形态与稀疏拉取白名单
-- [部署与协作](docs/guide/git-workflow.md)：集中式与框架式 fork 两种部署、目录归属、审核与门控
-- [术语表](CONTEXT.md)：case / postmortem / groom / trace / reference 的规范定义
-
-## 许可
-
-MIT，见 [LICENSE](LICENSE)。
+</details>
