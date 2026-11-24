@@ -1,6 +1,6 @@
 ---
 name: cluster-analysis
-description: 昇腾（Ascend）NPU Prof 性能分析（单份数据）。当用户提供一份 Prof 采集数据目录（单卡或多卡/集群），要求分析性能、定位瓶颈、排查慢卡/慢算子/通信问题、advisor 诊断，或生成性能分析 HTML/MD 报告时使用，例如"分析这个 prof 的性能问题"、"看看这个 Prof 哪里慢"。自动识别输入形态（单卡/多卡、db/text、仅含 cluster_analysis_output），缺失时自动生成 cluster_analysis_output，执行八阶段流水线与全部进阶 recipe，产出含左侧导航与子报告嵌入的完整 HTML 报告。不用于对比两份 Prof 或两个集群（多卡/集群对比用 cluster-compare，单卡对比用 prof-compare）；不用于现网报错/中断等故障日志排查（用 issue-analyzer）；不用于 Host 侧 ftrace/系统级瓶颈诊断（用 cpu-host-performance）。
+description: 昇腾（Ascend）NPU Prof 性能分析（单份数据）。当用户提供一份 Prof 采集数据目录（单卡或多卡/集群），要求分析性能、定位瓶颈、排查慢卡/慢算子/通信问题、advisor 诊断，或生成性能分析 HTML/MD 报告时使用，例如"分析这个 prof 的性能问题"、"看看这个 Prof 哪里慢"。自动识别输入形态（单卡/多卡、db/text、仅含 cluster_analysis_output），缺失时自动生成 cluster_analysis_output，执行八阶段流水线与全部进阶 recipe，产出含左侧导航与子报告嵌入的完整 HTML 报告。不用于对比两份 Prof 或两个集群（多卡/集群对比用 cluster-compare，单卡对比按性能基准对照方法核查读数）；不用于现网报错/中断等故障日志排查（用 issue-analyzer）；不用于 Host 侧 ftrace/系统级瓶颈诊断（用 cpu-host-performance）。
 ---
 
 # 昇腾 NPU 训练性能分析技能（cluster-analysis）
@@ -29,7 +29,7 @@ TEXT 导出目录可以同时存在 DB。以采集配置和实际产物能力共
 3. **Advisor 诊断**：单卡做单卡 advisor；多卡对全部卡聚合 advisor，输出 md。
 4. **集群分析输出件**：多卡缺失时自动生成（db + 基表；DB-only 由适配层建库，来源写入 ClusterBaseInfo/status_info），置于单卡 prof 目录同级。
 5. **进阶分析**：五大类 23 正式 + 1 扩展 recipe 全量执行，能力矩阵透明呈现（不支持者标注原因）。
-6. **性能比对**：通信占比最大 vs 最小两卡对比，vendor prof-compare 生成 HTML 与中文 xlsx；支持真实 step 对齐与整段 prof 汇总比较（`step_scope=step|whole_prof`）。
+6. **性能比对**：比较通信占比最大与最小的两卡。主报告读取双卡差异 JSON，支持按 Step 对齐或整段采集汇总（`step_scope=step|whole_prof`）。
 7. **泳道统计**：每卡 Process / Ascend Hardware / Communication 三类算子统计，多卡跨卡比对；依赖 trace_view.json/kernel_details.csv，DB-only 数据泳道记为 unsupported（P6a 仍可用 DB 原始事件定位）。
 8. **最终 HTML 报告**：信息概览在前、结论建议随后，左侧固定导航，分区可折叠默认展开，vendor 子报告 iframe 内嵌。
    在原结论章节内新增通信实例去重、真实通信组映射、慢卡及 Host 回溯、计算指标与 Free 时间窗定位，保持原报告导航和其余章节。
@@ -47,4 +47,4 @@ TEXT 导出目录可以同时存在 DB。以采集配置和实际产物能力共
 | `references/whole_prof_step.md` | 无分步 TEXT/DB 整段单 step 规则、来源、时间边界与验收 |
 | `references/db_support.md` | DB-only 适配契约：analysis.db/主 DB 已验证 schema、单位、采集窗语义、来源标记与限制 |
 
-> vendor 子技能（`vendor/cluster-output-analysis/`、`vendor/prof-compare/`）**只经 `scripts/vendor_bridge.py` 调用**（参数与返回码见 pipeline.md P5），禁止绕过桥接器直接调用其内部脚本；其内部 SKILL.md 仅供维护者参考，分析任务无需读取。
+> vendor 子技能（`vendor/cluster-output-analysis/`）**只经 `scripts/vendor_bridge.py` 调用**（参数与返回码见 pipeline.md P5），禁止绕过桥接器直接调用其内部脚本；其内部 SKILL.md 仅供维护者参考，分析任务无需读取。

@@ -23,7 +23,7 @@ msprof-analyze cluster analysis -d <prof_dir> --bp <标杆数据>   # 标杆对�
 | advisor all | `msprof-analyze advisor all` | `scripts/advisor_fallback.py`（全卡聚合；两种路径后均执行，负责归一化契约件） |
 | 集群输出件 | `msprof-analyze cluster analysis` | `scripts/cluster_fallback.py`（同 schema db；原生产物缺 db 时自动补齐） |
 | 进阶分析 | `msprof-analyze cluster analysis <recipe>` | `scripts/recipe_fallback.py`（正式 23 + 扩展 1 全量；原生产物缺 summary 时自动补齐） |
-| 性能比对 | `msprof-analyze compare` | `scripts/compare_fallback.py`（xlsx 中间件 → vendor prof-compare；`--json-only` 模式仅补产 JSON，供原生路径使用） |
+| 性能比对 | `msprof-analyze compare` | `scripts/compare_fallback.py`（主报告使用对比 JSON） |
 | 泳道统计 | trace_view.json 人工分析 | `scripts/swimlane_analyzer.py`（流式解析） |
 | 最终报告 | 无 | `scripts/report_generator.py` |
 

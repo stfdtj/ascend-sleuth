@@ -25,7 +25,7 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 实验分支保留的上游文件适用其各自的许可记录。[分析器来源和许可](scripts/analyzers/NOTICE.md)
 
-日志、环境快照、单卡对比、单次集群、双集群和 Host 性能的材料清单与评分见[另外六个分析器的工作机试验](scripts/analyzers/model-trials.md)。
+日志、环境快照、单卡对比、单次集群、双集群和 Host 性能的材料与评分见[六项工作机试验及复跑版本](scripts/analyzers/model-trials.md)。当前工具范围见[分析器用法](scripts/analyzers/README.md)。
 
 ### 做完得到什么
 

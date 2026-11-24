@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
@@ -79,7 +78,8 @@ class GateTests(AnalyzerTestBase):
         names = {item["name"] for item in payload["analyzers"]}
         self.assertIn("ibmc_analyzer", names)
         self.assertNotIn("vllm-ascend-tuning", names)
-        self.assertEqual(len(names), 7)
+        self.assertNotIn("prof-compare", names)
+        self.assertEqual(len(names), 6)
 
     def test_disabled_run_does_not_create_output(self):
         out = self.out("must-not-exist")
@@ -346,14 +346,31 @@ class DumpTests(AnalyzerTestBase):
         self.assertEqual(diff["status"], "success")
         self.assertGreaterEqual(diff["summary"]["diff_count"], 2)
 
-    def test_single_is_partial_when_versions_unknown(self):
+    def test_single_snapshot_requests_a_second_snapshot(self):
         a, _ = self._fixture()
         out = self.out("dump-single")
-        proc = run_cli(["run", "ascend-dump-analyzer", "--inputs", json.dumps([str(a)]), "--out-dir", str(out)])
+        proc = run_cli(["run", "ascend-dump-analyzer", "--inputs", str(a), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["reason"], "bad-input")
+        self.assertIn("至少两份", result["data_needed"][0])
+        self.assertFalse((out / "diff.json").exists())
+
+    def test_compare_preserves_partial_results(self):
+        a, b = self._fixture()
+        shutil.copyfile(a, b)
+        damaged = a.parent / "damaged.json"
+        write_text(damaged, "{invalid}")
+        out = self.out("dump-partial")
+        inputs = json.dumps([str(a), str(b), str(damaged)])
+        proc = run_cli(["run", "ascend-dump-analyzer", "--inputs", inputs, "--out-dir", str(out)])
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         result = read_result(out)
-        self.assertIn(result["status"], ("ok", "partial"))
-        self.assertTrue((out / "compatibility.json").is_file())
+        self.assertEqual(result["status"], "partial")
+        self.assertIn("2 份已比对的快照未发现差异", result["findings"][0]["claim"])
+        self.assertTrue(any(damaged.name in item for item in result["missing"]))
+        self.assertEqual(result["data_needed"], [])
+        self.assertIn(str(out / "diff.json"), result["artifacts"])
 
 
 class ClusterCompareTests(AnalyzerTestBase):
@@ -437,59 +454,12 @@ class CpuHostTests(AnalyzerTestBase):
         self.assertTrue(any("bind_cpu.sh" in item for item in result["artifacts"]))
 
 
-class ProfCompareTests(AnalyzerTestBase):
-    def _xlsx(self) -> Path:
-        from openpyxl import Workbook
-
-        path = self.tmp / "prof" / "compare.xlsx"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "OverallMetrics"
-        ws.append(["Index", "Base Duration(ms)", "Base Ratio", "Base Number",
-                   "Comparison Duration(ms)", "Comparison Ratio", "Comparison Number",
-                   "Diff Duration(ms)", "Diff Ratio"])
-        ws.append(["E2E Time", 1000, 1, 1, 1200, 1, 1, 200, 0.2])
-        ws.append(["Computing Time", 600, 0.6, 1, 650, 0.54, 1, 50, 0.083])
-        wb.save(path)
-        return path
-
-    @unittest.skipUnless(importlib.util.find_spec("openpyxl"), "未安装 openpyxl：跳过 xlsx 解析用例")
-    def test_existing_xlsx(self):
-        out = self.out("prof")
-        proc = run_cli(["run", "prof-compare", "--inputs", json.dumps([str(self._xlsx())]), "--out-dir", str(out)])
-        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        result = read_result(out)
-        self.assertIn(result["status"], ("ok", "partial"))
-        self.assertTrue((out / "compare_analysis_report.html").is_file())
-
-    def test_missing_xlsx_dependency_is_reported(self):
-        if importlib.util.find_spec("openpyxl"):
-            self.skipTest("本机已安装 openpyxl，缺依赖分支由 CI 缺依赖环境覆盖")
-        path = self.tmp / "prof" / "dummy.xlsx"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"not an xlsx")
-        out = self.out("prof-missing")
-        proc = run_cli(["run", "prof-compare", "--inputs", json.dumps([str(path)]), "--out-dir", str(out)])
-        self.assertEqual(proc.returncode, 1)
-        result = read_result(out)
-        self.assertEqual(result["reason"], "dependency-missing")
-
-
 class UnsupportedInputTests(AnalyzerTestBase):
     def test_cluster_compare_requires_two_dirs(self):
         one = self.tmp / "clusters" / "only" / "cluster_analysis_output"
         one.mkdir(parents=True, exist_ok=True)
         out = self.out("unsupported")
         proc = run_cli(["run", "cluster-compare", "--inputs", json.dumps([str(one.parent)]), "--out-dir", str(out)])
-        self.assertEqual(proc.returncode, 1)
-        self.assertEqual(read_result(out)["reason"], "bad-input")
-
-    def test_prof_compare_rejects_single_dir(self):
-        one = self.tmp / "prof-dir"
-        one.mkdir(parents=True, exist_ok=True)
-        out = self.out("prof-single-dir")
-        proc = run_cli(["run", "prof-compare", "--inputs", json.dumps([str(one)]), "--out-dir", str(out)])
         self.assertEqual(proc.returncode, 1)
         self.assertEqual(read_result(out)["reason"], "bad-input")
 

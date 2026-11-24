@@ -1,12 +1,12 @@
 id: bmc-alert-patterns
 type: fault-pattern
 title: 'iBMC 告警与 SEL 事件的常见故障模式对照（供电 / ECC / 温度 / 日志满 / 证书 / 光模块 / RAID / 端口抖动）'
-summary: 'BMC 一键收集包里常见的告警组合与它们可能指向的硬件或配置问题：每条给出观察到的证据、候选原因与现场动作，并写明什么条件下不能这样判；原因是作者经验假设，不是根因判断。'
+summary: BMC 当前告警、历史事件与设备读数常见的组合。每条列出可核对的现象、待验证原因和现场检查。
 
 sources:
   - type: engineer-input
     engineer: "hu669293657（上游 skills 仓库作者，匿名工程师）"
-    document: "skills 仓库 ibmc_analyzer/references/judgement.md 的「常见故障模式」「SEL 事件速查」「判读禁忌」三节（迁入副本 analyzers/vendor/ibmc_analyzer/references/judgement.md），固定提交 39c604188f99d683be93f994193ecfea24d7efc6"
+    document: "skills 仓库 ibmc_analyzer/references/judgement.md 的「常见故障模式」「SEL 事件速查」「判读禁忌」三节，固定提交 39c604188f99d683be93f994193ecfea24d7efc6"
     url: "https://github.com/hu669293657/skills/tree/39c604188f99d683be93f994193ecfea24d7efc6/ibmc_analyzer"
     input_session: "session-b307be67-960e-48dd-a1ef-ee10a2d91d24"
     confirmed_at: 2026-11-22
@@ -16,7 +16,7 @@ applies_to:
   platforms: [cross]
   categories: [interrupt, performance]
 
-related_references: [bmc-dump-analyzer, bmc-sensor-thresholds, sleuth-analyzers]
+related_references: [bmc-sensor-thresholds]
 
 status: pending-review
 last_verified: 2026-11-22
@@ -31,9 +31,9 @@ content:
       fix: "先查电源线与供电回路；有 restored 且当前告警已清时按已恢复的历史事件处理，不重复报障"
     - pattern: NPU ECC 多 bit 错误
       symptoms:
-        - "npu_ecc_info 里多 bit 错误计数大于 0，或当前告警含 NPU 相关 Critical"
+        - "设备报告某张 NPU 的多 bit ECC 错误计数大于 0"
       cause: "经验假设（未核）：NPU 硬件异常（候选）"
-      fix: "按硬件问题升级处理，同时用 npu-smi 与业务日志确认降级是否已恢复；不要只凭计数重启了事"
+      fix: "按硬件问题升级处理。用设备状态和受影响的业务记录核对故障范围及恢复情况"
     - pattern: 装 OS 后 NPU 丢卡
       symptoms:
         - "装完系统后 NPU 数量少于预期，BMC 侧看到链路异常"
@@ -41,7 +41,7 @@ content:
       fix: "拧紧 L1 交换板螺钉后复测；换机型时不套用这条"
     - pattern: 温度持续越限
       symptoms:
-        - "sensor_info 里进风温度或 HBM 温度持续高于设备正常区间，SEL 有反复的 Above upper threshold"
+        - "进风温度或 HBM 温度持续高于适用机型的正常区间，历史事件反复出现 Above upper threshold"
       cause: "经验假设（未核）：散热、风道或负载问题（候选）"
       fix: "查风扇转速、风道与业务负载；短时间集中出现的越限更像一次环境事件，不按长期故障处理"
     - pattern: 操作日志或安全日志写满
@@ -66,7 +66,7 @@ content:
       fix: "先与使用方确认是否预期；生产机逻辑盘缺失才按风险项处理，不直接判硬件故障"
     - pattern: NPU 端口频繁 down/up
       symptoms:
-        - "port_history_log 里同一端口短时间反复 down/up"
+        - "设备记录显示同一端口短时间反复掉线和恢复"
       cause: "经验假设（未核）：链路抖动（线缆、交换板或对端）"
       fix: "查线缆与交换板；同时用业务侧集合通信日志确认是否影响训练"
     - pattern: 安全弱项告警

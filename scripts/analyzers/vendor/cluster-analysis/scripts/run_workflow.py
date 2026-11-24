@@ -22,7 +22,6 @@
               -> compare/compare_analysis_result.json + performance_comparison_result_*.xlsx
   6 vendor    桥接 vendor 子技能生成子报告（供总报告 iframe 内嵌）
               -> reports/cluster_analysis_report.html（多卡）
-                 reports/compare_analysis_report.html（有 xlsx 时）
   7 swimlane  每张卡泳道 TopN 最长算子 + 全算子 7 列统计；多卡生成横向比对
               -> swimlane/swimlane_rank{N}.{md,json} + swimlane_compare.md
   8 report    生成总 HTML 报告（信息概览优先、左侧固定导航、章节可折叠、
@@ -450,7 +449,6 @@ def execute_workflow():
 
     # ---------- 5 compare（多卡：通信占比最大/最小两卡） ----------
     cmp_json = os.path.join(mw, 'compare', 'compare_analysis_result.json')
-    cmp_ok = False
     compare_data_available = True
     if mode == 'cluster' and not args.skip_compare:
         from compare_fallback import find_cards as find_comparable_cards
@@ -476,22 +474,19 @@ def execute_workflow():
                                            base_rank=args.base_rank,
                                            compare_rank=args.compare_rank)
             if native_ok:
-                # 原生 xlsx 已就位（vendor 契约），仅补产总报告契约所需中间件 JSON
+                # 原生 xlsx 已生成，补产总报告使用的 JSON。
                 rc, _ = sh([sys.executable, script('compare_fallback.py'), '--root', root,
                             '--output', cmp_dir, '--json-only'] + rank_args)
                 if rc != 0 or not os.path.isfile(cmp_json):
                     print('[compare] 中间件 JSON 补产失败，回退完整内置实现')
                     native_ok = False
             if native_ok:
-                rc = 0
                 print('[compare] 原生 compare 成功：xlsx 来自 msprof-analyze，'
                       'JSON 由内置实现补产')
             else:
-                rc, _ = sh([sys.executable, script('compare_fallback.py'), '--root', root,
-                            '--output', cmp_dir] + rank_args)
-            cmp_ok = rc == 0 and os.path.isfile(cmp_json)
+                sh([sys.executable, script('compare_fallback.py'), '--root', root,
+                    '--output', cmp_dir] + rank_args)
         else:
-            cmp_ok = True
             print('[skip] compare 已存在')
             STATE.record('compare_fallback', 'reused')
     else:
@@ -523,13 +518,6 @@ def execute_workflow():
                     '--data-dir', cl_path, '--reports-dir', reports_dir])
         if rc not in (0, 2):
             print('WARN: vendor cluster 子报告失败')
-    if cmp_ok:
-        rc, _ = sh([sys.executable, script('vendor_bridge.py'), 'compare',
-                    '--compare-dir', os.path.join(mw, 'compare'),
-                    '--reports-dir', reports_dir])
-        if rc not in (0, 2):
-            print('WARN: vendor compare 子报告失败')
-
     # ---------- 7 swimlane（每卡 TopN + 全算子统计；多卡横向比对） ----------
     if not args.skip_swimlane and cards:
         sw_dir = os.path.join(mw, 'swimlane')
@@ -583,11 +571,9 @@ def execute_workflow():
             print('ERROR: 总报告生成失败')
             return 1
         print(f'\n{"部分完成" if failures else "完成"}：{out_html}')
-        sub1 = os.path.join(reports_dir, 'cluster_analysis_report.html')
-        sub2 = os.path.join(reports_dir, 'compare_analysis_report.html')
-        for p in (sub1, sub2):
-            if os.path.isfile(p):
-                print(f'子报告：{p}')
+        subreport = os.path.join(reports_dir, 'cluster_analysis_report.html')
+        if os.path.isfile(subreport):
+            print(f'子报告：{subreport}')
     return 2 if failures else 0
 
 

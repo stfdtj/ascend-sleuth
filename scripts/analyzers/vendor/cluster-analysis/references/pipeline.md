@@ -17,9 +17,8 @@
 | `cluster_analysis_output/recipes/<name>/*.csv` | recipe_fallback.py | 各 recipe 明细 CSV |
 | `cluster_analysis_output/recipes_summary.{md,json}` | recipe_fallback.py | recipe 汇总（同时写入 DB 表 RecipeSummary） |
 | `compare/compare_analysis_result.json` | compare_fallback.py | 卡间对比明细 |
-| `compare/performance_comparison_result_*.xlsx` | 原生 msprof-analyze（归一化复制）或 compare_fallback.py | 对比 Excel（vendor compare 消费此文件） |
+| `compare/performance_comparison_result_*.xlsx` | 原生 msprof-analyze（归一化复制）或 compare_fallback.py | 可选的对比 Excel |
 | `reports/cluster_analysis_report.html` | vendor_bridge（cluster） | vendor 单模式报告（最终报告 iframe 内嵌；独立报告模式下为唯一交付） |
-| `reports/compare_analysis_report.html` | vendor_bridge（compare） | vendor 对比报告（iframe 内嵌） |
 | `reports/cluster_data.json`、`reports/chinese_xlsx/` | vendor_bridge 附带产物 | 报告数据与中文表 |
 | `swimlane/swimlane_rank{N}.{md,json}` | swimlane_analyzer.py | 每卡泳道分析 |
 | `swimlane/swimlane_compare.md` | swimlane_analyzer.py | 泳道跨卡对比 |
@@ -65,7 +64,7 @@ python scripts/recipe_fallback.py --root <输入路径> --top-num 20
 - 通信算子判定正则：当前以 recipe_fallback.py 的 `COMM_NAME_PATTERN` 为准（二期收敛至 scripts/lib/config.py）。
 
 ### P4 compare（原生优先）
-- 原生路径：复用内置选卡（通信占比最小=baseline、最大=compare；`--base-rank/--compare-rank` 可覆盖）→ `msprof-analyze compare -d <baseline卡> -c <compare卡> -o <mw>/compare/native` → 原生 xlsx 归一化复制为 `<mw>/compare/performance_comparison_result_{max}_{min}.xlsx`（vendor glob 契约，历史命名 xlsx 一并清理）→ `compare_fallback.py --json-only` 补产 `compare_analysis_result.json`（仅产 JSON，不触碰 xlsx）。选卡失败/原生命令失败/未找到 xlsx/JSON 补产失败 → 整体回退完整内置实现。
+- 原生路径：复用内置选卡（通信占比最小=baseline、最大=compare；`--base-rank/--compare-rank` 可覆盖）→ `msprof-analyze compare -d <baseline卡> -c <compare卡> -o <mw>/compare/native` → 原生 xlsx 归一化复制为 `<mw>/compare/performance_comparison_result_{max}_{min}.xlsx`（同时清理旧命名结果）→ `compare_fallback.py --json-only` 补产 `compare_analysis_result.json`（仅产 JSON，不触碰 xlsx）。选卡失败/原生命令失败/未找到 xlsx/JSON 补产失败 → 整体回退完整内置实现。
 - 降级：
 ```bash
 python scripts/compare_fallback.py --root <输入路径> --output <mw>/compare [--base-rank <N> --compare-rank <N>]
@@ -76,10 +75,9 @@ python scripts/compare_fallback.py --root <输入路径> --output <mw>/compare [
 ### P5 vendor — 集成开源报告
 ```bash
 python scripts/vendor_bridge.py cluster --data-dir <mw>/cluster_analysis_output --reports-dir <mw>/reports
-python scripts/vendor_bridge.py compare --compare-dir <mw>/compare --reports-dir <mw>/reports
 ```
 纪律（禁止绕过 vendor_bridge 直接调 vendor 内部脚本）：
-- vendor_bridge 固定以 `--mode single` 调 vendor/generate_cluster_report.py；compare 模式 glob `performance_comparison_result_*.xlsx` 取第一个交 main_analyzer.py。
+- vendor_bridge 以 `--mode single` 调用集群报告生成器。
 - 返回码：0 = 成功；2 = 输入缺失/不支持 → 跳过并继续（不算失败）；其他 = 失败。
 - 产物写入 reports/ 子目录，最终报告以相对路径 iframe 内嵌。
 - **独立报告模式**下 `vendor_bridge.py cluster` 是唯一执行阶段，`reports/cluster_analysis_report.html` 即最终交付。
@@ -140,7 +138,6 @@ python scripts/run_workflow.py --input <Prof数据路径> --output-dir <输出�
   - 子 agent C：P4 比对 xlsx（多卡时；单卡跳过）
 - **Wave 2**：
   - 子 agent D：P3 全量 recipe（依赖 P2）
-  - 子 agent E：P5 vendor compare 子报告（依赖 P4）
   - 子 agent F：P6 泳道统计（若卡数多，按卡拆分为多个子 agent，每个负责若干卡）
 - **Wave 3**：
   - 子 agent G：P5 vendor cluster 子报告（依赖 P2）

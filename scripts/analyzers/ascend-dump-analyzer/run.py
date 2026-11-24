@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Ascend 环境 dump 适配器：单份做版本配套核对，多份做配置漂移比对。
+"""Ascend 环境快照比对适配器。
 
-上游实现：scripts/analyzers/vendor/ascend-dump-analyzer/references/{check_compatibility,compare_dumps}.py
+上游实现：scripts/analyzers/vendor/ascend-dump-analyzer/references/compare_dumps.py
 """
 from __future__ import annotations
 
@@ -26,85 +26,7 @@ from _lib import (  # noqa: E402
 ANALYZER = "ascend-dump-analyzer"
 VERSION = UPSTREAM_COMMIT
 VENDOR = ROOT / "vendor" / "ascend-dump-analyzer"
-CHECK = VENDOR / "references" / "check_compatibility.py"
 COMPARE = VENDOR / "references" / "compare_dumps.py"
-
-
-def _compat(paths, out_dir: Path, args) -> dict:
-    output = out_dir / "compatibility.json"
-    proc = run_process(
-        [sys.executable, str(CHECK), paths[0], "--output", str(output)],
-        cwd=VENDOR,
-        timeout=args.timeout,
-        log_path=out_dir / "vendor.log",
-    )
-    if proc.get("timed_out"):
-        raise AnalyzerError("timeout", f"超过 {args.timeout}s", status="failed")
-    if not output.is_file():
-        raise AnalyzerError(
-            "analyzer-failed",
-            "没有生成 compatibility.json。退出码 {code}；stderr：{err}".format(
-                code=proc.get("exit_code"), err=tail(proc.get("stderr"), 600)
-            ),
-            status="failed",
-        )
-    data = read_json(output)
-    software = data.get("software") or {}
-    host = data.get("host") or {}
-    status_value = software.get("status") or "unknown"
-    findings = []
-    if software.get("reason"):
-        findings.append(
-            {
-                "claim": f"软件配套：{status_value}｜{software.get('reason')}",
-                "evidence": "compatibility.json software",
-                "kind": "fact",
-            }
-        )
-    checks = software.get("checks") or {}
-    for name, check in list(checks.items())[:3]:
-        if not isinstance(check, dict):
-            continue
-        findings.append(
-            {
-                "claim": f"{name}：{check.get('status') or 'unknown'}｜{clip(check.get('reason') or '', 160)}",
-                "evidence": f"compatibility.json software.checks.{name}",
-                "kind": "fact",
-            }
-        )
-    for name, item in list(host.items())[:2]:
-        if isinstance(item, dict):
-            findings.append(
-                {
-                    "claim": f"宿主机 {name}：{item.get('status') or 'unknown'}｜{clip(item.get('reason') or '', 160)}",
-                    "evidence": f"compatibility.json host.{name}",
-                    "kind": "fact",
-                }
-            )
-    if not findings:
-        findings.append(
-            {
-                "claim": f"版本配套核对完成，软件状态 {status_value}。",
-                "evidence": "compatibility.json",
-                "kind": "fact",
-            }
-        )
-    missing = []
-    if status_value == "unknown":
-        missing.append("关键组件版本缺失，核对结果为 unknown；这不是「配套正常」")
-    summary = (
-        f"单份环境 dump 版本配套：场景 {data.get('scene') or 'auto'}，"
-        f"软件状态 {status_value}。"
-        + (f"{software.get('reason')}" if software.get("reason") else "")
-        + f" 结果在 {output}。"
-    )
-    return {
-        "status": "partial" if status_value == "unknown" else "ok",
-        "summary": clip(summary, 500),
-        "findings": findings[:5],
-        "missing": missing,
-        "artifacts": [str(output)],
-    }
 
 
 def _compare(paths, out_dir: Path, args) -> dict:
@@ -127,11 +49,13 @@ def _compare(paths, out_dir: Path, args) -> dict:
             status="failed",
         )
     data = read_json(output)
-    if data.get("status") != "success":
+    upstream_status = data.get("status")
+    if upstream_status not in {"success", "partial"}:
         raise AnalyzerError("bad-input", f"比对未成功：{data.get('status')}；{data.get('error', '')}")
     summary = data.get("summary") or {}
     diff_count = int(summary.get("diff_count") or 0)
     similarity = summary.get("similarity")
+    compared_count = len(data.get("files") or paths)
     findings = []
     for section, diffs in (data.get("diffs") or {}).items():
         if not isinstance(diffs, dict):
@@ -158,15 +82,15 @@ def _compare(paths, out_dir: Path, args) -> dict:
     if not findings:
         findings.append(
             {
-                "claim": f"{len(paths)} 份 dump 未发现差异（相似度 {similarity}%）。",
+                "claim": f"{compared_count} 份已比对的快照未发现差异（相似度 {similarity}%）。",
                 "evidence": "diff.json summary",
                 "kind": "fact",
             }
         )
     skipped = data.get("skipped_files") or []
-    status = "partial" if skipped else "ok"
+    status = "partial" if upstream_status == "partial" else "ok"
     text = (
-        f"比对 {len(data.get('files') or paths)} 份 dump：总路径 {summary.get('total_paths', 0)}，"
+        f"比对 {compared_count} 份快照：总路径 {summary.get('total_paths', 0)}，"
         f"一致 {summary.get('identical_paths', 0)}，差异 {diff_count}，相似度 {similarity}%。"
     )
     if skipped:
@@ -182,20 +106,18 @@ def _compare(paths, out_dir: Path, args) -> dict:
 
 
 def analyze(inputs, out_dir: Path, args) -> dict:
-    for entry in (CHECK, COMPARE):
-        if not entry.is_file():
-            raise AnalyzerError("analyzer-not-installed", f"缺上游入口：{entry}", status="failed")
-    paths = [item["path"] for item in inputs]
-    for path in paths:
-        if Path(path).suffix.lower() not in (".json", ".log", ".txt"):
-            raise AnalyzerError(
-                "bad-input",
-                f"{path} 不是 dump JSON/日志文件；单份或对比都只接受 JSON 文本。",
-            )
-    if len(paths) == 1:
-        return _compat(paths, out_dir, args)
+    if not COMPARE.is_file():
+        raise AnalyzerError("analyzer-not-installed", f"缺上游入口：{COMPARE}", status="failed")
+    if len(inputs) < 2:
+        raise AnalyzerError("bad-input", "环境快照比对需要至少两份环境 dump JSON。")
+    paths = []
+    for item in inputs:
+        path = item["path"]
+        if item["kind"] != "file" or Path(path).suffix.lower() not in {".json", ".log", ".txt"}:
+            raise AnalyzerError("bad-input", f"{path} 不是环境快照文件。输入须包含 JSON 文本。")
+        paths.append(path)
     return _compare(paths, out_dir, args)
 
 
 if __name__ == "__main__":
-    sys.exit(run_adapter(ANALYZER, VERSION, analyze, "Ascend 环境版本配套 / 多份 dump 漂移比对"))
+    sys.exit(run_adapter(ANALYZER, VERSION, analyze, "Ascend 环境快照比对"))

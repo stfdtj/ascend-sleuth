@@ -13,15 +13,12 @@ from contextlib import closing
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-sys.path.insert(0, str(ROOT / 'vendor/prof-compare/scripts'))
 import advisor_fallback as advisor
 import cluster_fallback as cluster
 import compare_fallback as compare
 import detect_prof as detect
 import recipe_fallback as recipes
 import report_generator as report
-from parsers import operator
-from openpyxl import Workbook
 
 
 def load_vendor(name, filename):
@@ -113,6 +110,9 @@ class RegressionTests(unittest.TestCase):
         r = self.workflow(nested.parent, out)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((out / 'advisor/advisor.json').exists(), r.stdout)
+        self.assertTrue((out / 'compare/compare_analysis_result.json').is_file(), r.stdout)
+        self.assertTrue((out / 'performance_report.html').is_file(), r.stdout)
+        self.assertFalse((out / 'reports/compare_analysis_report.html').exists())
         self.assertTrue((nested / 'cluster_analysis_output/recipes_summary.json').exists(), r.stdout)
         d = json.loads((out / 'detect_result.json').read_text(encoding='utf-8'))
         self.assertEqual(d['coverage']['missing_ranks'], [2, 3])
@@ -186,23 +186,6 @@ class RegressionTests(unittest.TestCase):
         rows = compare.compare_kernel({'apo': str(a / 'ASCEND_PROFILER_OUTPUT')}, {'apo': str(b / 'ASCEND_PROFILER_OUTPUT')})
         self.assertEqual(rows, [])
 
-    def test_operator_statistic_does_not_match_detail(self):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = 'OperatorCompareStatistic'
-        ws.append(['No', 'Op', 'Base', 'Count', 'Comp', 'Count', 'Diff', 'Ratio'])
-        ws.append([1, 'a', 10, 1, 20, 1, 10, 1])
-        self.assertFalse(operator.parse_compare(wb)['available'])
-
-    def test_concentration_uses_positive_increments(self):
-        wb = Workbook()
-        ws = wb.active
-        ws.title = 'OperatorCompareStatistic'
-        ws.append(['No', 'Op', 'Base', 'Count', 'Comp', 'Count', 'Diff', 'Ratio'])
-        for i, diff in enumerate([10] * 11 + [-100]):
-            ws.append([i, f'op{i}', 100, 1, 100 + diff, 1, diff, diff / 100])
-        self.assertAlmostEqual(operator.parse_statistic(wb)['concentration'], 90.9, places=1)
-
     def test_fallback_communication_unit_and_base_info(self):
         cards = [cluster.collect_card(str(card(self.path, rank))) for rank in (0, 1)]
         cards[0]['comm'] = {'step0': {'collective': {'op@g': {'Communication Time Info': {'Elapse Time(ms)': 103.844799}}, 'Total Op Info': {'Communication Time Info': {'Elapse Time(ms)': 200}}}}}
@@ -257,7 +240,8 @@ class RegressionTests(unittest.TestCase):
         root = self.path / 'input'
         a, b = card(root, 0), card(root, 1)
         f = b / 'ASCEND_PROFILER_OUTPUT/step_trace_time.csv'
-        rows = list(csv.DictReader(f.open(encoding='utf-8')))
+        with f.open(encoding='utf-8') as handle:
+            rows = list(csv.DictReader(handle))
         rows[-1]['Step'] = '99'
         csv_file(f, rows)
         r = self.workflow(root, self.path / 'out')

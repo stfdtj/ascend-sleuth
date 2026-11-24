@@ -28,16 +28,8 @@ ANALYZERS = [
         "adapter": "ascend-dump-analyzer/run.py",
         "vendor": "vendor/ascend-dump-analyzer",
         "entry": "references/compare_dumps.py",
-        "inputs": "一份环境 dump JSON 做版本配套核对；两份及以上做配置漂移比对",
-        "purpose": "核对 Ascend 环境版本配套，或比对多份 dump 的配置差异",
-    },
-    {
-        "name": "prof-compare",
-        "adapter": "prof-compare/run.py",
-        "vendor": "vendor/prof-compare",
-        "entry": "scripts/main_analyzer.py",
-        "inputs": "一份已有的 compare xlsx；或两份单卡 prof 目录（A 基准、B 对比，需要 msprof-analyze）",
-        "purpose": "解析 msprof-analyze compare 结果，输出中文 HTML、JSON 与 xlsx 报告",
+        "inputs": "至少两份含 JSON 内容的环境快照文件",
+        "purpose": "按字段比对环境配置，报告各快照原值和仅在部分快照出现的字段",
     },
     {
         "name": "cluster-analysis",

@@ -71,8 +71,7 @@
     ├── detect_result.json                  # P0：模式、rank→目录映射、建议步骤
     ├── advisor/advisor.md + .json          # P1：全卡聚合专家建议（计算/通信/调度占比与优先级）
     ├── compare/                            # P4：performance_comparison_result_{max}_{min}.xlsx、CSV 镜像
-    ├── reports/                            # P5：cluster_analysis_report.html、
-    │                                       #   compare_analysis_report.html、chinese_xlsx/
+    ├── reports/                            # P5：cluster_analysis_report.html
     ├── swimlane/                           # P6：swimlane_rank<N>.md/.json（逐卡）、swimlane_compare.md（跨卡）
     └── performance_report.html             # P7：最终 HTML 报告（iframe 内嵌 vendor 子报告）
 ```
@@ -82,7 +81,7 @@
 - **advisor.md**：总体判定（计算/通信/调度占比与主导因素）+ 按优先级排序的调优建议，多卡为全卡聚合视角。
 - **23 个注册 recipe 结果**：拆解对比类（迭代耗时拆解、module 层级、NPU/GPU 校准）、计算类（算子汇总、频率、MoE 负载、MFU）、通信类（通信域/耗时/矩阵/带宽、HCCL TopN、PP 流水图、慢卡/慢链路归因）、Host 下发类（CANN API、空闲分析）、其他（导出/MSTX/P2P 配对）；另有扩展 recipe `communication_bandwidth_sum` 随全量执行、产出 csv，不计入五大类矩阵。
 - **泳道统计**：按 Thread/Stream/Communication（非 Plane）泳道输出最长算子 + 全部算子七列表（ms），多卡跨卡比对；最终报告按 Process/Ascend Hardware/Communication 三类汇总。
-- **慢卡比对**：通信占比最大 vs 最小两张卡的整体指标/算子/通信/内存/API 多维对比，vendor 产出 HTML + 中文 xlsx。
+- **慢卡比对**：通信占比最大 vs 最小两张卡的整体指标/算子/通信/内存/API 多维对比，结果写入主报告和对比 JSON。
 - **最终 HTML 报告**：信息概览 → 结论与建议 → 可折叠详情分区（默认全展开）→ vendor 子报告内嵌；集群总览按 Step 区分并附计算/通信/free 三部分 × Step 差异柱状图。
 
 ## 流程图
@@ -96,15 +95,13 @@ flowchart TD
     C --> C2[P2 生成 cluster_analysis_output<br/>cluster_fallback.py 缺失时]
     C --> C3[P4 比对数据 xlsx<br/>compare_fallback.py 通信最大 vs 最小卡]
     C2 --> E[Wave 2 并行]
-    C3 --> F[Wave 2: P5 vendor prof-compare<br/>HTML + 中文 xlsx]
     A -->|单卡数据| G[P6 泳道统计 swimlane_analyzer.py<br/>逐卡·可多子 agent 并行]
     E --> E1[P3 进阶分析 23 recipe 全量<br/>recipe_fallback.py]
     E --> G
-    E --> F
     C1 --> H[Wave 3]
     E1 --> H
     G --> H
-    F --> H
+    C3 --> H
     H --> H1[P5 vendor cluster-output-analysis<br/>集群 HTML 子报告]
     H --> I[Wave 4: P7 最终 HTML 汇总报告<br/>report_generator.py 概览→结论→可折叠详情<br/>内嵌 vendor 子报告]
 ```
@@ -133,7 +130,7 @@ flowchart TD
 
 ```text
 用 cluster-analysis 对比 D:\prof_data\16p 中的 rank 0 和 rank 11，
-生成比对报告（HTML + 中文 xlsx），重点解释通信差异来源。
+在主报告的双卡对比章节说明通信差异。
 ```
 
 只做泳道算子统计：

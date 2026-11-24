@@ -19,15 +19,16 @@ python3 scripts/analyzers/cli.py list --json
 
 | 已确认的数据形态 | 分析器 | 不要用它的情形 |
 |---|---|---|
-| 一份 Prof 采集（单卡或多卡），或一份集群输出 | `cluster-analysis` | 明确是两次采集的对比 → 用下面两行 |
-| 一份已有的 compare xlsx；或两份单卡 Prof 目录 | `prof-compare` | 两份目录不能只凭数量判是单卡；两份目录需要本机已有 `msprof-analyze` |
+| 一份 Prof 采集（单卡或多卡），或一份集群输出 | `cluster-analysis` | 两次集群结果的前后对照用 `cluster-compare` |
 | 两份集群采集或集群结果，各含多 rank / 集群 DB 或 TEXT | `cluster-compare` | 先明确 A/B、同负载、rank/step/window；不可比时只交描述差异 |
 | `dump_info/` 或 iBMC 一键收集包 | `ibmc_analyzer` | 不接 OS 日志；按内容判断，不按压缩包名 |
-| 环境快照 JSON、配置 dump | `ascend-dump-analyzer` | 普通日志不是环境快照；单份只做版本配套核对 |
+| 至少两份含 JSON 内容的环境快照 | `ascend-dump-analyzer` | 单份快照只记录已知配置，按需补正常端或变更前的快照 |
 | plog / slog / 框架日志 / dmesg 等日志包 | `issue-analyzer` | 时间窗缺失时只扫描，不推断跨机先后 |
 | ftrace / Host 采集包，要调度证据 | `cpu-host-performance` | 只有环境 JSON 时不给调度根因；采集与绑核不在自动调用范围 |
 
 数据形态判不出来就问一句，别猜。混在一个包里的，只选当前缺口那一个。
+
+有基准和对比两侧的性能读数时，按 `performance-baseline-comparison-reading` 核对可比性、数值和单位。该读法可直接用于工程师给出的读数。
 
 ## 怎么调
 
@@ -65,7 +66,7 @@ python3 scripts/analyzers/cli.py run <分析器名> \
 | reason | 含义 | 动作 |
 |---|---|---|
 | `analyzer-disabled` | `SLEUTH_ANALYZERS` 没开 | 当它不存在，回原路径；不要自己改开关 |
-| `dependency-missing` | 缺 `openpyxl` / `msprof-analyze` 等依赖 | 当它不存在；需要时请工程师在预配环境安装，不在诊断里装 |
+| `dependency-missing` | 本机缺运行依赖 | 回原诊断流程；需要该工具时请工程师在预配环境安装 |
 | `bad-input` / `no-input` | 路径或数据形态不对 | 纠正一次；仍不对就请工程师重给 |
 | `timeout` | 超过预算（默认 600 s） | 请工程师按 rank / 时间窗裁剪后重给 |
 | `analyzer-failed` | 上游入口非零退出 / 没生成结果 | 当真失败，记下来；不要重跑同一输入 |
@@ -81,14 +82,13 @@ python3 scripts/analyzers/cli.py run <分析器名> \
 | 分析器 | 要用户补的最小数据 |
 |---|---|
 | `issue-analyzer` | plog / slog / host / device / framework / dmesg 日志目录或文件 |
-| `ascend-dump-analyzer` | 环境 dump JSON；比对时需要两份 |
+| `ascend-dump-analyzer` | 至少两份环境快照 JSON |
 | `cpu-host-performance` | ftrace / Host 采集包、解包目录、trace 文本或 Chrome JSON |
 | `ibmc_analyzer` | `dump_info` 目录或 iBMC 一键收集包 |
-| `prof-compare` | 一份 compare xlsx，或两份单卡 prof 目录 |
 | `cluster-analysis` | 一份 prof 目录，或 `cluster_analysis_output` |
 | `cluster-compare` | 两份集群数据目录，各含 DB 或 TEXT |
 
-`partial` 的 `missing` 是可选数据缺口：可以写进结论的覆盖范围，但不阻塞本次分析；不要因为有可选缺口就要求用户重采整包。一次只问当前分析器缺的那一项，不要把七个分析器的输入清单一起发给用户。
+`partial` 的 `missing` 列出本次未分析的材料。报告应写明结果覆盖范围。若缺项影响正在验证的判断，只补这一项。
 
 ## trace 记什么
 

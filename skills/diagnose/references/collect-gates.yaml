@@ -223,14 +223,14 @@ gates:
     caveat_refs:
       - msprobe-tool-side-effect-fault-patterns   # 工具介入改变时序——先排除工具副作用再下结论
 
-  # 取证能力缺口（整包数据）：与知识缺口不同——手上有 prof 目录 / dump_info / 日志包 / ftrace 采集包，
+  # 取证能力缺口（整包数据）：手上有 prof 目录 / dump_info / 日志包 / ftrace 采集包 / 多份环境快照，
   # 把它们读成事实要跑几百行分析代码。闸门只决定「交给哪个分析器」；工具只产事实与候选解释，
   # fix / severity 仍归主持 agent。开关默认关闭，关着时整节跳过，诊断行为与没有它时一致。
   - id: analyzer-tooling
     categories: [interrupt, precision, performance]
     kind: conditional
     trigger: >-
-      步骤 5 深度排查，而工程师已经交来整包数据（prof 目录 / `dump_info` / 日志包 / ftrace 采集包），
+      步骤 5 深度排查，而工程师已经交来整包数据（prof 目录 / `dump_info` / 日志包 / ftrace 采集包 / 多份环境快照），
       或步骤 3 的候选验证缺一个整包里就有的具体指标
     question: null
     branches:

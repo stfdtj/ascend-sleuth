@@ -1,6 +1,6 @@
 # analyzers（仓库内置分析器）
 
-这里保留了 8 个上游 skill 的内容。7 个分析器通过 Python 命令调用，`vllm-ascend-tuning` 提供调优说明和配置模板。适配器处理参数、开关与 `result.json`，分析算法由上游实现提供。
+当前有 6 个分析器通过 Python 命令调用。环境快照分析保留字段比对，`vllm-ascend-tuning` 提供调优说明和配置模板。单卡性能对比的读法见[性能基准对照](../../references/methodologies/performance-baseline-comparison-reading.yaml)。
 
 上游来源、固定提交与许可状态见 [NOTICE.md](NOTICE.md) 和 [PROVENANCE.yaml](PROVENANCE.yaml)。
 
@@ -12,8 +12,7 @@ scripts/analyzers/
 ├── registry.py            分析器清单与输入形态
 ├── _lib.py                开关、路径校验、子进程、result.json
 ├── <name>/run.py          每个分析器的适配器（可直接执行）
-├── requirements.txt       可选依赖（不自动安装）
-└── vendor/<name>/         8 个上游目录，改动见 PROVENANCE.yaml
+└── vendor/<name>/         保留的上游脚本和资料
 ```
 
 ## 启用分析器
@@ -63,15 +62,14 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 |---|---|---|
 | `ibmc_analyzer` | 一个或多个 `dump_info` 目录、机器目录或 iBMC 一键收集包 | `python3 scripts/analyzers/cli.py run ibmc_analyzer --inputs <路径>` |
 | `issue-analyzer` | 一个日志目录，或一个/多个日志文件 | `python3 scripts/analyzers/cli.py run issue-analyzer --inputs <路径>` |
-| `ascend-dump-analyzer` | 一份环境 dump JSON（配套核对）；两份及以上（漂移比对） | `python3 scripts/analyzers/cli.py run ascend-dump-analyzer --inputs "<A.json>\n<B.json>"` |
-| `prof-compare` | 一份 compare xlsx；或两份单卡 prof 目录 | `python3 scripts/analyzers/cli.py run prof-compare --inputs <compare.xlsx>` |
+| `ascend-dump-analyzer` | 至少两份含 JSON 内容的环境快照 | `python3 scripts/analyzers/cli.py run ascend-dump-analyzer --inputs '["<A.json>","<B.json>"]'` |
 | `cluster-analysis` | 一份 prof 目录或 `cluster_analysis_output` | `python3 scripts/analyzers/cli.py run cluster-analysis --inputs <prof 目录>` |
 | `cluster-compare` | 两份集群数据目录（DB 或 TEXT） | `python3 scripts/analyzers/cli.py run cluster-compare --inputs "<A>\n<B>"` |
 | `cpu-host-performance` | 一份 ftrace/Host 采集包、目录、trace 文本或 Chrome JSON | `python3 scripts/analyzers/cli.py run cpu-host-performance --inputs <trace>` |
 
 `vllm-ascend-tuning` 的上游内容是提示词、调优文档和配置模板。调优时从 [上游说明](vendor/vllm-ascend-tuning/README.md) 进入，命令和参数按部署版本核对。
 
-从开发分支试跑 `diagnose` 时，先执行 `python3 scripts/build_ref_summary_index.py`，让诊断能查到本分支新增的参考词条。参考索引随主干生成。
+从开发分支试跑 `diagnose` 时，运行 `python3 scripts/build_ref_summary_index.py` 和 `python3 scripts/build_procedure_index.py`，让诊断能查到本分支新增的工具说明和判读方法。主干会自动生成索引。
 
 ## 结果
 
@@ -82,7 +80,7 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 | `result.json` | `status` / `summary` / `findings` / `missing` / `artifacts` / `analyzer_version` / `duration_ms` 等；iBMC 另带 `suppressed` / `observations` / `reconciled` |
 | `invocation.json` | 分析器、版本、输入、开关、Python、开始时间 |
 | `vendor.log` | 上游命令的 stdout/stderr（图、大段日志不进入上下文） |
-| 上游报告 | HTML / Markdown / JSON / xlsx，路径登记在 `result.json` 的 `artifacts` |
+| 上游报告 | HTML、Markdown 或 JSON，路径登记在 `result.json` 的 `artifacts` |
 
 `suppressed` 是适配层从发现里移出的判定，每条带 `reason` 与原因说明，原始数值仍留在上游 JSON 产物里。它不属于 `findings`：读到它说明「这条判定缺少证据，别当异常用」，不是「这里有问题」。当前只有 `ibmc_analyzer` 用它：缺 `npu_info` 时上游会把 NPU 在位判成数量 0（疑似丢卡），适配层改为未知并抑制该条。
 
@@ -92,17 +90,11 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 
 `status` 取 `ok` / `partial` / `blocked` / `failed`。成功判据是「上游进程正常结束 + 产物可读」，不是「目录里出现过文件」。失败时 `data_needed` 给出这个分析器的最小输入形态；`missing` 是本次缺的具体项。
 
-`partial` 只把可选缺口写进 `missing`，`data_needed` 保持为空——它表示「不补就跑不下去」，`partial` 并不属于这种情况，写进去会让 agent 去要本次分析不需要的材料。开关未开、缺依赖、超时同样不填 `data_needed`。
+`partial` 把本次未分析的材料写入 `missing`，`data_needed` 保持为空。报告按实际覆盖范围引用结果。开关未开、缺依赖或超时也保持 `data_needed` 为空。
 
 ## 依赖
 
-| 分析器 | 运行时 |
-|---|---|
-| `ibmc_analyzer` / `issue-analyzer` / `ascend-dump-analyzer` / `cluster-analysis` / `cluster-compare` / `cpu-host-performance` | Python 3.8+ 标准库 |
-| `prof-compare` 读 xlsx | `openpyxl` |
-| `prof-compare` 从两份 prof 目录生成 compare | `msprof-analyze`（本机预装） |
-
-缺依赖时返回 `dependency-missing` 并写明缺什么，**不自动安装**。
+当前分析器用 Python 3.8+ 标准库生成主要结果。集群分析可附带生成工作簿，集群对比从已有集群结果开始。
 
 ## 手动采集入口（不在自动调用范围）
 
@@ -112,10 +104,9 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 
 - `vendor/cpu-host-performance/scripts/cpu_trace_collect.sh`：ftrace 采集，需要 root 与现场授权。
 - `vendor/cpu-host-performance/scripts/ascend_bind.py`、`hostbind/`：绑核与回滚，会修改进程 affinity。
-- `vendor/ascend-dump-analyzer/references/msprechecker_dump.py`：在目标机采集环境快照。
 - `vendor/issue-analyzer/references/log-structure.md`：现场日志采集命令速查（plog 打包、`npu-smi`、`dmesg` 等），只作文本参考。
 - `vendor/ibmc_analyzer/README.md`：iBMC Web「一键收集」的导出说明；仓库里没有发起采集的脚本。
-- `vendor/prof-compare/`、`vendor/cluster-compare/` 的 README/SKILL：提到用 `msprof-analyze` 在宿主机生成 compare 或 `cluster_analysis_output`；适配器只读已有输出，不执行生成步骤。
+- `vendor/cluster-compare/README.md`：说明如何在现场生成集群分析结果。Sleuth 适配器从已有结果开始比对。
 
 `cpu-host-performance` 生成的 `bind_cpu.sh` 是建议脚本，本次不执行；执行前需人工核对 PID、线程身份与回退。
 
@@ -125,11 +116,9 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 python3 -m unittest tests.test_analyzers -v
 ```
 
-测试用临时目录现造合成输入，覆盖开关、坏路径、缺依赖、zip 越界、7 个分析器的输入到报告输出。真实客户包与超过 260 字符的路径不在测试里。
+测试用临时目录里的合成输入，覆盖开关、坏路径、压缩包路径校验和 6 个分析器的报告输出。环境快照还验证了单份输入的提示及部分成功时的差异报告。
 
 ## 已知限制
 
 - `cluster-analysis` 在多卡模式下沿用上游行为，会在 prof 根目录写 `cluster_analysis_output/`；需要输入只读时，先把 prof 目录复制到工作区。
 - `cluster-compare` 的 HTML 模板引用 CDN 图表脚本；离线打开时图表可能不显示，表格与 Markdown 报告仍可读。
-- `prof-compare` 从两份 prof 目录生成 compare 依赖 `msprof-analyze`；没有该工具时只支持已有 compare xlsx。
-- `ascend-dump-analyzer` 单份输入只做版本配套核对；完整单份报告仍按上游模板由主持 agent 填写。

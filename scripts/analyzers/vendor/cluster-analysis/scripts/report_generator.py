@@ -12,8 +12,7 @@ sidebar navigation; the INFO OVERVIEW comes FIRST (section 1), followed by
 CONCLUSIONS & SUGGESTIONS (section 2); cluster overview keeps the step
 dimension (one rank may span multiple steps); advanced analysis is centralized
 in one section grouped by the five categories; every major section is wrapped
-in <details> so it can be folded; vendor sub-reports (cluster-analysis /
-prof-compare HTML) are embedded in a dedicated section. No "card list
+in <details> so it can be folded; the cluster sub-report is embedded in a dedicated section. No "card list
 (cluster mode)" section is rendered.
 
 Output: perf_report.html (dark theme, ECharts via CDN with table fallback).
@@ -967,38 +966,17 @@ def sec_appendix(mw, num='8'):
 
 
 def sec_subreports(out_dir, num='8'):
-    """vendor 子报告（cluster-output-analysis / prof-compare）：iframe 内嵌 + 新窗口链接。"""
-    defs = [
-        ('reports/cluster_analysis_report.html', 'cluster-output-analysis 子报告',
-         'vendor cluster-output-analysis 生成：集群时间拆解、通信域映射、通信矩阵、'
-         '慢卡/慢链路等完整可视化'),
-        ('reports/compare_analysis_report.html', 'prof-compare 子报告',
-         'vendor prof-compare 生成：双卡算子 / Kernel / API / 模块维度比对完整可视化'),
-    ]
-    cards = []
-    for rel, name, desc in defs:
-        fp = os.path.join(out_dir, rel)
-        if not os.path.isfile(fp):
-            continue
-        cards.append(f'''<div class="card p-5 mt-4">
-<h3>{esc(name)} <a class="text-sm" href="{esc(rel)}" target="_blank">↗ 新窗口打开</a></h3>
-<p class="text-slate-400 text-sm mb-2">{esc(desc)}</p>
-<iframe src="{esc(rel)}" loading="lazy"
-  style="width:100%;height:840px;border:1px solid #334155;border-radius:.5rem;background:#0b1220;"></iframe>
-</div>''')
-    if not cards:
+    rel = 'reports/cluster_analysis_report.html'
+    if not os.path.isfile(os.path.join(out_dir, rel)):
         return ''
     return f'''<section id="subreports">
-  <h2>{num}. vendor 子报告（cluster-output-analysis / prof-compare）</h2>
-  {''.join(cards)}
-  <div class="card p-5 mt-4"><h3>子报告阅读指引</h3>
-  <p>cluster-output-analysis 子报告展示集群整体时序拆解、通信域映射与慢卡定位，
-  与本报告"集群总览 / 进阶分析"章节互为补充；prof-compare 子报告提供双卡差异的
-  算子 / Kernel / API 级归因，是"双卡比对"章节的明细展开。
-  建议先读主报告"结论与建议"，再按需深入对应子报告定位细节。</p></div>
-  <p class="text-xs text-slate-500 mt-2">子报告由 vendor 技能直接生成并嵌入本报告；
-  若内嵌区显示为空（浏览器安全策略），请点击"新窗口打开"。</p>
-</section>'''
+<h2>{num}. 集群分析子报告</h2>
+<div class="card p-5 mt-4">
+<p>子报告展示集群时序拆解、通信域映射及慢卡线索。
+<a class="text-sm" href="{rel}" target="_blank">新窗口打开</a></p>
+<iframe src="{rel}" loading="lazy"
+  style="width:100%;height:840px;border:1px solid #334155;border-radius:.5rem;background:#0b1220;"></iframe>
+</div></section>'''
 
 
 def main():
