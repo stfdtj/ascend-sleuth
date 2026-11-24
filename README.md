@@ -27,6 +27,8 @@ skill 按 [Agent Skills](https://agentskills.io/) 标准打包。可在 pi、Cla
 
 日志、环境快照、单卡对比、单次集群、双集群和 Host 性能的材料与评分见[六项工作机试验及复跑版本](scripts/analyzers/model-trials.md)。当前工具范围见[分析器用法](scripts/analyzers/README.md)。
 
+新一轮保留原诊断质量评分，增加工具调用、补证轮数、诊断耗时和工具返回文本量四项指标。[分析器效率对照](scripts/analyzers/efficiency-trial.md)
+
 ### 做完得到什么
 
 得到两道题各三份诊断报告，以及一份人工评分表。逐题比较证据准确性、处置建议和补证质量。本轮结果用于判断这两类 iBMC 案例中的收益。
