@@ -6,7 +6,7 @@
 #   一轮诊断最多加载一条流程（成本有界）。选择器与全部分片清单见：
 #   references/_procedure-index.yaml
 #
-# 本片流程条数：16    本片加载成本：约 2371 token
+# 本片流程条数：17    本片加载成本：约 2482 token
 entries:
 - id: ascend-hardware-detect-triage
   title: 硬件与压力检测判读（asys diagnose 四模式 → Pass/Warn/Fail → [ERROR] AML 错误码前缀分流 → 电压恢复）
@@ -102,6 +102,14 @@ entries:
   - A3-910C
   - A2-910B
   file: references/methodologies/operator-tuning-experiment-method.yaml
+- id: performance-baseline-comparison-reading
+  title: 性能基准对照的读法（可比性、绝对差值和变化率）
+  summary: 比较性能时先核对基准、对比对象和统计范围，再核对单位、原值和差值。大倍数先看绝对量，缺失读数保持未知。根据已核实的范围判断能否归因。
+  categories:
+  - performance
+  platforms:
+  - cross
+  file: references/methodologies/performance-baseline-comparison-reading.yaml
 - id: performance-delimiting-and-comparison
   title: 性能问题的定界顺序与有基线时的对比判据（先定方向再下钻 / 贡献度显著性门控 / 有效吞吐 / 集中度 / 单位与汇总行纪律）
   summary: 拿到性能数据（一份或两份）后按固定顺序走：①先把端到端或 step 耗时拆成计算、通信未掩盖、空闲三块，只定方向不下钻，通信再分等待与传输；②按变多的那一块走对应路径，其中通信算子逐个没变慢而通信未掩盖耗时涨了，说明重叠变差（并行度问题），改去看同步点与重叠关系；③有基线时先过显著性门控再算贡献度，门控只对集群对比的 Stage 差异这一项成立，判不过时贡献度降级为"—"，给得出时要写明它是占变…

@@ -1,0 +1,71 @@
+schema_version: 1
+upstream:
+  repository: https://github.com/hu669293657/skills
+  commit: 6519f6f73ba68c6eaf51d9374644e4b60c84be0c
+  author: hu669293657
+  license: none-declared
+  license_evidence: "仓库根与子目录没有 LICENSE/COPYING/NOTICE；源文件无 SPDX 头"
+  authorization: "作者口头授权迁入与再分发，迁入方确认；尚无书面许可记录"
+  redistribution_status: "已获口头再分发授权；尚无书面许可记录"
+vendored_at: scripts/analyzers/vendor
+analyzers:
+  - name: ibmc_analyzer
+    upstream_path: ibmc_analyzer
+    local_path: scripts/analyzers/vendor/ibmc_analyzer
+    entry: scripts/run_bmc_report.py
+    adapter: scripts/analyzers/ibmc_analyzer/run.py
+  - name: issue-analyzer
+    upstream_path: issue-analyzer
+    local_path: scripts/analyzers/vendor/issue-analyzer
+    entry: scripts/log_analyzer.py
+    adapter: scripts/analyzers/issue-analyzer/run.py
+  - name: ascend-dump-analyzer
+    upstream_path: ascend-dump-analyzer
+    local_path: scripts/analyzers/vendor/ascend-dump-analyzer
+    entry: references/compare_dumps.py
+    adapter: scripts/analyzers/ascend-dump-analyzer/run.py
+    retained_files: [references/compare_dumps.py]
+  - name: cluster-analysis
+    upstream_path: cluster-analysis
+    local_path: scripts/analyzers/vendor/cluster-analysis
+    entry: scripts/run_workflow.py
+    adapter: scripts/analyzers/cluster-analysis/run.py
+  - name: cluster-compare
+    upstream_path: cluster-compare
+    local_path: scripts/analyzers/vendor/cluster-compare
+    entry: scripts/generate_cluster_report.py
+    adapter: scripts/analyzers/cluster-compare/run.py
+  - name: cpu-host-performance
+    upstream_path: cpu-host-performance
+    local_path: scripts/analyzers/vendor/cpu-host-performance
+    entry: analyzer/analyze_cpu_trace.py
+    adapter: scripts/analyzers/cpu-host-performance/run.py
+documentation_only:
+  - upstream_path: prof-compare
+    local_path: references/methodologies/performance-baseline-comparison-reading.yaml
+    contents: 性能基准对照的判读方法
+  - upstream_path: vllm-ascend-tuning
+    local_path: scripts/analyzers/vendor/vllm-ascend-tuning
+    contents: "提示词、调优说明与配置模板"
+patches:
+  - file: scripts/analyzers/vendor/ascend-dump-analyzer/references/compare_dumps.py
+    change: "JSON 读取改用 utf-8-sig"
+    reason: "接受带 BOM 的 dump"
+  - file: scripts/analyzers/vendor/cluster-analysis/scripts/run_workflow.py
+    change: 删除单卡 Prof 对比子报告步骤，保留集群内双卡比对 JSON
+    reason: 单卡 Prof 对比只保留判读方法
+  - file: scripts/analyzers/vendor/cluster-analysis/scripts/vendor_bridge.py
+    change: 只保留集群子报告入口
+    reason: 删除内嵌的单卡 Prof 对比实现
+  - file: scripts/analyzers/vendor/cluster-analysis/scripts/report_generator.py
+    change: 主报告只嵌入集群子报告
+    reason: 主报告仍使用集群内双卡比对 JSON
+  - file: scripts/analyzers/vendor/ibmc_analyzer/scripts/run_bmc_report.py
+    change: "zip 解包逐条校验路径与符号链接；解压失败时直接失败，不再把压缩包当目录解析"
+    reason: "阻止压缩包越界写出，也避免解压失败后生成空报告"
+  - file: scripts/analyzers/vendor/cpu-host-performance/analyzer/analyze_cpu_trace.py
+    change: "stdout/stderr 固定 UTF-8"
+    reason: "Windows 默认代码页下中文输出会抛 UnicodeEncodeError"
+  - file: scripts/analyzers/vendor
+    change: "Remove trailing whitespace and redundant blank lines in five retained files"
+    reason: "Pass git diff --check"

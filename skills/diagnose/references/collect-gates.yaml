@@ -223,6 +223,30 @@ gates:
     caveat_refs:
       - msprobe-tool-side-effect-fault-patterns   # 工具介入改变时序——先排除工具副作用再下结论
 
+  # 取证能力缺口（整包数据）：手上有 prof 目录 / dump_info / 日志包 / ftrace 采集包 / 多份环境快照，
+  # 把它们读成事实要跑几百行分析代码。闸门只决定「交给哪个分析器」；工具只产事实与候选解释，
+  # fix / severity 仍归主持 agent。开关默认关闭，关着时整节跳过，诊断行为与没有它时一致。
+  - id: analyzer-tooling
+    categories: [interrupt, precision, performance]
+    kind: conditional
+    trigger: >-
+      步骤 5 深度排查，而工程师已经交来整包数据（prof 目录 / `dump_info` / 日志包 / ftrace 采集包 / 多份环境快照），
+      或步骤 3 的候选验证缺一个整包里就有的具体指标
+    question: null
+    branches:
+      - when: gap
+        action: >-
+          先 `python3 scripts/analyzers/cli.py status`，输出 `enabled` 才按数据形态选**一个**分析器，
+          用本机绝对路径调 `run`；开关关、缺依赖、超时一律回原路径，不把「没分析」写成「没异常」。
+          读 `result.json` 的 `findings` 与 `data_needed`，不整份贴进上下文；标 `candidate` 的解释只作
+          未验证假设，出现的传感器区间也按候选对待（阈值词条仍在待审），fix 与 severity 仍由主持 agent 出。
+          工具跑成功不等于诊断解决；失败不计入「候选被排除」
+        refs:
+          - sleuth-analyzers
+          - bmc-dump-analyzer
+    caveat_refs:
+      - sleuth-analyzers   # 工具成功≠诊断解决；缺文件只能写「这项没数据」
+
   - id: source-location
     categories: [interrupt, precision, performance]
     kind: conditional
