@@ -65,6 +65,7 @@
 **操作指南（用到那个环节时才读）**
 *你要搭新部署、装环境（Windows skills 使能）、跑评测、看指标、走 git 门控、或做导入时*
 
+- [agentless-analyzer-rsi.md](../docs/guide/agentless-analyzer-rsi.md) — 在工作机上用子代理或本机 codeAgent 生成 iBMC 脚本补丁并验证误报
 - [evolution-user-guide.md](../docs/guide/evolution-user-guide.md) — 使用者侧：能说什么、一句话后发生什么、怎么读进度
 - [eval.md](../docs/guide/eval.md) — 改 skill 前后跑什么（门禁分级）、对照集封存与已冻结的判据
 - [metrics.md](../docs/guide/metrics.md) — 指标口径与周批流程（数字以 metrics/timeline.yaml 为准）

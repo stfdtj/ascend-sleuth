@@ -110,6 +110,9 @@ docs:
   - path: docs/mechanism/agent-groom.md
     layer: mechanism
     purpose: Agent Groom 的知识快照、有界语义比对、证据绑定、合入前复核与收尾撤销
+  - path: docs/guide/agentless-analyzer-rsi.md
+    layer: guide
+    purpose: 在工作机上用子代理或本机 codeAgent 生成 iBMC 脚本补丁并验证误报
   - path: docs/guide/evolution-user-guide.md
     layer: guide
     purpose: 使用者侧：能说什么、一句话后发生什么、怎么读进度

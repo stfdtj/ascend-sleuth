@@ -14,10 +14,10 @@ from ..regions import REGIONS
 
 REGION = "tooling.ibmc_analyzer"
 SOURCE, = REGIONS[REGION].paths
-PROBE = "eval/analyzers/ibmc_presence.py"
+PROBE = "scripts/evolve/evaluations/ibmc_presence.py"
 ISSUE = (
     "iBMC 的 npu_info 为空、含采集超时文字或表头后只有错误信息时，采集无法证明 NPU 数量，"
-    "报告却给出疑似丢卡。请在 missing 标记在位未知及证据缺口，保留被过滤告警的依据。"
+    "报告却给出疑似丢卡。请在 missing 沿用“NPU 在位未知”并说明证据缺口，保留被过滤告警的依据。"
     "有完整表头且没有数据行时，按本分析器已有约定保留零卡告警。保留真实少卡和正常八卡的原有结果。"
 )
 
@@ -102,8 +102,24 @@ def _save(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _presence_groups(samples):
+    """Report independent denominators for unknown evidence, true faults, and healthy inputs."""
+    groups = {}
+    categories = {"unknown": "insufficient_evidence", "zero": "confirmed_fault",
+                  "one": "confirmed_fault", "eight": "healthy"}
+    for sample in samples.values():
+        group = groups.setdefault(categories[sample["expected"]], {"passed": 0, "total": 0})
+        group["total"] += 1
+        group["passed"] += int(sample["pass"])
+    return groups
+
+
 def _measure(workspace, output):
-    probe = _run(workspace, [sys.executable, "-X", "utf8", PROBE])
+    # Experiments resume at their pinned commit, including runs prepared before the move.
+    probe_path = workspace / PROBE
+    if not probe_path.is_file():
+        probe_path = workspace / "eval/analyzers/ibmc_presence.py"
+    probe = _run(workspace, [sys.executable, "-X", "utf8", str(probe_path)])
     (output / "probe.log").write_text(probe.stderr, encoding="utf-8")
     if probe.returncode:
         raise ValueError(f"analyzer probe failed (exit {probe.returncode}), see {output / 'probe.log'}")
@@ -111,7 +127,8 @@ def _measure(workspace, output):
     regression = _run(workspace, [sys.executable, "-X", "utf8", "-m", "unittest",
                                   "-v", "tests.test_analyzers"])
     (output / "regression.log").write_text(regression.stdout + regression.stderr, encoding="utf-8")
-    return {"samples": samples, "passed": sum(s["pass"] for s in samples.values()),
+    return {"samples": samples, "by_group": _presence_groups(samples),
+            "passed": sum(s["pass"] for s in samples.values()),
             "total": len(samples), "probe_ok": all("error" not in s for s in samples.values()),
             "regression_ok": regression.returncode == 0}
 

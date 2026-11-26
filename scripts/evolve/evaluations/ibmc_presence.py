@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from tests.test_analyzers import read_result, run_cli, write_text
 
@@ -38,21 +38,33 @@ def score(folder, content, expected):
     return assess(result, expected)
 
 
+def _has_evidence(item):
+    evidence = item.get("evidence")
+    return isinstance(evidence, str) and bool(evidence.strip())
+
+
+def _is_count_claim(item):
+    return "疑似丢卡" in item["claim"] or "NPU 数量" in item["claim"]
+
+
 def assess(result, expected):
-    claims = [item["claim"] for item in result["findings"]]
-    alerts = [claim for claim in claims if "疑似丢卡" in claim or "NPU 数量" in claim]
-    gaps = [gap for gap in result["missing"] if "NPU" in gap and "未知" in gap]
-    suppressed = [item for item in result.get("suppressed", [])
-                  if "疑似丢卡" in item["claim"] and item.get("evidence")]
+    findings = result["findings"]
+    count_findings = [item for item in findings if _is_count_claim(item)]
+    alerts = [item["claim"] for item in count_findings]
+    report_ok = (result.get("status") in ("ok", "partial")
+                 and any(_has_evidence(item) for item in findings))
+    gaps = [gap for gap in result["missing"] if "NPU 在位未知" in gap]
+    suppressed = [item for item in result.get("suppressed", []) if _is_count_claim(item)]
     if expected == "unknown":
-        passed = not alerts and bool(gaps and suppressed)
+        passed = not alerts and bool(gaps and suppressed) and all(_has_evidence(s) for s in suppressed)
     elif expected == "eight":
         passed = not alerts and not gaps and not suppressed
     else:
         count = 0 if expected == "zero" else 1
         passed = (len(alerts) == 1 and re.search(rf"NPU 数量\s+{count}\s*<", alerts[0]) is not None
-                  and not gaps and not suppressed)
-    return {"expected": expected, "pass": passed, "alerts": alerts, "unknown": gaps,
+                  and _has_evidence(count_findings[0]) and not gaps and not suppressed)
+    return {"expected": expected, "pass": report_ok and passed, "report_ok": report_ok,
+            "alerts": alerts, "unknown": gaps,
             "suppressed": suppressed}
 
 

@@ -1,5 +1,7 @@
 # 工作机诊断对照实验计划
 
+要让模型尝试修改 iBMC 脚本、验证丢卡误报，请从[工作机 RSI 指南](docs/guide/agentless-analyzer-rsi.md)开始。下文的诊断盲评分用于评审最终报告。
+
 持有测试集和验证集的实验组织者在自己的工作机上运行本实验。收到本页的主 agent 负责盘点数据、组织盲测和汇总结果。实验要回答两个问题：Sleuth 接入后能否从原始材料提取正确证据？在诊断质量达到同一要求时，开放分析器能否减少模型的工具调用、补证、耗时和读入文本量？
 
 ## 第一步：组织者提供路径，主 agent 盘点并选题
@@ -199,5 +201,18 @@ prof-compare 单独验收判读词条。组织者从工作簿或原始明细核�
 ### 怎么结束和清理
 
 把报告、评分表和版本记录移到工作机上指定的留存目录，再移除临时克隆。原始材料和评审答案保留在各自的目录。
+
+</details>
+
+<details>
+<summary>Sleuth 可用的 skill</summary>
+
+<!-- BEGIN generated: skill-roster (scripts/build_docs_index.py；由 docs/_manifest.yaml 生成，勿手改) -->
+本仓共 **14 个面向使用者的 skill**，按使用场景分 4 组：
+- **日常问答**（1）：`ask`（一句话能问完的问题直接答（码、变量值、某类怎么定位、术语、库里有吗），症状定位转 diagnose）
+- **日常诊断**（2）：`diagnose` · `resume-diagnosis`
+- **知识沉淀**（4）：`to-postmortem` · `to-reference` · `issue-ingest` · `reference-ingest`
+- **维护与演进**（7）：`eval-ingest`（评测集补充入口：从 GitHub/本地 issue 建 candidate，补答案、复核入池；不产 case、不自动 active） · `knowledge-groom` · `self-evolve` · `evolve-check`（内部协议，由内容流程收尾自动转接，不单独调用） · `skill-review`（内部协议，由用户显式触发做 skill 质量审视） · `preload-panel`（仅 DSH：按本机给模型的工具定装载路，有 cordis_define / cordis_run 热加载，有 plugin_manager 装常驻插件包，DSH Desktop 用安装目录自带的 dsh 命令行装（profile 记成 link），另有脚本经 /api 通路装与插件页粘贴两条备用路；含「装了但 tab 不出现」的排查顺序） · `doctor`（本机环境体检：一条命令报「哪些流程能跑、哪些会降级」并给修法；只读，不装包）
+<!-- END generated: skill-roster -->
 
 </details>
