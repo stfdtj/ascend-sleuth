@@ -1,6 +1,6 @@
 # AlphaEvolve 提案搜索实验
 
-本实验面向维护提案搜索循环的工程师。运行 `python experiments/alphaevolve_demo.py` 可比较从错误求和表达式开始的四条搜索路径。每行 JSON 包含最终表达式、独立样本结果、评估次数、模拟提案次数、耗时和不同表达式数。目标取指定输入上估算运算次数之和的倒数。每轮最多评估三次，组合流程包含修复和种子复评。模拟提案只从三个固定表达式中取值。真实模型的提案质量和耗时仍需另测。
+本实验面向维护提案搜索循环的工程师。运行 `python experiments/alphaevolve_demo.py` 可比较从错误求和表达式开始的四条搜索路径。每行 JSON 包含最终表达式、独立样本结果、评估次数、模拟提案次数、耗时和不同表达式数。目标取指定输入上估算运算次数之和的倒数。每轮最多评估三次，组合流程包含修复和种子复评。模拟提案只从三个固定表达式中取值。真实模型的提案质量和耗时仍需另测。实验入口沿用提案评估回调。MAP-Elites 的入格条件只影响搜索选择，生产发布仍由原有 judge 和 gate 决定。
 
 ## 实现对应关系
 
@@ -14,6 +14,7 @@ AlphaEvolve 论文描述模型修改代码、评估程序反馈并据此继续�
 | sample 返回父程序和参考程序，默认五个参考 | 每轮按随机种子和已选父代次数抽取一个格子，再从其他格子取至多两个参考。 |
 | PopulationStrategy 提供准入、替换、淘汰和迁移钩子 | 使用现有 Policy。可选 select_parents 钩子向 reflect 动作加入 inspirations 编号。旧策略继续调用 choose。同步 proposer 接口只能接收父代，使用参考程序需消费动作接口。 |
 | utils/code_utils.py 应用代码修改，evaluator.py 可分阶段评估 | 修改由调用方生成，沿用 ProposalLoop.apply 和外部评估。示例评估器只接受预设表达式，独立样本在最终选择之后评分。 |
+| controller.run 接受迭代数和目标分数 | ProposalLoop 沿用评估次数、轮数、候选总量及 token 限制。token 限制根据已返回用量在动作之间检查。 |
 | controller 保存检查点，database 保存种群和岛状态 | 保留 JSONL 提案记录和 ProposalLoop.to_dict 快照。在原归档上用 ProposalLoop.from_dict(state, policy=policy) 恢复，调用方提供相同策略配置。 |
 
 ## 配置与扩展
