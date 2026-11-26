@@ -69,7 +69,12 @@ class ProposalLoop:
         if self.rounds >= self.max_rounds:
             self.stop_reason = "rounds"
             return {"kind": "stop", "reason": self.stop_reason}
-        parent = self.policy.choose(self.engine.proposals, self.samples, self.reflected)
+        inspirations = []
+        select_parents = getattr(self.policy, "select_parents", None)
+        if select_parents is None:
+            parent = self.policy.choose(self.engine.proposals, self.samples, self.reflected)
+        else:
+            parent, inspirations = select_parents(self.engine.proposals, self.samples, self.reflected)
         self.rounds += 1
         if parent is None:
             if self.engine.proposals:
@@ -82,6 +87,8 @@ class ProposalLoop:
         self.pending = {"kind": "reflect", "parent": parent.id,
                         "failures": self.engine.failures(parent, self.samples),
                         "round": self.rounds}
+        if inspirations:
+            self.pending["inspirations"] = [item.id for item in inspirations]
         return self.pending
 
     def apply(self, action: Dict[str, Any], result: Dict[str, Any]) -> None:
@@ -143,6 +150,9 @@ class ProposalLoop:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "state_schema": PROPOSAL_STATE_SCHEMA,
+            "policy_id": getattr(self.policy, "id", None),
+            "policy_config": getattr(self.policy, "configuration", dict)(),
+            "archive_next_id": self.engine._next,
             "samples": list(self.samples),
             "max_rounds": self.max_rounds,
             "population": self.population,
@@ -155,5 +165,36 @@ class ProposalLoop:
             "stop_reason": self.stop_reason,
             "budget": self.budget.to_dict(),
             "archive": str(self.engine.archive.path),
-            "proposals": [proposal.to_dict() for proposal in self.engine.proposals],
+            "proposals": [dict(proposal.to_dict(), draft=proposal.draft) for proposal in self.engine.proposals],
         }
+
+    @classmethod
+    def from_dict(cls, state, *, policy):
+        """Resume a saved action boundary against its original proposal archive."""
+        from ..proposal_engine import Proposal, ProposalArchive, ProposalEngine
+
+        if state.get("state_schema") != PROPOSAL_STATE_SCHEMA:
+            raise LoopError("unsupported proposal checkpoint")
+        engine = ProposalEngine(ProposalArchive(state["archive"]))
+        if state.get("policy_id", policy.id) != policy.id or (
+            state.get("policy_config", {}) != getattr(policy, "configuration", dict)()
+        ):
+            raise LoopError("policy differs from checkpoint")
+        if state.get("archive_next_id", engine._next) != engine._next:
+            raise LoopError("archive has advanced beyond checkpoint")
+        latest = {row["id"]: row for row in engine.archive.read()}
+        for row in state["proposals"]:
+            durable = latest.get(row["id"], {})
+            if any(durable.get(k) != v for k, v in row.items() if k not in ("at", "draft")):
+                raise LoopError("proposal archive and checkpoint differ")
+            fields = {key: row[key] for key in Proposal.__dataclass_fields__ if key in row}
+            fields.setdefault("draft", {})
+            engine.proposals.append(Proposal(**fields))
+        loop = cls(engine, state["samples"], max_rounds=state["max_rounds"],
+                   population=state["population"], max_tokens=state["max_tokens"], policy=policy)
+        loop.budget = Budget.from_dict(state["budget"])
+        for key in ("reflected", "rounds", "evaluations", "tokens", "pending", "stop_reason"):
+            setattr(loop, key, state[key])
+        engine.evaluations = loop.evaluations
+        engine.tokens = loop.tokens
+        return loop

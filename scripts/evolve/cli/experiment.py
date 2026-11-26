@@ -14,6 +14,7 @@ from ..experiments import ExperimentError, validate_experiment
 from ..flow import FlowError, run_proposal
 from ..pilot import PilotError
 from ..policy import PolicyError, resolve_autonomy
+from ..alphaevolve import AlphaEvolvePolicy
 from ..proposal_engine import (BestPolicy, GepaPolicy, ParetoPolicy,
                                ProposalArchive, ProposalEngine)
 from ..proposals import ProposalError, request as proposal_request, validate_draft
@@ -124,7 +125,10 @@ def cmd_experiment_search(args: argparse.Namespace) -> int:
         candidates = scenario.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise ProposalError("scenario.candidates must be a non-empty list")
-        policy = {"best": BestPolicy, "pareto": ParetoPolicy, "gepa": GepaPolicy}[args.policy]()
+        if args.policy == "alphaevolve":
+            policy = AlphaEvolvePolicy(**scenario.get("alphaevolve", {}))
+        else:
+            policy = {"best": BestPolicy, "pareto": ParetoPolicy, "gepa": GepaPolicy}[args.policy]()
         archive = ProposalArchive(Path(args.archive) if args.archive
                                   else evolve_base(args) / "proposals.jsonl")
         engine = ProposalEngine(archive)
@@ -451,7 +455,7 @@ def register(subparsers) -> None:
         "search", help="用已产出的候选做校验、评分、策略选择并归档")
     exp_search.add_argument("--root", default=None)
     exp_search.add_argument("--scenario", required=True)
-    exp_search.add_argument("--policy", choices=("best", "pareto", "gepa"), default="gepa")
+    exp_search.add_argument("--policy", choices=("best", "pareto", "gepa", "alphaevolve"), default="gepa")
     exp_search.add_argument("--archive", default=None)
     exp_search.set_defaults(func=cmd_experiment_search)
 
