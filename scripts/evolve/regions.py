@@ -61,6 +61,11 @@ REGIONS: Dict[str, RegionSpec] = {
         paths=("scripts/", "eval/"),
     ),
     # tooling 区改的是工具本身，不是使用工具的提示文本。
+    "tooling.ibmc_analyzer": RegionSpec(
+        id="tooling.ibmc_analyzer", skill="tooling", target_kind="tooling",
+        components=("ibmc_analyzer",), description="iBMC 报告中的发现与证据缺口",
+        paths=("scripts/analyzers/ibmc_analyzer/run.py",),
+    ),
     "tooling.source_fetch": RegionSpec(
         id="tooling.source_fetch", skill="tooling", target_kind="tooling",
         components=("source_fetch", "source_cache", "source_retry"),

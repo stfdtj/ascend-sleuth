@@ -2,9 +2,11 @@
 
 from typing import Any, Dict
 
+from .agentless import AgentlessOptimizer
 from .baseline import BaselineOptimizer
 
 ALGORITHMS = {
+    "agentless": AgentlessOptimizer,
     "baseline": BaselineOptimizer,
 }
 

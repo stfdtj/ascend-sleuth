@@ -110,6 +110,8 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 
 `cpu-host-performance` 生成的 `bind_cpu.sh` 是建议脚本，本次不执行；执行前需人工核对 PID、线程身份与回退。
 
+iBMC 在位误报的优化实验可从[工作机运行指南](agentless-rsi.md)启动，指南包含目录图、示例补丁与逐条评分方法。
+
 ## 测试
 
 ```bash

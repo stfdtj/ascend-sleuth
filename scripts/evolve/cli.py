@@ -1148,6 +1148,20 @@ def cmd_experiment_gate(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def cmd_agentless(args: argparse.Namespace) -> int:
+    from .algorithms.agentless import run_model_trials, run_trial
+
+    try:
+        if args.operation == "run":
+            return run_model_trials(Path(__file__).resolve().parents[2], args.run_dir,
+                                    args.model_command, args.attempts)
+        return run_trial(Path(__file__).resolve().parents[2], args.run_dir,
+                         getattr(args, "response", None))
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+
 def cmd_experiment_resolve(args: argparse.Namespace) -> int:
     try:
         spec, optimizer = resolve_optimizer(args.target, args.algorithm)
@@ -2154,6 +2168,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     experiment = sub.add_parser("experiment", help="算法适配器")
     experiment_sub = experiment.add_subparsers(dest="experiment_command", required=True)
+    agentless = experiment_sub.add_parser("agentless", help="定位 iBMC 误报并验证候选脚本")
+    trial = agentless.add_subparsers(dest="operation", required=True)
+    for step in ("prepare", "evaluate", "run"):
+        command = trial.add_parser(step)
+        command.add_argument("--run-dir", required=True, help="保存实验输入与结果的目录")
+        if step == "evaluate":
+            command.add_argument("--response", required=True, help="模型生成的 SEARCH/REPLACE 文本")
+        if step == "run":
+            command.add_argument("--attempts", type=int, default=3, help="最多生成几个候选")
+            command.add_argument("--model-command", nargs=argparse.REMAINDER, required=True,
+                                 help="模型命令和参数，最后填写；标准输入读题，标准输出给补丁")
+        command.set_defaults(func=cmd_agentless)
+
     exp_list = experiment_sub.add_parser("list", help="列出注册算法与 policy 选择")
     exp_list.add_argument("--root", default=".", help="策略根目录")
     exp_list.add_argument("--policy", default=None, help="策略路径")

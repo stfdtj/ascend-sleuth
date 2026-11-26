@@ -43,6 +43,7 @@ REGION_MARKERS = {
     "knowledge.reference_content": ("词条", "适用范围", "来源", "scope"),
     "tooling.source_fetch": ("src_fetch", "cache", "缓存", "retry", "重试", "ref"),
     "tooling.source_catalog": ("catalog", "repo", "仓", "签名", "signature"),
+    "tooling.ibmc_analyzer": ("npu", "ecc", "findings", "missing", "suppressed"),
     "harness.scheduler": ("scheduler", "调度", "budget", "预算", "stop", "停止"),
 }
 
