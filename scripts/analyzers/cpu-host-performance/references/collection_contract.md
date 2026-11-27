@@ -87,4 +87,4 @@ HTML、报告 JSON 和客户模板/配置直接生成。2.3 展示当前摘要�
 
 ## 定制绑核的补充网络证据
 
-涉及NIC/IRQ隔离时读取 [custom_binding.md](custom_binding.md)。`python3 scripts/collect_network_evidence.py --interval 5 --output network-window.json` 为完整skill目录下的只读补充采集，不改变原单文件采集器和旧包Manifest契约。保留NIC前后拓扑、PCI/NUMA/队列/MSI IRQ、requested/effective affinity、RPS/XPS、两次中断/softirq/softnet/netdev计数及读取时间、ethtool和irqbalance状态。缺失项写入该JSON的errors/status；该补充JSON需单独随原包交付，不声称已经自动进入原tar.gz或HTML。多窗口与归因/物理核校准要求见参考页。
+涉及NIC/IRQ隔离时读取[定制绑核上游说明](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/custom_binding.md)（上游完整 Skill 的定制生成链，本仓不交付对应生成器）。`python3 scripts/collect_network_evidence.py --interval 5 --output network-window.json` 为完整skill目录下的只读补充采集，不改变原单文件采集器和旧包Manifest契约。保留NIC前后拓扑、PCI/NUMA/队列/MSI IRQ、requested/effective affinity、RPS/XPS、两次中断/softirq/softnet/netdev计数及读取时间、ethtool和irqbalance状态。缺失项写入该JSON的errors/status；该补充JSON需单独随原包交付，不声称已经自动进入原tar.gz或HTML。多窗口与归因/物理核校准要求见参考页。

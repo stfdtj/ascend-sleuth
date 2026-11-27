@@ -151,7 +151,7 @@ class Card:
                 for name, detail in operators.items():
                     if isinstance(detail, dict):
                         original_name = detail.get('_original_operator_key', name).split('@')[0]
-                        self._save_comm_detail(step.removeprefix('step'), original_name, detail)
+                        self._save_comm_detail(step[4:] if step.startswith('step') else step, original_name, detail)
         if not self.comm_detail_candidates:
             self._db_comm_details()
         starts = [ns(row['startTimeNs']) for row in query(self.conn, 'SELECT startTimeNs FROM SESSION_TIME_INFO')]

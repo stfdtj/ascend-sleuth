@@ -8,7 +8,7 @@ parse_bmc_collect.py — 华为 iBMC 一键收集日志 → 结构化 JSON + 健
 
 输入：一个或多个 iBMC 一键收集导出根目录（含 dump_info/ 子目录）
 输出：
-  - 每台机器一个 <机器名>_bmc.json（单机或多机都会为每台机器生成）
+  - 每台机器一个 <机器名>[_<SN>][_N]_bmc.json（单机或多机都会为每台机器生成）
   - 多机时额外输出 all_machines_bmc.json（machines + comparison 字段级矩阵，
     供集群对比报告与程序化 diff 直接使用）
 
@@ -1709,6 +1709,7 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
     all_data = []
+    used_names = set()
     for root in args.roots:
         print(f"[parse] {root}")
         try:
@@ -1718,9 +1719,19 @@ def main():
             traceback.print_exc()
             print(f"  !! 解析失败: {e}")
             continue
-        # 用目录名(machine_tag)保证唯一，真实部署每个机器目录名不同
+        # 每台机器一个 JSON。目录名可能相同（例如两个同名压缩包解到各自目录），
+        # 再带上序列号；仍冲突时加序号，不能互相覆盖。
         unique = re.sub(r'[\\/:*?"<>|]', "_", d["machine_tag"])[-60:]
-        outpath = os.path.join(args.output_dir, f"{unique}_bmc.json")
+        sn = str((d.get("identity") or {}).get("product_sn") or "").strip()
+        sn = re.sub(r'[\\/:*?"<>|]', "_", sn)[-40:]
+        base = f"{unique}_{sn}" if sn else unique
+        filename = f"{base}_bmc.json"
+        suffix = 2
+        while filename in used_names:
+            filename = f"{base}_{suffix}_bmc.json"
+            suffix += 1
+        used_names.add(filename)
+        outpath = os.path.join(args.output_dir, filename)
         with open(outpath, "w", encoding="utf-8") as f:
             json.dump(d, f, ensure_ascii=False, indent=2, default=str)
         print(f"  -> {outpath} | verdict={d['health']['verdict']} | "

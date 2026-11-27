@@ -209,6 +209,26 @@ def read_json(path: str | Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def file_signature(path: str | Path) -> tuple[int, int] | None:
+    """产物在本次子进程运行前的身份（mtime_ns, size）；不存在返回 None。
+
+    适配器在跑上游前取一次、跑完再取一次：同一路径的身份未变，说明这次没有
+    写出新产物，读到的是上一次留下的结果。用身份对比而不是「文件是否存在」，
+    是为了让复用输出目录时失败也留下明确原因，而不是把旧结果标成新输入的 fact。
+    """
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return None
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+def is_fresh(path: str | Path, before: tuple[int, int] | None) -> bool:
+    """文件存在且身份与运行前不同。"""
+    current = file_signature(path)
+    return current is not None and current != before
+
+
 def write_json(path: str | Path, data: dict) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)

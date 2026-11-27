@@ -19,6 +19,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -128,6 +130,7 @@ def _single_snapshot(path: str, out_dir: Path, args) -> dict:
     if not snapshot:
         raise AnalyzerError("bad-input", f"{path} 是空 JSON 或不是对象，无法做版本配套检查。")
     output = out_dir / "compatibility.json"
+    before = file_signature(output)
     proc = run_process(
         [sys.executable, str(COMPATIBILITY), path, "--output", str(output)],
         cwd=REFERENCES,
@@ -136,11 +139,12 @@ def _single_snapshot(path: str, out_dir: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s", status="failed")
-    if not output.is_file():
+    if not is_fresh(output, before):
         detail = tail(proc.get("stderr"), 900) or tail(proc.get("stdout"), 900)
         raise AnalyzerError(
             "analyzer-failed",
-            "没有生成 compatibility.json。退出码 {code}；{detail}".format(
+            "没有生成新的 compatibility.json（复用输出目录时不会沿用上一次结果）。"
+            "退出码 {code}；{detail}".format(
                 code=proc.get("exit_code"), detail=detail
             ),
             status="failed",
@@ -317,14 +321,15 @@ def _compatibility_facts(
         return None, [], None, True
     name = Path(path).name
     output = out_dir / f"compatibility-{index:02d}-{Path(path).stem}.json"
+    before = file_signature(output)
     proc = run_process(
         [sys.executable, str(COMPATIBILITY), path, "--output", str(output)],
         cwd=REFERENCES,
         timeout=timeout,
         log_path=out_dir / f"compatibility-{index:02d}.log",
     )
-    if proc.get("timed_out") or not output.is_file():
-        detail = tail(proc.get("stderr"), 300) or "未生成 compatibility.json"
+    if proc.get("timed_out") or not is_fresh(output, before):
+        detail = tail(proc.get("stderr"), 300) or "未生成新的 compatibility.json"
         return None, [f"配套检查未执行（{name}）：{detail}"], None, True
     data = read_json(output)
     collection_gaps = _attach_snapshot_evidence(data, snapshot, path)
@@ -379,6 +384,8 @@ def _compatibility_facts(
 def _compare(paths: list[str], out_dir: Path, args) -> dict:
     output = out_dir / "diff.json"
     html = out_dir / "diff.html"
+    output_before = file_signature(output)
+    html_before = file_signature(html)
     proc = run_process(
         [sys.executable, str(COMPARE), *paths, "--json", str(output), "--html", str(html)],
         cwd=TOOL_DIR,
@@ -387,10 +394,10 @@ def _compare(paths: list[str], out_dir: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s", status="failed")
-    if not output.is_file():
+    if not is_fresh(output, output_before):
         raise AnalyzerError(
             "analyzer-failed",
-            "没有生成 diff.json。退出码 {code}；stderr：{err}".format(
+            "没有生成新的 diff.json（复用输出目录时不会沿用上一次结果）。退出码 {code}；stderr：{err}".format(
                 code=proc.get("exit_code"), err=tail(proc.get("stderr"), 900)
             ),
             status="failed",
@@ -456,8 +463,13 @@ def _compare(paths: list[str], out_dir: Path, args) -> dict:
     )
     if skipped:
         text += f" 跳过 {len(skipped)} 个文件（见 missing）。"
-    artifacts = [str(item) for item in (output, html) if item.is_file()] + compat_artifacts
+    artifacts = [str(output)]
+    if is_fresh(html, html_before):
+        artifacts.append(str(html))
+    artifacts.extend(compat_artifacts)
     missing = [f"跳过：{item}" for item in skipped] + compat_missing
+    if not is_fresh(html, html_before):
+        missing.append("HTML 报告未生成，JSON 差异结果仍可用")
     return {
         "status": status,
         "summary": clip(text, 500),

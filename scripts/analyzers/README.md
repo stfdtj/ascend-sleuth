@@ -38,7 +38,7 @@ SLEUTH_ANALYZERS=off python3 scripts/analyzers/cli.py run ibmc_analyzer --inputs
 ```bash
 python3 scripts/analyzers/cli.py status            # 开关与安装状态（人读）
 python3 scripts/analyzers/cli.py status --json     # 同上，给机器读
-python3 scripts/analyzers/cli.py list --json       # 这台机器上有哪些分析器、各自的输入形态
+python3 scripts/analyzers/cli.py list --json       # 仓库登记的分析器与输入形态（安装状态看 status）
 python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 <绝对路径 2>" --session-id <session_id> --purpose "<一句话>"
 ```
@@ -47,7 +47,7 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 - `--out-dir` 可省略；省略时落到主检出的 `traces/evidence/<session_id>/tool-runs/<call_id>/`。
 - 两组数据比对时按 **A（基准）、B（对比）** 顺序传。
 - 单个分析器也可直接跑：`python3 scripts/analyzers/<name>/run.py --inputs ... --out-dir ...`。
-- 输出统一转 UTF-8：Windows 默认代码页（cp1252）下中文摘要不会抛 UnicodeEncodeError。
+- 输出统一转 UTF-8：Windows 的非 UTF-8 控制台代码页（如 cp1252）下中文摘要不会抛 UnicodeEncodeError。
 
 ### 每个分析器的命令
 
@@ -78,17 +78,21 @@ python3 scripts/analyzers/cli.py run <name> --inputs "<绝对路径 1>
 | `vendor.log` | 上游命令的 stdout/stderr（图、大段日志不进入上下文） |
 | 上游报告 | HTML、Markdown、JSON 或兼容性结果，路径登记在 `result.json` 的 `artifacts` |
 
-`suppressed` 是适配层从发现里移出的判定，每条带 `reason` 与原因说明，原始数值仍留在上游 JSON 产物里。它不属于 `findings`：读到它说明「这条判定缺少证据，别当异常用」，不是「这里有问题」。当前只有 `ibmc_analyzer` 用它：缺 `npu_info` 时上游会把 NPU 在位判成数量 0（疑似丢卡），适配层改为未知并抑制该条。
+`suppressed` 是适配层从发现里移出的判定，每条带 `reason` 与原因说明，原始数值仍留在上游 JSON 产物里。它不属于 `findings`：读到它说明「这条判定未被采纳」，原因看 `reason`（缺证据，或上游按固定 8 卡判出的数量结论被适配层按机型预期重算），不是「这里有问题」。当前只有 `ibmc_analyzer` 用它：`npu_info` 缺失、读取失败、内容无法识别、只有表头或采集报错时，上游会把 NPU 在位判成数量 0（疑似丢卡），适配层改为未知并抑制该条；解析成功时按机型登记的预期卡数重新核对，未登记机型只报数量、不做丢卡判定，上游按固定 8 卡判出的数量结论不直接采用。
 
-`observations` 是低优先级项（工具判 P2/P3，以及状态不是 ok 的传感器读数），带原始值、单位、等级与证据位置。它不是结论也不是噪音：`findings` 只收 P0/P1，P2 若直接丢掉会让「温度越限」这类项从 Agent 眼前消失；但直接塞进 `findings` 又会把工具关注项说成已证实的异常。传感器读数旁的阈值归属未经核对，只在观察项里给数，不给判定。
+`observations` 是低优先级项（工具判 P2/P3、状态不是 ok 的传感器读数，以及上游判定未复核的说明）。P2/P3 与传感器项带原始值、单位、等级与证据位置；上游判定说明带原因与证据位置。P0/P1/P2/P3 是工具自身的优先级（P0 最高），不是诊断的 severity。它不是结论也不是噪音：`findings` 收 P0/P1 与「判定 正常」这类总体结论，P2 若直接丢掉会让「温度越限」这类项从 Agent 眼前消失；但直接塞进 `findings` 又会把工具关注项说成已证实的异常。传感器读数旁的阈值归属未经核对，只在观察项里给数，不给判定。
 
-`reconciled` 记录适配层补读过的证据（当前只有 ECC）：上游用 `encoding="utf-8"` 读 `npu_ecc_info.json`，带 BOM 的真实输入会抛异常并被吞成空，表现为「ECC 全 0」。适配层用 `utf-8-sig` 复读一次，读到计数就补进 `findings` 并在此留痕；读不出来则写进 `missing`，不写成 0。
+`reconciled` 记录适配层补读过的证据（当前只有 ECC）：上游用 `encoding="utf-8"` 读 `npu_ecc_info.json`，带 BOM 的真实输入会抛异常并被吞成空，表现为「ECC 全 0」。适配层用 `utf-8-sig` 复读一次：读到非零计数就补进 `findings`，并把来源记进 `reconciled`；计数全 0 进 `observations`；读不出来写进 `missing`，不写成 0。
 
-`status` 取 `ok` / `partial` / `blocked` / `failed`。成功判据是「上游进程正常结束 + 产物可读」，不是「目录里出现过文件」。失败时 `data_needed` 给出这个分析器的最小输入形态；`missing` 是本次缺的具体项。
+`status` 取 `ok` / `partial` / `blocked` / `failed`。成功判据是「上游进程正常结束 + 本次写出可读产物」，不是「目录里出现过文件」。
+
+复用同一个输出目录时，适配器按本次子进程写出后的文件身份判定，不会沿用上一次的 `result`、报告或提取结果；上游明确标 `reused` 的缓存产物除外（summary 会注明）。
+
+失败时在 `result.json` 写原因，旧产物不进本次 `artifacts`；iBMC 上游会先清理旧的机器 JSON，保留范围以 `artifacts` 为准。失败时 `data_needed` 给出可执行的材料要求：缺输入、坏输入与上游失败给最小输入形态，超时给裁剪建议；其余失败为空。`missing` 是本次缺的具体项。
 
 `partial` 把本次未分析的材料写入 `missing`，`data_needed` 保持为空。报告按实际覆盖范围引用结果。
 
-开关未开、缺依赖或超时也保持 `data_needed` 为空。
+开关未开时不会创建 `result.json`；子进程起不来或适配器崩溃时 `data_needed` 为空。
 
 ## 依赖
 
@@ -114,3 +118,6 @@ python3 -m unittest tests.test_analyzers tests.test_collectors -v
 - `cluster-compare` 的 HTML 模板引用 CDN 图表脚本；离线打开时图表可能不显示，表格与 Markdown 报告仍可读。
 - `prof-compare` 只做单卡 Host/Device 热点对比，不生成上游的 xlsx 综合报告；集群多卡比对用 `cluster-compare`。
 - `ascend-dump-analyzer` 单份只按离线配套矩阵核对；矩阵未覆盖的版本返回 `unknown` 并写进 `missing`，不推断兼容性。
+- 复用输出目录时，适配器用文件的修改时间与大小识别本次产物；FAT/exFAT/SMB 等粗粒度时间戳的文件系统可能误判，连续复跑建议每次新建输出目录。
+- iBMC tar 包含符号链接、硬链接或设备文件时整包拒绝，zip 只拒绝符号链接；拒绝前不把任何成员写进输出目录，需要处理这类包时先重新打包。
+- iBMC 每次运行会清空输出目录下的 `_extracted/`（解包中间产物）；多个进程不要共用同一个 `--out-dir`。

@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """内置分析器的端到端测试：开关、失败路径、合成输入到报告输出。
 
-所有夹具在临时目录现造，不读主检出的 traces/ 或客户数据，不访问外网。
+所有测试数据在临时目录现造，不读主检出的 traces/ 或客户数据，不访问外网。
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -187,7 +188,7 @@ class GateTests(AnalyzerTestBase):
 
 class IbmcTests(AnalyzerTestBase):
     def _fixture(self) -> Path:
-        root = self.tmp / "ibmc" / "dump_info"
+        root = self.tmp / "ibmc" / self._testMethodName / "dump_info"
         write_text(root / "AppDump" / "sensor_alarm" / "current_event.txt", "")
         write_text(root / "AppDump" / "BMC" / "psu_info.txt", "PSU1 present Vin=220V Vout=12V\n")
         return root
@@ -221,7 +222,7 @@ class IbmcTests(AnalyzerTestBase):
         self.assertIn("analyzers:", proc.stdout)
 
     def test_npu_info_missing_is_unknown_not_zero(self):
-        """缺 npu_info 时在位情况是未知：不能生成「疑似丢卡」，但原始判定要留痕。"""
+        """缺 npu_info 时在位情况是未知：不能生成「疑似丢卡」，但原始判定要可追溯。"""
         out = self.out("ibmc-npu-missing")
         proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(self._fixture())]), "--out-dir", str(out)])
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -242,20 +243,99 @@ class IbmcTests(AnalyzerTestBase):
         )
         self.assertIn("疑似丢卡", raw, "原始 JSON 必须保留上游判定，供追溯")
 
-    def test_npu_info_present_with_zero_cards_keeps_finding(self):
-        """文件在、卡数真是 0：这是有效异常，不能被过滤。"""
+    def test_npu_info_collection_failure_is_unknown_not_zero(self):
+        """文件在但内容是采集报错：在位数量未知，不能推出零卡。"""
+        root = self._fixture()
+        write_text(
+            root / "AppDump" / "CpuMem" / "npu_info",
+            "Unable to read device inventory: permission denied\n",
+        )
+        out = self.out("ibmc-npu-collection-failed")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertNotIn("疑似丢卡", claims, "采集失败不能推出丢卡")
+        self.assertNotIn("NPU 数量 0", claims)
+        self.assertTrue(
+            any("NPU 在位未知" in item and "采集失败" in item for item in result["missing"]),
+            "采集失败要作为未知项如实报出",
+        )
+        self.assertTrue(result.get("suppressed"))
+        self.assertEqual(result["suppressed"][0]["reason"], "npu-info-collection-failed")
+        raw = "".join(
+            Path(item).read_text(encoding="utf-8-sig", errors="replace")
+            for item in result["artifacts"]
+            if item.endswith("_bmc.json")
+        )
+        self.assertIn("疑似丢卡", raw, "原始 JSON 必须保留上游判定，供追溯")
+
+    def test_npu_info_unrecognized_format_is_unknown(self):
+        """文件在但格式无法识别：同样按未知处理，不当成零卡。"""
+        root = self._fixture()
+        write_text(root / "AppDump" / "CpuMem" / "npu_info", "some vendor dump\n")
+        out = self.out("ibmc-npu-unrecognized")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertNotIn("疑似丢卡", claims)
+        self.assertTrue(any("格式无法识别" in item for item in result["missing"]))
+        self.assertEqual(result["suppressed"][0]["reason"], "npu-info-format-unrecognized")
+
+    def test_npu_info_header_only_is_unknown_not_zero(self):
+        """只有表头没有设备行：不能把文件存在当作真实零卡。"""
         root = self._fixture()
         write_text(
             root / "AppDump" / "CpuMem" / "npu_info",
             "Name|Board|Power|WorkMode|SingleEcc|DoubleEcc|Diversification\n",
         )
-        out = self.out("ibmc-npu-zero")
+        out = self.out("ibmc-npu-header-only")
         proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         result = read_result(out)
         claims = " ".join(item["claim"] for item in result["findings"])
-        self.assertIn("NPU 数量 0", claims, "真实 0 卡必须保留为异常")
-        self.assertFalse(result.get("suppressed"), "有文件就不该走缺证据的抑制分支")
+        self.assertNotIn("NPU 数量 0", claims, "只有表头不能当零卡")
+        self.assertNotIn("疑似丢卡", claims)
+        self.assertTrue(any("只有表头" in item for item in result["missing"]))
+        self.assertEqual(result["suppressed"][0]["reason"], "npu-info-empty")
+
+    def test_npu_info_known_model_reports_shortage_against_model_expectation(self):
+        """解析成功才按机型预期核对；4 张对 Atlas 800I A2 是有效异常。"""
+        root = self._fixture()
+        write_text(
+            root / "AppDump" / "FruData" / "fruinfo.txt",
+            "Product Name: Atlas 800I A2\nProduct Serial Number: SN-TEST-001\n",
+        )
+        rows = ["Name|Board|Power|WorkMode|SingleEcc|DoubleEcc|Diversification|FW|SW"]
+        rows += [f"NPU{i}|Board|150W|Normal|0|0|NA|1.0|1.0" for i in range(1, 5)]
+        write_text(root / "AppDump" / "CpuMem" / "npu_info", "\n".join(rows) + "\n")
+        out = self.out("ibmc-npu-shortage")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("npu_info 解析到 4 张", claims)
+        self.assertIn("Atlas 800I A2 预期 8 张", claims, "预期卡数要有适用机型依据")
+        self.assertIn("疑似丢卡", claims)
+        self.assertEqual(result["findings"][0]["kind"], "fact")
+        self.assertEqual(result["suppressed"][0]["reason"], "npu-count-recomputed")
+
+    def test_npu_info_unknown_model_does_not_claim_shortage(self):
+        """机型未登记预期卡数时只报数量，不把少于 8 张写成丢卡。"""
+        root = self._fixture()
+        rows = ["Name|Board|Power|WorkMode|SingleEcc|DoubleEcc|Diversification|FW|SW"]
+        rows += [f"NPU{i}|Board|150W|Normal|0|0|NA|1.0|1.0" for i in range(1, 5)]
+        write_text(root / "AppDump" / "CpuMem" / "npu_info", "\n".join(rows) + "\n")
+        out = self.out("ibmc-npu-unknown-model")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertNotIn("疑似丢卡", claims, "机型未知时不做数量判定")
+        self.assertNotIn("NPU 数量 0", claims)
+        self.assertTrue(any("未登记预期卡数" in item for item in result["missing"]))
+        self.assertEqual(result["suppressed"][0]["reason"], "npu-count-recomputed")
 
     def test_npu_info_with_eight_cards_reports_no_npu_issue(self):
         """正常 8 卡不应出现任何在位异常，也不应被记为缺失。"""
@@ -271,6 +351,33 @@ class IbmcTests(AnalyzerTestBase):
         self.assertNotIn("NPU 数量", claims)
         self.assertFalse(any("NPU 在位未知" in item for item in result["missing"]))
         self.assertFalse(result.get("suppressed"))
+
+    def test_upstream_verdict_without_p0_is_observation_not_fact(self):
+        """上游判「不正常」但没有保留 P0/P1 时，只作未复核观察。"""
+        root = self._fixture()
+        write_text(
+            root / "AppDump" / "CpuMem" / "npu_info",
+            "Unable to read device inventory: permission denied\n",
+        )
+        out = self.out("ibmc-upstream-verdict")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertNotIn("判定 不正常", claims, "未保留 P0/P1 时不能把上游 verdict 写成事实")
+        topics = " ".join(str(item.get("topic") or "") for item in (result.get("observations") or []))
+        self.assertIn("上游判定", topics)
+
+    def test_healthy_verdict_keeps_a_finding(self):
+        """上游判基本正常且没有 P0/P1 时，保留一条总体结论，不写「未复核」。"""
+        root = REPO / "tests" / "fixtures" / "analyzers" / "bmc-dump-03-healthy" / "dump_info"
+        out = self.out("ibmc-healthy-verdict")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(root)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("判定 基本正常（存在需关注项）", claims)
+        self.assertNotIn("未复核", result["summary"])
 
     def test_p2_items_go_to_observations_with_raw_values(self):
         """P2 不进 findings，但要作为观察项露出原始读数与等级。"""
@@ -318,7 +425,7 @@ class IbmcTests(AnalyzerTestBase):
         claims = " ".join(item["claim"] for item in result["findings"])
         self.assertIn("适配层复读", claims, "BOM 导致的漏读要补上")
         self.assertIn("多bit=5", claims)
-        self.assertTrue(result.get("reconciled"), "补读要留痕")
+        self.assertTrue(result.get("reconciled"), "补读要记下来源")
 
     def test_ecc_unparsable_is_reported_as_missing(self):
         """文件在但解析不了：写进 missing，不写成 0。"""
@@ -343,6 +450,142 @@ class IbmcTests(AnalyzerTestBase):
         proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(archive)]), "--out-dir", str(out)])
         self.assertNotEqual(proc.returncode, 0)
         self.assertEqual(list(self.tmp.rglob("escape.txt")), [], "越界条目不应被写出")
+
+    def _evil_tar(self, name: str, member: tarfile.TarInfo, payload: bytes = b"escaped") -> Path:
+        archive = self.tmp / "ibmc" / name
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(archive, "w") as tf:
+            if member.isreg():
+                member.size = len(payload)
+                tf.addfile(member, io.BytesIO(payload))
+            else:
+                tf.addfile(member)
+        return archive
+
+    def test_tar_path_traversal_is_rejected(self):
+        member = tarfile.TarInfo("../../../escaped.txt")
+        archive = self._evil_tar("evil-traversal.tar", member)
+        out = self.out("ibmc-tar-traversal")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(archive)]), "--out-dir", str(out)])
+        self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(list(self.tmp.rglob("escaped.txt")), [], "越界成员不应被写出")
+        self.assertEqual(
+            [item for item in (out / "_extracted").rglob("*") if item.is_file()],
+            [],
+            "拒绝时不应先写出前面几个成员",
+        )
+        self.assertIn("解压失败", read_result(out)["detail"])
+
+    def test_tar_absolute_path_is_rejected(self):
+        member = tarfile.TarInfo("/tmp/absolute-escape.txt")
+        archive = self._evil_tar("evil-absolute.tar", member)
+        out = self.out("ibmc-tar-absolute")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(archive)]), "--out-dir", str(out)])
+        self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertFalse((self.tmp / "ibmc" / "tmp" / "absolute-escape.txt").exists())
+
+    def test_tar_symlink_is_rejected(self):
+        member = tarfile.TarInfo("link")
+        member.type = tarfile.SYMTYPE
+        member.linkname = "../../outside"
+        archive = self._evil_tar("evil-link.tar", member)
+        out = self.out("ibmc-tar-link")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(archive)]), "--out-dir", str(out)])
+        self.assertNotEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("解压失败", read_result(out)["detail"])
+        self.assertFalse((out / "_extracted" / "evil-link" / "link").exists())
+
+    def test_reused_out_dir_does_not_mix_previous_archive_extraction(self):
+        """同名压缩包换内容复用输出目录：不能读到上一次解包留下的 npu_info。"""
+        first_root = self.tmp / "archives" / "first" / "dump_info"
+        write_text(first_root / "AppDump" / "sensor_alarm" / "current_event.txt", "")
+        rows = ["Name|Board|Power|WorkMode|SingleEcc|DoubleEcc|Diversification|FW|SW"]
+        rows += [f"NPU{i}|Board|150W|Normal|0|0|NA|1.0|1.0" for i in range(1, 9)]
+        write_text(first_root / "AppDump" / "CpuMem" / "npu_info", "\n".join(rows) + "\n")
+        first_archive = self.tmp / "archives" / "first" / "same-name.tar.gz"
+        with tarfile.open(first_archive, "w:gz") as tf:
+            tf.add(first_root, arcname="dump_info")
+
+        second_root = self.tmp / "archives" / "second" / "dump_info"
+        write_text(second_root / "AppDump" / "sensor_alarm" / "current_event.txt", "")
+        second_archive = self.tmp / "archives" / "second" / "same-name.tar.gz"
+        with tarfile.open(second_archive, "w:gz") as tf:
+            tf.add(second_root, arcname="dump_info")
+
+        out = self.out("ibmc-archive-reuse")
+        first = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(first_archive)]), "--out-dir", str(out)])
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        first_result = read_result(out)
+        first_json = next(Path(item) for item in first_result["artifacts"] if item.endswith("_bmc.json"))
+        first_machine = json.loads(first_json.read_text(encoding="utf-8-sig"))
+        self.assertEqual(len(first_machine["npu"]), 8)
+        self.assertEqual(first_machine["machine_tag"], "same-name", "机器标签不应带随机解包后缀")
+
+        second = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(second_archive)]), "--out-dir", str(out)])
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        second_result = read_result(out)
+        self.assertTrue(any("NPU 在位未知" in item for item in second_result["missing"]))
+        self.assertEqual(second_result["suppressed"][0]["reason"], "npu-info-missing")
+        second_json = next(Path(item) for item in second_result["artifacts"] if item.endswith("_bmc.json"))
+        second_machine = json.loads(second_json.read_text(encoding="utf-8-sig"))
+        self.assertEqual(second_machine["npu"], [])
+        self.assertEqual(second_machine["machine_tag"], "same-name")
+
+    def test_two_same_name_archives_with_different_sn_keep_both_machines(self):
+        """一次传入两个同名包、不同 SN：每台机器都要有自己的 JSON 和报告。"""
+        def make_archive(folder: str, serial: str) -> Path:
+            root = self.tmp / "archives" / folder / "customer" / "dump_info"
+            write_text(
+                root / "AppDump" / "FruData" / "fruinfo.txt",
+                f"Product Name: Atlas 800I A2\nProduct Serial Number: {serial}\n",
+            )
+            write_text(root / "AppDump" / "sensor_alarm" / "current_event.txt", "")
+            archive = self.tmp / "archives" / folder / "customer.tar"
+            with tarfile.open(archive, "w") as tf:
+                tf.add(root, arcname="dump_info")
+            return archive
+
+        archive_a = make_archive("sn-a", "SN-A")
+        archive_b = make_archive("sn-b", "SN-B")
+        out = self.out("ibmc-same-name-two-machines")
+        proc = run_cli(
+            [
+                "run", "ibmc_analyzer",
+                "--inputs", json.dumps([str(archive_a), str(archive_b)]),
+                "--out-dir", str(out),
+            ]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertIn("解析 2 台机器", result["summary"])
+        jsons = [Path(item) for item in result["artifacts"] if item.endswith("_bmc.json")]
+        self.assertEqual(len(jsons), 2, "两台机器必须各有一份 JSON，不能互相覆盖")
+        serials = {
+            json.loads(path.read_text(encoding="utf-8-sig"))["identity"]["product_sn"]
+            for path in jsons
+        }
+        self.assertEqual(serials, {"SN-A", "SN-B"})
+        html = next(Path(item) for item in result["artifacts"] if item.endswith(".html"))
+        html_text = html.read_text(encoding="utf-8")
+        self.assertIn("SN-A", html_text)
+        self.assertIn("SN-B", html_text)
+        self.assertTrue((out / "all_machines_bmc.json").is_file())
+
+    def test_normal_tar_is_extracted_and_analyzed(self):
+        """安全校验不能误伤正常归档。"""
+        root = self.tmp / "ibmc" / "normal" / "dump_info"
+        write_text(root / "AppDump" / "sensor_alarm" / "current_event.txt", "")
+        archive = self.tmp / "ibmc" / "normal-dump.tar.gz"
+        with tarfile.open(archive, "w:gz") as tf:
+            tf.add(root, arcname="dump_info")
+        out = self.out("ibmc-tar-normal")
+        proc = run_cli(["run", "ibmc_analyzer", "--inputs", json.dumps([str(archive)]), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertIn(result["status"], ("ok", "partial"))
+        extracted = list((out / "_extracted").glob("normal-dump-*"))
+        self.assertEqual(len(extracted), 1, "每个压缩包应有独立的解包目录")
+        self.assertTrue((extracted[0] / "normal-dump" / "dump_info").is_dir())
 
 
 class IbmcPilotFixtureTests(AnalyzerTestBase):
@@ -560,7 +803,7 @@ class DumpSingleTests(AnalyzerTestBase):
         self.assertIn("8.3.RC1", claims, "配套事实也要保留原始版本串")
         self.assertTrue(
             any(path.endswith("compatibility-02-compare-b.json") for path in result["artifacts"]),
-            "每份快照的兼容性结果要作为产物留痕",
+            "每份快照的兼容性结果要作为产物登记",
         )
 
     def test_invalid_json_is_blocked_not_crashed(self):
@@ -624,6 +867,31 @@ class ProfCompareTests(AnalyzerTestBase):
         self.assertIn("0.400", claims)
         self.assertTrue((out / "prof_compare.json").is_file())
         self.assertTrue((out / "prof_compare.md").is_file())
+
+    def test_failed_rerun_does_not_reuse_previous_result(self):
+        """先成功、再以坏输入复用同一输出目录：不能读回上一次的耗时差。"""
+        a = self._export("stale-A", 1000)
+        b = self._export("stale-B", 1200)
+        bad = self.tmp / "prof" / "not-prof.json"
+        write_json(bad, {"traceEvents": []})
+        out = self.out("prof-compare-stale")
+        first = run_cli(["run", "prof-compare", "--inputs", f"{a}\n{b}", "--out-dir", str(out)])
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        first_diff = json.loads((out / "prof_compare.json").read_text(encoding="utf-8"))
+
+        second = run_cli(["run", "prof-compare", "--inputs", f"{bad}\n{b}", "--out-dir", str(out)])
+        self.assertEqual(second.returncode, 1, second.stdout + second.stderr)
+        result = read_result(out)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["reason"], "bad-input")
+        self.assertEqual(result["inputs"][0]["path"], str(bad))
+        self.assertIn("没有生成新的 prof_compare.json", result["detail"])
+        self.assertEqual(result["findings"], [], "本次失败不能把旧结果标成新输入的 fact")
+        self.assertEqual(
+            json.loads((out / "prof_compare.json").read_text(encoding="utf-8")),
+            first_diff,
+            "旧结果文件要保留，但只属于上一次调用",
+        )
 
     def test_mixed_pair_requires_gpu_baseline(self):
         npu = self._export("mixed", 1000)
@@ -790,6 +1058,31 @@ class UnsupportedInputTests(AnalyzerTestBase):
         self.assertEqual(read_result(out)["reason"], "bad-input")
 
 
+class PythonVersionTests(unittest.TestCase):
+    PYTHON39_RUNTIME_APIS = (
+        "removeprefix(",
+        "removesuffix(",
+        "functools.cache(",
+        "math.lcm(",
+        "itertools.pairwise(",
+        ".bit_count(",
+        "zoneinfo",
+        "graphlib",
+        "asyncio.to_thread(",
+        "ast.unparse(",
+    )
+
+    def test_analyzer_sources_keep_python38_string_api(self):
+        """README 声明分析器可在 Python 3.8 运行：不得用 3.9+ 才有的运行时 API。"""
+        offenders = []
+        for path in (REPO / "scripts" / "analyzers").rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            hits = [api for api in self.PYTHON39_RUNTIME_APIS if api in text]
+            if hits:
+                offenders.append(f"{path.relative_to(REPO)}: {', '.join(hits)}")
+        self.assertEqual(offenders, [])
+
+
 class PluginRemovalTests(AnalyzerTestBase):
     def test_plugin_package_is_gone(self):
         self.assertFalse((REPO / "dsh-plugins" / "dsh-sleuth-analyzers").exists())
@@ -797,10 +1090,16 @@ class PluginRemovalTests(AnalyzerTestBase):
     def test_diagnose_uses_builtin_cli(self):
         skill = (REPO / "skills" / "diagnose" / "SKILL.md").read_text(encoding="utf-8")
         self.assertNotIn("sleuth_analyze", skill)
-        self.assertIn("scripts/analyzers/cli.py", skill, "诊断骨架要给出入口")
+        deep = (
+            REPO / "skills" / "diagnose" / "references" / "steps" / "5-deep-dive.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("scripts/analyzers/cli.py", deep, "深度排查步骤要给出分析器入口")
+        self.assertIn("analyzer-dispatch.md", deep)
         dispatch = (REPO / "skills" / "diagnose" / "references" / "analyzer-dispatch.md").read_text(encoding="utf-8")
         self.assertIn("scripts/analyzers/cli.py", dispatch)
         self.assertIn("SLEUTH_ANALYZERS", dispatch)
+        collect = (REPO / "skills" / "diagnose" / "references" / "collector-dispatch.md").read_text(encoding="utf-8")
+        self.assertIn("scripts/collectors/", collect)
 
 
 class CallChainTests(AnalyzerTestBase):

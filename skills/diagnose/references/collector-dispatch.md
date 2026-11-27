@@ -65,7 +65,7 @@ Profiling 数据没有新增采集脚本：采集方式仍走已有的 `msprof-c
 | `ibmc-dump` | `ibmc_analyzer` |
 | `ascend-logs` | 先解包，把日志目录或日志文件交给 `issue-analyzer` |
 
-采集成功不等于诊断成立：Analyzer 只提取事实，根因、fix 与 severity 仍由主持 agent 判。
+采集成功不等于诊断成立：Analyzer 只提取事实，根因、fix 与 severity 仍由诊断 agent 判。
 
 ## trace 记什么
 

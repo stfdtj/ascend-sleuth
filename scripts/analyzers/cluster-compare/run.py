@@ -19,6 +19,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -34,6 +36,7 @@ REPORT_MD = TOOL_DIR / "scripts" / "generate_cluster_md.py"
 
 
 def _extract(path: str, output: Path, args) -> dict:
+    before = file_signature(output)
     proc = run_process(
         [sys.executable, str(EXTRACT), "--data-dir", path, "--output", str(output), "--no-advanced"],
         cwd=TOOL_DIR,
@@ -42,11 +45,14 @@ def _extract(path: str, output: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"数据提取超过 {args.timeout}s", status="failed")
-    if not output.is_file():
+    fresh = is_fresh(output, before)
+    if proc.get("exit_code") not in (0, None) or not fresh:
         raise AnalyzerError(
             "bad-input",
             f"{path} 不是可用的集群数据目录（需 cluster_analysis_output 下 DB 或 "
-            f"cluster_step_trace_time.csv + communication_group.json）。stderr：{tail(proc.get('stderr'), 500)}",
+            f"cluster_step_trace_time.csv + communication_group.json）。"
+            + ("没有生成新的提取结果；" if not fresh else "")
+            + f"退出码 {proc.get('exit_code')}；stderr：{tail(proc.get('stderr'), 500)}",
         )
     return read_json(output)
 
@@ -105,6 +111,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
 
     html = out_dir / "cluster_compare_report.html"
     md = out_dir / "cluster_compare_report.md"
+    html_before = file_signature(html)
     proc = run_process(
         [sys.executable, str(REPORT), "--data-a", str(data_a_path), "--data-b", str(data_b_path),
          "--output", str(html)],
@@ -114,9 +121,15 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"报告生成超过 {args.timeout}s", status="failed")
-    if not html.is_file():
-        raise AnalyzerError("analyzer-failed", f"HTML 报告没有生成：{tail(proc.get('stderr'), 600)}", status="failed")
+    if not is_fresh(html, html_before):
+        raise AnalyzerError(
+            "analyzer-failed",
+            "没有生成新的 HTML 报告（复用输出目录时不会沿用上一次结果）："
+            f"退出码 {proc.get('exit_code')}；{tail(proc.get('stderr'), 600)}",
+            status="failed",
+        )
 
+    md_before = file_signature(md)
     proc_md = run_process(
         [sys.executable, str(REPORT_MD), "--data-a", str(data_a_path), "--data-b", str(data_b_path),
          "--output", str(md)],
@@ -124,6 +137,8 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         timeout=args.timeout,
         log_path=out_dir / "report_md.log",
     )
+    if proc_md.get("timed_out"):
+        raise AnalyzerError("timeout", f"Markdown 报告生成超过 {args.timeout}s", status="failed")
 
     diff = _step_diff(data_a, data_b)
     if not diff:
@@ -171,6 +186,9 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     )
     artifacts = [str(item) for item in (html, md, data_a_path, data_b_path) if item.is_file()]
     missing = [f"缺可选表：{item}" for item in tables_empty]
+    if not is_fresh(md, md_before):
+        missing.append("Markdown 报告未生成，HTML 报告仍可用")
+        artifacts = [item for item in artifacts if item != str(md)]
     if diff["shape_only"]:
         missing.append("两侧 Step 编号不重叠，按采集顺序配对，仅用于形态比较。需要同一迭代的证据才能判断逐步性能。")
     return {

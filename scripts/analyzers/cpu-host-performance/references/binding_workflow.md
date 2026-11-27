@@ -1,6 +1,6 @@
 # Trace → Rank/线程 → NUMA → 执行 → 验证 → 回滚
 
-本页说明完整 Skill 中的现场审计 CLI。它在目标主机发现对象，为 locality/partition 单独生成 `plan.json`，记录自身变更并验证业务指标。按服务器预算生成客户专用 `cpu_binder_simple.py` 与 `bind_design.json` 时，使用[客户生成指南](customer_script.md)。定制容量预算另见[规划分支](custom_binding.md)。
+本页说明完整 Skill 中的现场审计 CLI。它在目标主机发现对象，为 locality/partition 单独生成 `plan.json`，记录自身变更并验证业务指标。按服务器预算生成客户专用 `cpu_binder_simple.py` 与 `bind_design.json` 时，使用[客户生成指南](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/customer_script.md)。定制容量预算另见[规划分支](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/custom_binding.md)。这两项属于上游完整 Skill 的定制生成链，本仓不交付对应生成器；本页保留的现场审计入口可直接使用。
 
 ## 入口与环境
 

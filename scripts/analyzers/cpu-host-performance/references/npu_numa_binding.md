@@ -1,8 +1,8 @@
 # NPU、NUMA 与宿主机绑核规则
 
-按实测需求定制、网卡预留、训练/推理区别与其他客户服务预算见 [custom_binding.md](custom_binding.md)。下述既有Analyzer建议可能使用全部available核；定制方案先扣除客户/系统/网络预算并检查容量守恒，不能直接把旧建议称为完整隔离方案。
+按实测需求定制、网卡预留、训练/推理区别与其他客户服务预算见[上游定制容量预算说明](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/custom_binding.md)（上游完整 Skill 的定制生成链，本仓不交付对应生成器）。下述既有Analyzer建议可能使用全部available核；定制方案先扣除客户/系统/网络预算并检查容量守恒，不能直接把旧建议称为完整隔离方案。
 
-离线报告和定制生成器都复制同一份客户模板，只在 `bind_design.json` 中描述本次目标。需要现场 CPU 审计、业务 A/B 和 journal 恢复时，在完整 Skill 中使用独立的 `scripts/ascend_bind.py`。[客户模板与配置](customer_script.md) · [现场审计](binding_workflow.md)
+离线报告和定制生成器都复制同一份客户模板，只在 `bind_design.json` 中描述本次目标。需要现场 CPU 审计、业务 A/B 和 journal 恢复时，在完整 Skill 中使用独立的 `scripts/ascend_bind.py`。[客户模板与配置（上游）](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/customer_script.md) · [现场审计](binding_workflow.md)
 
 实现：`analyzer/npu_parser.py`、`npu_affinity.py`、`topology.py`；展示：`npu_report.py`。采集/Manifest 缺失处理统一见 [采集契约](collection_contract.md)。
 
@@ -50,7 +50,7 @@ CPU 条目使用 `pid` 和 `cpu_list`。批量设置进程现有线程时还需�
 
 模板按数字 ID 直接设置。执行前在原宿主机确认身份、线程集合、cpuset、IRQ、CPU 和权限，保存各对象实时原值并获得授权后，在两文件所在目录运行 `python3 cpu_binder_simple.py -c bind_design.json`。模板没有自动预检或回滚。
 
-默认 `mem_bind=false`。开启后，模板只尝试向目标 CPU 所在的单一 NUMA 节点迁移已分配页。IRQ 条目可能停止运行中的 irqbalance 并写中断亲和。[模板字段、依赖与操作影响](customer_script.md)
+默认 `mem_bind=false`。开启后，模板只尝试向目标 CPU 所在的单一 NUMA 节点迁移已分配页。IRQ 条目可能停止运行中的 irqbalance 并写中断亲和。[模板字段、依赖与操作影响（上游）](https://github.com/hu669293657/skills/blob/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6/cpu-host-performance/references/customer_script.md)
 
 ## 风险等级与缺口
 

@@ -18,6 +18,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -56,6 +58,9 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     manifest_json = logs / "manifest.json"
     hits_json = logs / "hits.json"
     stats_json = logs / "stats.json"
+    manifest_before = file_signature(manifest_json)
+    hits_before = file_signature(hits_json)
+    stats_before = file_signature(stats_json)
 
     problems = []
 
@@ -66,7 +71,11 @@ def analyze(inputs, out_dir: Path, args) -> dict:
             args.timeout,
             "scan",
         )
-        if proc.get("timed_out") or proc.get("exit_code") not in (0, None):
+        if (
+            proc.get("timed_out")
+            or proc.get("exit_code") not in (0, None)
+            or not is_fresh(manifest_json, manifest_before)
+        ):
             problems.append(f"scan 失败：{tail(proc.get('stderr'), 300)}")
 
     extract_args = ["extract"]
@@ -78,10 +87,12 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     proc = _run(extract_args, out_dir, args.timeout, "extract")
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"错误提取超过 {args.timeout}s", status="failed")
-    if not hits_json.is_file():
+    fresh = is_fresh(hits_json, hits_before)
+    if proc.get("exit_code") not in (0, None) or not fresh:
         raise AnalyzerError(
             "analyzer-failed",
-            "没有生成 hits.json。退出码 {code}；stderr：{err}".format(
+            ("没有生成新的 hits.json（复用输出目录时不会沿用上一次结果）。" if not fresh else "")
+            + "退出码 {code}；stderr：{err}".format(
                 code=proc.get("exit_code"), err=tail(proc.get("stderr"), 600)
             ),
             status="failed",
@@ -94,11 +105,19 @@ def analyze(inputs, out_dir: Path, args) -> dict:
             args.timeout,
             "stats",
         )
-        if proc.get("timed_out") or proc.get("exit_code") not in (0, None):
+        if (
+            proc.get("timed_out")
+            or proc.get("exit_code") not in (0, None)
+            or not is_fresh(stats_json, stats_before)
+        ):
             problems.append(f"stats 失败：{tail(proc.get('stderr'), 300)}")
 
     hits = read_json(hits_json)
-    stats = read_json(stats_json) if stats_json.is_file() else {}
+    stats = (
+        read_json(stats_json)
+        if stats_json.is_file() and is_fresh(stats_json, stats_before)
+        else {}
+    )
     total = int(stats.get("total") or hits.get("total_hits") or 0)
     by_pattern = stats.get("by_pattern") or {}
     by_file = stats.get("by_file") or {}
@@ -140,9 +159,19 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         top_files = "、".join(f"{key}×{value}" for key, value in list(by_file.items())[:3])
         summary += f" 命中最多：{top_files}。"
 
-    artifacts = [str(item) for item in (manifest_json, hits_json, stats_json,
-                                        logs / "manifest.md", logs / "hits.md", logs / "stats.md")
-                 if item.is_file()]
+    artifacts = []
+    if is_fresh(hits_json, hits_before):
+        artifacts.append(str(hits_json))
+        if (logs / "hits.md").is_file():
+            artifacts.append(str(logs / "hits.md"))
+    if stats_json.is_file() and is_fresh(stats_json, stats_before):
+        artifacts.append(str(stats_json))
+        if (logs / "stats.md").is_file():
+            artifacts.append(str(logs / "stats.md"))
+    if manifest_json.is_file() and is_fresh(manifest_json, manifest_before):
+        artifacts.append(str(manifest_json))
+        if (logs / "manifest.md").is_file():
+            artifacts.append(str(logs / "manifest.md"))
     return {
         "status": status,
         "summary": clip(summary, 500),

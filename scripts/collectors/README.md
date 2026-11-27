@@ -71,7 +71,7 @@ Agent 只推荐，不执行采集。`cpu-trace` 需要 root 且会短时开启 f
 
 ## 与诊断流程的接入
 
-`skills/diagnose/SKILL.md` 的步骤 5 与数据缺口节指向 `skills/diagnose/references/collector-dispatch.md`；该文件按缺口选采集器，并说明推荐格式。诊断 agent 不把采集器放进自动调用图，也不因为推荐了采集器就把它当成已执行。
+`skills/diagnose/SKILL.md` 步骤 5 与 `skills/diagnose/references/steps/3-cases.md` 的数据缺口段指向 `skills/diagnose/references/collector-dispatch.md`；该文件按缺口选采集器，并说明推荐格式。诊断 agent 不把采集器放进自动调用图，也不因为推荐了采集器就把它当成已执行。
 
 采集结果回来后，按 `consumer` 调对应 Analyzer；Analyzer 的读法与失败退化见 `skills/diagnose/references/analyzer-dispatch.md`。
 

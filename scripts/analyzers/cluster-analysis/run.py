@@ -19,6 +19,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -49,16 +51,31 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         "--timeout", str(max(60, min(args.timeout, 300))),
     ]
     started = os.path.getmtime(root)
+    status_json = out_dir / "workflow_status.json"
+    detect_json = out_dir / "detect_result.json"
+    advisor_json = out_dir / "advisor" / "advisor.json"
+    advisor_md = out_dir / "advisor" / "advisor.md"
+    optional_before = {
+        path: file_signature(path)
+        for path in (
+            out_dir / "performance_report.html",
+            advisor_md,
+            out_dir / "insight_bottlenecks.md",
+            out_dir / "insight_bottlenecks.html",
+        )
+    }
+    status_before = file_signature(status_json)
+    detect_before = file_signature(detect_json)
+    advisor_before = file_signature(advisor_json)
     proc = run_process(cmd, cwd=TOOL_DIR, timeout=args.timeout, log_path=out_dir / "vendor.log")
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s；已完成阶段在 {out_dir}", status="failed")
 
-    status_json = out_dir / "workflow_status.json"
-    detect_json = out_dir / "detect_result.json"
-    if not status_json.is_file() or not detect_json.is_file():
+    if not is_fresh(status_json, status_before) or not is_fresh(detect_json, detect_before):
         raise AnalyzerError(
             "analyzer-failed",
-            "没有生成 workflow_status.json / detect_result.json。退出码 {code}；stderr：{err}".format(
+            "没有生成新的 workflow_status.json / detect_result.json"
+            "（复用输出目录时不会沿用上一次结果）。退出码 {code}；stderr：{err}".format(
                 code=proc.get("exit_code"), err=tail(proc.get("stderr"), 800)
             ),
             status="failed",
@@ -66,9 +83,16 @@ def analyze(inputs, out_dir: Path, args) -> dict:
 
     status = read_json(status_json)
     detect = read_json(detect_json)
-    advisor = read_json(out_dir / "advisor" / "advisor.json") if (out_dir / "advisor" / "advisor.json").is_file() else {}
     workflow_status = status.get("status") or "failed"
     stages = status.get("stages") or {}
+    # 上游命中缓存时 advisor 阶段标 reused、不重写文件；这时读回的是同一输入的
+    # 缓存结论，不是上一次别的输入留下的旧结果。
+    advisor_reused = any(
+        isinstance(item, dict) and item.get("status") == "reused"
+        for name, item in stages.items()
+        if str(name).startswith("advisor")
+    )
+    advisor = read_json(advisor_json) if (is_fresh(advisor_json, advisor_before) or advisor_reused) else {}
     unsupported = [name for name, item in stages.items() if isinstance(item, dict) and item.get("status") == "unsupported"]
     failed = [name for name, item in stages.items() if isinstance(item, dict) and item.get("status") == "failed"]
 
@@ -124,14 +148,15 @@ def analyze(inputs, out_dir: Path, args) -> dict:
             )
 
     html = out_dir / "performance_report.html"
-    artifacts = [str(item) for item in (
-        html,
-        out_dir / "advisor" / "advisor.md",
-        out_dir / "insight_bottlenecks.md",
-        out_dir / "insight_bottlenecks.html",
-        detect_json,
-        status_json,
-    ) if item.is_file()]
+    artifacts = [str(status_json), str(detect_json)]
+    artifacts.extend(
+        str(path)
+        for path, before in optional_before.items()
+        if is_fresh(path, before)
+        or (path == advisor_md and advisor_reused and path.is_file())
+    )
+    if workflow_status != "failed" and not is_fresh(html, optional_before[html]):
+        missing.append("HTML 报告未生成，结构化结果仍可用")
 
     summary = (
         f"{detect.get('mode', 'unknown')} 模式，{len(coverage.get('observed_ranks') or [])} 个 rank，"
@@ -140,18 +165,33 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     )
     if advisor:
         summary += f"；{advisor.get('dominant')}（计算 {advisor.get('computing_ratio')}、通信 {advisor.get('communication_ratio')}、空闲 {advisor.get('free_ratio')}）"
-    summary += f"。报告：{html}"
+        if advisor_reused:
+            summary += "（advisor 复用本次运行的上游缓存）"
+    summary += f"。报告：{html}" if is_fresh(html, optional_before[html]) else "。本次未生成 HTML 报告"
 
     tool_status = "ok" if workflow_status == "complete" else "partial"
     if workflow_status == "failed":
         tool_status = "failed"
-    return {
+    if missing and tool_status == "ok":
+        tool_status = "partial"
+    payload = {
         "status": tool_status,
         "summary": clip(summary, 500),
         "findings": findings[:5],
         "missing": missing[:8],
         "artifacts": artifacts,
     }
+    if tool_status == "failed":
+        payload["reason"] = "analyzer-failed"
+        detail = (
+            "上游 workflow 状态 failed；失败阶段："
+            + ("、".join(failed) if failed else "未记录")
+        )
+        errors = [str(item) for item in (status.get("errors") or []) if str(item).strip()]
+        if errors:
+            detail += "；原因：" + "；".join(errors[:3])
+        payload["detail"] = detail
+    return payload
 
 
 if __name__ == "__main__":

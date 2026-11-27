@@ -245,7 +245,7 @@ def _raw_step_windows(apo):
                 name = str(event.get('name') or '')
                 if event.get('ph') != 'X' or not name.startswith('ProfilerStep#'):
                     continue
-                step_id = name.removeprefix('ProfilerStep#')
+                step_id = name[len('ProfilerStep#'):]
                 left, duration = _integer_ns(event.get('ts'), 'us'), _integer_ns(event.get('dur'), 'us')
                 if valid_step_id(step_id) and left is not None and duration is not None and duration > 0:
                     windows.append((step_id, left, left + duration, 'trace_view.json:ProfilerStep'))

@@ -19,6 +19,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -156,6 +158,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         raise AnalyzerError("analyzer-not-installed", f"缺上游实现：{TOOL_DIR}", status="failed")
     baseline, compare = inputs[0]["path"], inputs[1]["path"]
     output = out_dir / "prof_compare.json"
+    before = file_signature(output)
     proc = run_process(
         [
             sys.executable,
@@ -172,16 +175,23 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s", status="failed")
-    if not output.is_file():
+    fresh = is_fresh(output, before)
+    if proc.get("exit_code") not in (0, None) or not fresh:
         detail = tail(proc.get("stderr"), 900) or tail(proc.get("stdout"), 900)
         reason = "bad-input" if any(
             key in detail
             for key in ("多卡", "单卡", "未识别", "不是可识别", "需要", "缺少列", "无效的耗时")
         ) else "analyzer-failed"
+        prefix = (
+            "没有生成新的 prof_compare.json（复用输出目录时不会沿用上一次结果）。"
+            if not fresh
+            else ""
+        )
         raise AnalyzerError(
             reason,
-            "没有生成 prof_compare.json。退出码 {code}；{detail}".format(
-                code=proc.get("exit_code"), detail=detail
+            prefix
+            + "退出码 {code}；{detail}".format(
+                code=proc.get("exit_code"), detail=detail or "上游没有写出结果文件"
             ),
             status="blocked" if reason == "bad-input" else "failed",
         )

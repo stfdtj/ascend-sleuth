@@ -18,6 +18,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -37,6 +39,16 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         raise AnalyzerError("bad-input", "一次只接受一份 trace 采集包/目录/文件。")
     target = inputs[0]["path"]
 
+    data_path = out_dir / "report_data.json"
+    before = file_signature(data_path)
+    optional_before = {
+        path: file_signature(path)
+        for path in (
+            out_dir / "hostbound_report.html",
+            out_dir / "cpu_binder_simple.py",
+            out_dir / "bind_design.json",
+        )
+    }
     proc = run_process(
         [sys.executable, str(ENTRY), target, "-o", str(out_dir), "-q"],
         cwd=TOOL_DIR,
@@ -45,11 +57,16 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     )
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s", status="failed")
-    data_path = out_dir / "report_data.json"
-    if not data_path.is_file():
+    if not is_fresh(data_path, before):
         detail = tail((proc.get("stderr") or "") + "\n" + (proc.get("stdout") or ""), 800)
         reason = "bad-input" if proc.get("exit_code") == 3 else "analyzer-failed"
-        raise AnalyzerError(reason, detail or "没有生成 report_data.json", status="failed")
+        raise AnalyzerError(
+            reason,
+            "没有生成新的 report_data.json"
+            f"（复用输出目录时不会沿用上一次结果；退出码 {proc.get('exit_code')}）。"
+            f"{detail or '上游没有写出结果文件'}",
+            status="failed",
+        )
 
     data = read_json(data_path)
     diag = data.get("diagnosis") or {}
@@ -89,31 +106,39 @@ def analyze(inputs, out_dir: Path, args) -> dict:
                 "kind": "fact",
             }
         )
-    findings.append(
-        {
-            "claim": "绑核建议位于 bind_design.json，配套执行脚本为 cpu_binder_simple.py。现场执行需要核对目标进程和变更授权。",
-            "evidence": str(out_dir / "bind_design.json"),
-            "kind": "fact",
-        }
-    )
+    bind_design = out_dir / "bind_design.json"
+    if is_fresh(bind_design, optional_before[bind_design]):
+        findings.append(
+            {
+                "claim": "绑核建议位于 bind_design.json，配套执行脚本为 cpu_binder_simple.py。现场执行需要核对目标进程和变更授权。",
+                "evidence": str(bind_design),
+                "kind": "fact",
+            }
+        )
 
     missing = []
     if not findings_data and not primary:
         missing.append("诊断没有给出任何问题项；可能事件不足或 trace 格式不受支持")
     if primary.get("causality") == "UNPROVEN":
         missing.append("Host 侧风险已观测，但 NPU 因果未证明；不能单独当作根因")
+    if not is_fresh(bind_design, optional_before[bind_design]):
+        missing.append("本次没有生成 bind_design.json，绑核建议不可用")
+    html = out_dir / "hostbound_report.html"
+    html_fresh = is_fresh(html, optional_before[html])
+    if not html_fresh:
+        missing.append("本次没有生成 hostbound_report.html，HTML 报告不可用")
     summary = (
         f"Host 状态 {diag.get('host_status', 'UNKNOWN')}；"
         f"核心问题：{primary.get('title') if primary else '未发现明显问题'}。"
-        f"报告：{out_dir / 'hostbound_report.html'}"
+        + (f"报告：{html}" if html_fresh else "报告：本次未生成")
     )
 
-    artifacts = [str(item) for item in (
-        out_dir / "hostbound_report.html",
-        data_path,
-        out_dir / "cpu_binder_simple.py",
-        out_dir / "bind_design.json",
-    ) if item.is_file()]
+    artifacts = [str(data_path)]
+    artifacts.extend(
+        str(path)
+        for path, signature in optional_before.items()
+        if is_fresh(path, signature)
+    )
     return {
         "status": "ok",
         "summary": clip(summary, 500),

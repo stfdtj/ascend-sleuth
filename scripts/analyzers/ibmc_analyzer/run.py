@@ -4,13 +4,15 @@
 
 上游实现：scripts/analyzers/ibmc_analyzer/scripts/run_bmc_report.py
 本文件负责参数转换、结果摘要与产物登记；上游判定不改，只在两处补证据：
-缺失文件造成的在位误判（按未知处理），以及上游读不出 ECC 计数时的复读。
+npu_info 采集失败/格式无法识别时的在位误判（按未知处理，成功解析才按机型核对卡数），
+以及上游读不出 ECC 计数时的复读。
 """
 from __future__ import annotations
 
 import glob
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -22,6 +24,8 @@ from _lib import (  # noqa: E402
     AnalyzerError,
     UPSTREAM_COMMIT,
     clip,
+    file_signature,
+    is_fresh,
     read_json,
     run_adapter,
     run_process,
@@ -42,32 +46,135 @@ def _machine_label(machine: dict) -> str:
     return label or Path(str(machine.get("source_root") or "unknown")).name
 
 
-def _npu_source(machine: dict) -> str | None:
-    """返回 npu_info 的实际路径；文件不在就返回 None。
+# 机型 → 预期卡数。只登记本目录 references/versions.md 列出的 Atlas/KunTai
+# 整机机型（每节点 8 卡）；未登记的机型不做数量判定，避免把别的机型按 8 卡误判。
+NPU_COUNT_BY_MODEL = (
+    (re.compile(r"Atlas\s*800[IT]\s*A2(?!\s*2UP)", re.IGNORECASE), 8),
+    (re.compile(r"Atlas\s*900\s*A2", re.IGNORECASE), 8),
+    (re.compile(r"KunTai\s*A924", re.IGNORECASE), 8),
+    (re.compile(r"Atlas\s*800[IT]\s*A3", re.IGNORECASE), 8),
+    (re.compile(r"Atlas\s*900\s*A3", re.IGNORECASE), 8),
+    (re.compile(r"Atlas\s*850\b(?!E)", re.IGNORECASE), 8),
+)
+NPU_COLLECTION_ERROR_MARKERS = (
+    "unable to read",
+    "permission denied",
+    "not permitted",
+    "no such file",
+    "not found",
+    "failed",
+    "无法读取",
+    "权限",
+    "失败",
+)
+NPU_STATE_LABELS = {
+    "missing": "未找到 npu_info",
+    "unreadable": "npu_info 存在但读取失败",
+    "collection-failed": "npu_info 存在但采集失败",
+    "format-unrecognized": "npu_info 存在但格式无法识别",
+    "empty": "npu_info 只有表头、没有设备行",
+}
 
-    上游解析器把「文件缺失」和「解析结果为 0 张卡」都折叠成数量 0，
-    于是缺文件会变成「疑似丢卡」。适配层按磁盘上有没有这个文件区分两者：
-    有文件时 0 张卡是真的 0 张，没有文件时在位情况属于未知。
-    """
-    root = machine.get("source_root")
-    if not root:
-        return None
-    base = Path(str(root))
-    if not base.is_dir():
-        return None
-    direct = base / "AppDump" / "CpuMem" / "npu_info"
-    if direct.is_file():
-        return str(direct)
-    for candidate in base.rglob("npu_info"):
-        if candidate.is_file() and candidate.parent.name == "CpuMem":
-            return str(candidate)
+
+def _model_name(machine: dict) -> str:
+    ident = machine.get("identity") or {}
+    versions = machine.get("versions") or {}
+    return str(ident.get("product_name") or versions.get("product_name") or ident.get("model") or "").strip()
+
+
+def _expected_npu_count(model: str) -> int | None:
+    for pattern, count in NPU_COUNT_BY_MODEL:
+        if pattern.search(model):
+            return count
     return None
+
+
+def _npu_inventory(machine: dict) -> dict:
+    """读 npu_info 原文，区分采集失败、格式无法识别与成功解析到的设备数量。
+
+    上游解析器把「文件缺失」「读取失败」和「解析结果为 0 张」都折叠成数量 0，
+    于是缺证据会变成「疑似丢卡」。这里按内容判定：只有带表头且至少解析出一行
+    设备记录才算成功采集；报错原文、无法识别的内容和只有表头的文件都按未知处理。
+    """
+    model = _model_name(machine)
+    expected = _expected_npu_count(model)
+    path = _find_under(machine, "npu_info")
+    if not path:
+        return {
+            "state": "missing",
+            "path": None,
+            "count": None,
+            "expected": expected,
+            "model": model,
+            "detail": NPU_STATE_LABELS["missing"],
+        }
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return {
+            "state": "unreadable",
+            "path": path,
+            "count": None,
+            "expected": expected,
+            "model": model,
+            "detail": f"{NPU_STATE_LABELS['unreadable']}（{exc}）",
+        }
+    rows = 0
+    header = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("Name"):
+            header = True
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        if len(parts) >= 7 and parts[0]:
+            rows += 1
+    if header and rows:
+        return {
+            "state": "ok",
+            "path": path,
+            "count": rows,
+            "expected": expected,
+            "model": model,
+            "detail": f"npu_info 解析到 {rows} 张",
+        }
+    if header:
+        return {
+            "state": "empty",
+            "path": path,
+            "count": None,
+            "expected": expected,
+            "model": model,
+            "detail": NPU_STATE_LABELS["empty"],
+        }
+    lowered = text.lower()
+    marker = next((item for item in NPU_COLLECTION_ERROR_MARKERS if item in lowered), "")
+    if marker:
+        snippet = clip(text.strip(), 160)
+        return {
+            "state": "collection-failed",
+            "path": path,
+            "count": None,
+            "expected": expected,
+            "model": model,
+            "detail": f"{NPU_STATE_LABELS['collection-failed']}（{snippet}）",
+        }
+    return {
+        "state": "format-unrecognized",
+        "path": path,
+        "count": None,
+        "expected": expected,
+        "model": model,
+        "detail": NPU_STATE_LABELS["format-unrecognized"],
+    }
 
 
 def _is_npu_presence_issue(issue: dict) -> bool:
     topic = str(issue.get("topic") or "")
     detail = str(issue.get("detail") or "")
-    return "NPU" in topic or "NPU 数量" in detail or "丢卡" in detail
+    return "NPU在位" in topic or "NPU 数量" in detail or "丢卡" in detail
 
 
 def _find_under(machine: dict, name: str) -> str | None:
@@ -148,6 +255,12 @@ def _sensor_observations(machine: dict, label: str, json_name: str) -> list:
 def analyze(inputs, out_dir: Path, args) -> dict:
     if not ENTRY.is_file():
         raise AnalyzerError("analyzer-not-installed", f"缺上游入口：{ENTRY}", status="failed")
+    before_json = {
+        path: file_signature(path) for path in glob.glob(str(out_dir / "*_bmc.json"))
+    }
+    before_html = {
+        path: file_signature(path) for path in glob.glob(str(out_dir / "*.html"))
+    }
     cmd = [sys.executable, str(ENTRY), *[item["path"] for item in inputs], "-o", str(out_dir)]
     proc = run_process(cmd, cwd=TOOL_DIR, timeout=args.timeout, log_path=out_dir / "vendor.log")
     if proc.get("timed_out"):
@@ -157,11 +270,13 @@ def analyze(inputs, out_dir: Path, args) -> dict:
 
     jsons = sorted(glob.glob(str(out_dir / "*_bmc.json")))
     jsons = [item for item in jsons if "all_machines" not in os.path.basename(item)]
+    jsons = [item for item in jsons if is_fresh(item, before_json.get(item))]
     htmls = sorted(glob.glob(str(out_dir / "*.html")))
+    htmls = [item for item in htmls if is_fresh(item, before_html.get(item))]
     if not jsons:
         raise AnalyzerError(
             "analyzer-failed",
-            "没有生成任何机器 JSON。退出码 {code}；stderr：{err}".format(
+            "没有生成新的机器 JSON（复用输出目录时不会沿用上一次结果）。退出码 {code}；stderr：{err}".format(
                 code=proc.get("exit_code"), err=tail(proc.get("stderr"), 600)
             ),
             status="failed",
@@ -171,7 +286,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     parse_errors = []
     for path in jsons:
         try:
-            machines.append(read_json(path))
+            machines.append((path, read_json(path)))
         except (OSError, ValueError) as exc:
             parse_errors.append(f"{os.path.basename(path)}: {exc}")
 
@@ -182,32 +297,79 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     reconciled = []
     verdicts = []
     counts = {"P0": 0, "P1": 0, "P2": 0, "P3": 0}
-    for path, machine in zip(jsons, machines):
+    for path, machine in machines:
         label = _machine_label(machine)
         health = machine.get("health") or {}
         verdict = health.get("verdict") or "UNKNOWN"
-        verdicts.append(f"{label}={verdict}")
+        healthy = verdict == "正常" or verdict.startswith("基本正常")
         issues = [item for item in (health.get("issues") or []) if isinstance(item, dict)]
-        npu_source = _npu_source(machine)
-        kept = []
-        for issue in issues:
-            if npu_source is None and _is_npu_presence_issue(issue):
-                # 原始判定留在产物 JSON 里可追溯，但不作为证据交给主持 agent。
-                suppressed.append(
-                    {
-                        "claim": f"{label}｜{issue.get('level')}｜{issue.get('topic')}：{issue.get('detail')}",
-                        "reason": "npu-info-missing",
-                        "detail": "未找到 AppDump/CpuMem/npu_info，在位数量未知，不据此判定丢卡",
-                        "evidence": f"{Path(path).name} health.issues",
-                    }
-                )
-                continue
-            kept.append(issue)
+        inventory = _npu_inventory(machine)
+        presence = [item for item in issues if _is_npu_presence_issue(item)]
+        kept = [item for item in issues if not _is_npu_presence_issue(item)]
+        presence_shortage = False
+        for issue in kept:
             level = str(issue.get("level") or "")
             if level in counts:
                 counts[level] += 1
-        if npu_source is None:
-            missing.append(f"{label}：NPU 在位未知（未找到 npu_info），相关在位判定已从发现里移除")
+        if inventory["state"] != "ok":
+            # 原始判定留在产物 JSON 里可追溯，但不作为证据交给诊断 agent。
+            for issue in presence:
+                suppressed.append(
+                    {
+                        "claim": f"{label}｜{issue.get('level')}｜{issue.get('topic')}：{issue.get('detail')}",
+                        "reason": f"npu-info-{inventory['state']}",
+                        "detail": f"{inventory['detail']}，在位数量未知，不据此判定丢卡",
+                        "evidence": f"{Path(path).name} health.issues",
+                    }
+                )
+            missing.append(
+                f"{label}：NPU 在位未知：{inventory['detail']}；相关在位判定已从发现里移除"
+            )
+        elif inventory.get("expected") and inventory["count"] < inventory["expected"]:
+            for issue in presence:
+                suppressed.append(
+                    {
+                        "claim": f"{label}｜{issue.get('level')}｜{issue.get('topic')}：{issue.get('detail')}",
+                        "reason": "npu-count-recomputed",
+                        "detail": (
+                            f"上游按固定 8 卡判数量；适配层按机型 {inventory['model'] or '未识别'} "
+                            f"的预期 {inventory['expected']} 卡重新核对，原始判定不作为证据"
+                        ),
+                        "evidence": f"{Path(path).name} health.issues",
+                    }
+                )
+            findings.append(
+                {
+                    "claim": (
+                        f"{label}｜P0｜NPU在位：npu_info 解析到 {inventory['count']} 张，"
+                        f"机型 {inventory['model'] or '未识别'} 预期 {inventory['expected']} 张，疑似丢卡"
+                    ),
+                    "evidence": f"{Path(path).name} + {Path(inventory['path']).name}",
+                    "kind": "fact",
+                }
+            )
+            counts["P0"] += 1
+            presence_shortage = True
+        else:
+            for issue in presence:
+                suppressed.append(
+                    {
+                        "claim": f"{label}｜{issue.get('level')}｜{issue.get('topic')}：{issue.get('detail')}",
+                        "reason": "npu-count-recomputed",
+                        "detail": (
+                            f"npu_info 解析到 {inventory['count']} 张；"
+                            f"机型 {inventory['model'] or '未识别'} 的预期卡数"
+                            f"{inventory['expected'] if inventory.get('expected') else '未登记'}，"
+                            "上游按固定 8 卡判出的在位异常不成立"
+                        ),
+                        "evidence": f"{Path(path).name} health.issues",
+                    }
+                )
+            if inventory.get("expected") is None and presence:
+                missing.append(
+                    f"{label}：机型「{inventory['model'] or '未识别'}」未登记预期卡数，"
+                    f"npu_info 解析到 {inventory['count']} 张但不做丢卡判定"
+                )
         severe = [item for item in kept if item.get("level") in ("P0", "P1")]
         for issue in severe[:3]:
             findings.append(
@@ -217,17 +379,35 @@ def analyze(inputs, out_dir: Path, args) -> dict:
                     "kind": "fact",
                 }
             )
-        if not severe:
-            note = "未发现 P0/P1 项"
-            if verdict != "正常" and any(item["claim"].startswith(f"{label}｜") for item in suppressed):
-                note = "可见 P0/P1 项已因缺证据移除（见 suppressed），判定需补材料后才能确认"
-            findings.append(
-                {
-                    "claim": f"{label}｜判定 {verdict}；{note}",
-                    "evidence": f"{Path(path).name} health.verdict",
-                    "kind": "fact",
-                }
-            )
+        if not severe and not presence_shortage:
+            if healthy:
+                findings.append(
+                    {
+                        "claim": f"{label}｜判定 {verdict}；未发现 P0/P1 项",
+                        "evidence": f"{Path(path).name} health.verdict",
+                        "kind": "fact",
+                    }
+                )
+            else:
+                # 上游判定「不正常」但 kept 里没有 P0/P1：唯一依据可能是被移除的
+                # 在位判定或 P2/P3。只如实报告上游判过，不把它写成已复核的事实。
+                observations.append(
+                    {
+                        "level": "observation",
+                        "topic": f"{label}｜上游判定",
+                        "detail": (
+                            f"上游判定 {verdict}，但保留的 P0/P1 项为空"
+                            "（被移除的判定见 suppressed，低优先级项见 observations），判定未复核"
+                        ),
+                        "evidence": f"{Path(path).name} health.verdict",
+                    }
+                )
+        if inventory["state"] != "ok" and presence:
+            verdicts.append(f"{label}=在位未知，判定未复核")
+        elif not healthy and not severe and not presence_shortage:
+            verdicts.append(f"{label}={verdict}（未复核）")
+        else:
+            verdicts.append(f"{label}={verdict}")
         parsed = len(machine.get("parsed_files") or [])
         if parsed == 0:
             missing.append(f"{label}：没有解析到可用文件")
@@ -280,6 +460,10 @@ def analyze(inputs, out_dir: Path, args) -> dict:
                             "evidence": f"{Path(ecc_disk['path']).name}",
                         }
                     )
+            else:
+                missing.append(
+                    f"{label}：npu_ecc_info.json 存在但没有可解析的 EccInfo，ECC 计数不可用"
+                )
 
     status = "ok"
     if proc.get("exit_code") not in (0, None):
@@ -304,7 +488,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     if missing:
         summary += f" 缺数据 {len(missing)} 项（见 missing）。"
     if suppressed:
-        summary += f" 另有 {len(suppressed)} 条判定因缺证据未作为发现（见 suppressed）。"
+        summary += f" 另有 {len(suppressed)} 条判定未作为发现（原因见 suppressed）。"
     if observations:
         summary += f" 低优先级观察 {len(observations)} 条（见 observations，未证实）。"
 
@@ -318,7 +502,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         "raw_exit_code": proc.get("exit_code"),
     }
     if suppressed:
-        # 被移除的判定连同原因一起留下：原始 JSON 里仍有它，这里给主持 agent 一个可追溯的入口，
+        # 被移除的判定连同原因一起留下：原始 JSON 里仍有它，这里给诊断 agent 一个可追溯的入口，
         # 但它在 findings 之外，不会被当成已证实的异常。
         payload["suppressed"] = suppressed[:5]
     if observations:

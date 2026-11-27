@@ -46,4 +46,4 @@ content:
     - "**影响面要写明**：`cpu-trace` 需要 root 且会短时开启 ftrace，必须写明现场授权与窗口；`network-evidence`、`cpu-power-audit`、`env-snapshot` 默认只读"
     - "**不上传、不联网**：`env-snapshot` 应保留 `--no-probes`；任何采集器都不访问公网、不自动回传"
     - "**没有对应采集器时如实说缺什么**：不要临时手写采集脚本，也不要用其他时间窗的数据顶替"
-    - "**采集成功不等于诊断成立**：结果仍交给 Analyzer 提取事实，根因、fix、severity 由主持 agent 判"
+    - "**采集成功不等于诊断成立**：结果仍交给 Analyzer 提取事实，根因、fix、severity 由诊断 agent 判"
