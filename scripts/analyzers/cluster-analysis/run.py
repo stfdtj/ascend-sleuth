@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """单份 prof 的端到端分析适配器。
 
-上游实现：scripts/analyzers/vendor/cluster-analysis/scripts/run_workflow.py
+上游实现：scripts/analyzers/cluster-analysis/scripts/run_workflow.py
 固定 --no-native：优先用上游内置 fallback，不要求本机安装 msprof-analyze。
 """
 from __future__ import annotations
@@ -27,8 +27,8 @@ from _lib import (  # noqa: E402
 
 ANALYZER = "cluster-analysis"
 VERSION = UPSTREAM_COMMIT
-VENDOR = ROOT / "vendor" / "cluster-analysis"
-ENTRY = VENDOR / "scripts" / "run_workflow.py"
+TOOL_DIR = HERE
+ENTRY = TOOL_DIR / "scripts" / "run_workflow.py"
 
 
 def analyze(inputs, out_dir: Path, args) -> dict:
@@ -49,7 +49,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         "--timeout", str(max(60, min(args.timeout, 300))),
     ]
     started = os.path.getmtime(root)
-    proc = run_process(cmd, cwd=VENDOR, timeout=args.timeout, log_path=out_dir / "vendor.log")
+    proc = run_process(cmd, cwd=TOOL_DIR, timeout=args.timeout, log_path=out_dir / "vendor.log")
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s；已完成阶段在 {out_dir}", status="failed")
 

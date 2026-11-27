@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """现网问题日志取证适配器。
 
-上游实现：scripts/analyzers/vendor/issue-analyzer/scripts/log_analyzer.py
+上游实现：scripts/analyzers/issue-analyzer/scripts/log_analyzer.py
 本文件按 L0 清单 → L1 提取 → L2 聚合跑一遍，结果摘要取自上游 JSON，不改判据。
 """
 from __future__ import annotations
@@ -26,18 +26,30 @@ from _lib import (  # noqa: E402
 
 ANALYZER = "issue-analyzer"
 VERSION = UPSTREAM_COMMIT
-VENDOR = ROOT / "vendor" / "issue-analyzer"
-ENTRY = VENDOR / "scripts" / "log_analyzer.py"
+TOOL_DIR = HERE
+ENTRY = TOOL_DIR / "scripts" / "log_analyzer.py"
+ARCHIVE_SUFFIXES = (".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".zip", ".7z", ".rar")
 
 
 def _run(args, out_dir: Path, timeout: int, name: str) -> dict:
     cmd = [sys.executable, str(ENTRY), *args]
-    return run_process(cmd, cwd=VENDOR, timeout=timeout, log_path=out_dir / f"{name}.log")
+    return run_process(cmd, cwd=TOOL_DIR, timeout=timeout, log_path=out_dir / f"{name}.log")
 
 
 def analyze(inputs, out_dir: Path, args) -> dict:
     if not ENTRY.is_file():
         raise AnalyzerError("analyzer-not-installed", f"缺上游入口：{ENTRY}", status="failed")
+
+    dirs = [item["path"] for item in inputs if item["kind"] == "dir"]
+    files = [item["path"] for item in inputs if item["kind"] == "file"]
+    archives = [Path(path).name for path in files if path.lower().endswith(ARCHIVE_SUFFIXES)]
+    if archives:
+        raise AnalyzerError(
+            "bad-input",
+            "请先解包，再传一个日志目录或日志文件。待解包文件：" + "、".join(archives),
+        )
+    if len(dirs) > 1:
+        raise AnalyzerError("bad-input", "请传一个包含各节点日志的目录，或传一个或多个日志文件。")
 
     logs = out_dir / "logs"
     logs.mkdir(parents=True, exist_ok=True)
@@ -45,8 +57,6 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     hits_json = logs / "hits.json"
     stats_json = logs / "stats.json"
 
-    dirs = [item["path"] for item in inputs if item["kind"] == "dir"]
-    files = [item["path"] for item in inputs if item["kind"] == "file"]
     problems = []
 
     if dirs and len(dirs) == 1 and not files:
@@ -104,7 +114,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
                 "kind": "fact",
             }
         )
-    if not findings:
+    if not findings and hits.get("files_scanned"):
         findings.append(
             {
                 "claim": f"扫描 {hits.get('files_scanned', 0)} 个文件，未命中预置错误模式；"
@@ -120,7 +130,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     if problems:
         missing.extend(problems)
 
-    status = "partial" if problems else "ok"
+    status = "partial" if missing else "ok"
     summary = (
         f"扫描 {hits.get('files_scanned', 0)} 个文件（{hits.get('files_with_hits', 0)} 个有命中），"
         f"命中 {total} 条。按模式：{pattern_text}。"

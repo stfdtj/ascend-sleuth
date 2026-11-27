@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """iBMC 一键收集日志分析适配器。
 
-上游实现：scripts/analyzers/vendor/ibmc_analyzer/scripts/run_bmc_report.py
+上游实现：scripts/analyzers/ibmc_analyzer/scripts/run_bmc_report.py
 本文件负责参数转换、结果摘要与产物登记；上游判定不改，只在两处补证据：
 缺失文件造成的在位误判（按未知处理），以及上游读不出 ECC 计数时的复读。
 """
@@ -30,8 +30,8 @@ from _lib import (  # noqa: E402
 
 ANALYZER = "ibmc_analyzer"
 VERSION = UPSTREAM_COMMIT
-VENDOR = ROOT / "vendor" / "ibmc_analyzer"
-ENTRY = VENDOR / "scripts" / "run_bmc_report.py"
+TOOL_DIR = HERE
+ENTRY = TOOL_DIR / "scripts" / "run_bmc_report.py"
 
 
 def _machine_label(machine: dict) -> str:
@@ -149,7 +149,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     if not ENTRY.is_file():
         raise AnalyzerError("analyzer-not-installed", f"缺上游入口：{ENTRY}", status="failed")
     cmd = [sys.executable, str(ENTRY), *[item["path"] for item in inputs], "-o", str(out_dir)]
-    proc = run_process(cmd, cwd=VENDOR, timeout=args.timeout, log_path=out_dir / "vendor.log")
+    proc = run_process(cmd, cwd=TOOL_DIR, timeout=args.timeout, log_path=out_dir / "vendor.log")
     if proc.get("timed_out"):
         raise AnalyzerError("timeout", f"超过 {args.timeout}s，已终止；完成的部分在 {out_dir}", status="failed")
     if proc.get("spawn_error"):

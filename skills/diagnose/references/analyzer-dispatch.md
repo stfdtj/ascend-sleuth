@@ -1,6 +1,6 @@
 # Analyzer Dispatch（整包数据 → 仓库内置分析器）
 
-**何时读**：步骤 5 深度排查，而工程师已经交来**整包数据**（不是几行报错）时。先看开关；关着、或没有这个包，就跳过本节，走原路径。
+**何时读**：步骤 5 深度排查，工程师已经交来整包数据时。先查可用分析器和本机启用状态。
 
 需要从 Prof 目录、`dump_info`、日志包或 ftrace 采集包提取数据时，按下面的表选分析器。负责诊断的 agent 核对证据，给出判断与处置建议。
 
@@ -11,7 +11,9 @@ python3 scripts/analyzers/cli.py status
 python3 scripts/analyzers/cli.py list --json
 ```
 
-输出 `analyzers: enabled` 才往下走。`disabled` 时**不要**直接跑 `run.py`，也不要把「没分析」写成「没发现异常」；本次诊断与没有分析器时一致。开关由环境变量 `SLEUTH_ANALYZERS` 控制：`on` 启用，未设置或 `off` 关闭。由使用者配置开关。
+分析器默认关闭。已有适合的本地数据，且 `status` 显示所需分析器已安装但当前关闭时，告诉工程师可以用 `status` 提示的 `enable` 命令开启，同时继续用现有证据排查。工程师明确要求开启时，才代为执行。启用后可在本机后续会话使用。
+
+`status --json` 的 `enable_command` 适用于当前平台。`source` 会说明设置来源。已有 `SLEUTH_ANALYZERS` 环境变量时，以该变量为准。
 
 `list --json` 给的是「这台机器上现在有哪些分析器、各自收什么输入」；下面的选择表按数据形态选，两者对不上时以 `list` 为准（某个分析器没装时不要按表硬调）。
 
@@ -21,12 +23,15 @@ python3 scripts/analyzers/cli.py list --json
 |---|---|---|
 | 一份 Prof 采集（单卡或多卡），或一份集群输出 | `cluster-analysis` | 两次集群结果的前后对照用 `cluster-compare` |
 | 两份集群采集或集群结果，各含多 rank / 集群 DB 或 TEXT | `cluster-compare` | 先明确 A/B、同负载、rank/step/window；不可比时只交描述差异 |
+| 两份单卡 Prof（NPU 主库或文本导出，或 A 为 GPU trace、B 为 NPU） | `prof-compare` | 集群多卡用 `cluster-compare` |
 | `dump_info/` 或 iBMC 一键收集包 | `ibmc_analyzer` | 不接 OS 日志；按内容判断，不按压缩包名 |
-| 至少两份含 JSON 内容的环境快照 | `ascend-dump-analyzer` | 单份快照只记录已知配置，按需补正常端或变更前的快照 |
-| plog / slog / 框架日志 / dmesg 等日志包 | `issue-analyzer` | 时间窗缺失时只扫描，不推断跨机先后 |
+| 一份环境快照 JSON，或至少两份含 JSON 内容的环境快照 | `ascend-dump-analyzer` | 单份核对采集环境的版本配套，至少两份可比对配置漂移 |
+| plog / slog / 框架日志 / dmesg 等日志 | `issue-analyzer` | 日志归档先解包。时间窗缺失时只扫描，不推断跨机先后 |
 | ftrace / Host 采集包，要调度证据 | `cpu-host-performance` | 只有环境 JSON 时不给调度根因；采集与绑核不在自动调用范围 |
 
 数据形态判不出来就问一句，别猜。混在一个包里的，只选当前缺口那一个。
+
+已有数据不够、需要客户现场采集时，不在本节拼命令：按 `collector-dispatch.md` 推荐脚本，采集结果回来后仍走本节的分析器。
 
 有基准和对比两侧的性能读数时，按 `performance-baseline-comparison-reading` 核对可比性、数值和单位。该读法可直接用于工程师给出的读数。
 
@@ -65,7 +70,7 @@ python3 scripts/analyzers/cli.py run <分析器名> \
 
 | reason | 含义 | 动作 |
 |---|---|---|
-| `analyzer-disabled` | `SLEUTH_ANALYZERS` 没开 | 当它不存在，回原路径；不要自己改开关 |
+| `analyzer-disabled` | 分析器关闭 | 有匹配的本地材料时给出 `enable` 命令，继续用现有证据排查 |
 | `dependency-missing` | 本机缺运行依赖 | 回原诊断流程；需要该工具时请工程师在预配环境安装 |
 | `bad-input` / `no-input` | 路径或数据形态不对 | 纠正一次；仍不对就请工程师重给 |
 | `timeout` | 超过预算（默认 600 s） | 请工程师按 rank / 时间窗裁剪后重给 |
@@ -82,11 +87,14 @@ python3 scripts/analyzers/cli.py run <分析器名> \
 | 分析器 | 要用户补的最小数据 |
 |---|---|
 | `issue-analyzer` | plog / slog / host / device / framework / dmesg 日志目录或文件 |
-| `ascend-dump-analyzer` | 至少两份环境快照 JSON |
+| `ascend-dump-analyzer` | 一份环境快照 JSON（看版本配套）；要判配置漂移时至少两份 |
+| `prof-compare` | 两份单卡 Prof（A 基准、B 对比）。混合对比时 A 为 GPU trace，B 为 NPU |
 | `cpu-host-performance` | ftrace / Host 采集包、解包目录、trace 文本或 Chrome JSON |
 | `ibmc_analyzer` | `dump_info` 目录或 iBMC 一键收集包 |
 | `cluster-analysis` | 一份 prof 目录，或 `cluster_analysis_output` |
 | `cluster-compare` | 两份集群数据目录，各含 DB 或 TEXT |
+
+没有现成数据时，按 `collector-dispatch.md` 看有没有对应的现场采集器；推荐后由工程师转客户执行。
 
 `partial` 的 `missing` 列出本次未分析的材料。报告应写明结果覆盖范围。若缺项影响正在验证的判断，只补这一项。
 
@@ -106,5 +114,5 @@ python3 scripts/analyzers/cli.py run <分析器名> \
 ## 不做什么
 
 - 不在诊断里 `pip install`、`apt install` 或下载第三方脚本。
-- 不自动执行采集脚本、`cpu_trace_collect.sh`、`bind_cpu.sh`、`taskset` 或任何会改客户机器状态的命令。上游随包保留了这些手动入口，只作人工操作说明。
+- 不自动执行采集脚本、`cpu_trace_collect.sh`、`bind_cpu.sh`、`taskset` 或任何会改客户机器状态的命令。需要现场证据时按 `collector-dispatch.md` 推荐采集器，由工程师转客户执行。
 - 不把分析器输出直接当根因；不把报告文件内容整份读进上下文。

@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 import zipfile
@@ -26,13 +27,17 @@ BASE_ENV = {
 }
 
 
-def run_cli(args, enabled: bool = True, extra_env: dict | None = None, timeout: int = 300):
+def run_cli(args, enabled: bool | None = True, extra_env: dict | None = None,
+            timeout: int = 300, cli: Path = CLI):
     env = dict(BASE_ENV)
-    env["SLEUTH_ANALYZERS"] = "on" if enabled else "off"
+    if enabled is None:
+        env.pop("SLEUTH_ANALYZERS", None)
+    else:
+        env["SLEUTH_ANALYZERS"] = "on" if enabled else "off"
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
-        [sys.executable, str(CLI), *args],
+        [sys.executable, str(cli), *args],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -70,16 +75,65 @@ class AnalyzerTestBase(unittest.TestCase):
 
 
 class GateTests(AnalyzerTestBase):
-    def test_status_defaults_off(self):
+    def test_status_reports_environment_override(self):
         proc = run_cli(["status", "--json"], enabled=False)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertFalse(payload["enabled"])
         names = {item["name"] for item in payload["analyzers"]}
         self.assertIn("ibmc_analyzer", names)
+        self.assertIn("prof-compare", names)
         self.assertNotIn("vllm-ascend-tuning", names)
-        self.assertNotIn("prof-compare", names)
-        self.assertEqual(len(names), 6)
+        self.assertEqual(len(names), 7)
+
+    def test_analyzer_can_be_enabled_and_disabled_without_environment_variable(self):
+        checkout = self.tmp / "isolated-checkout"
+        for relative in (
+            "_fs.py", "exec_log_path.py", "analyzers/cli.py", "analyzers/_lib.py",
+            "analyzers/registry.py", "analyzers/issue-analyzer/run.py",
+            "analyzers/issue-analyzer/scripts/log_analyzer.py",
+        ):
+            target = checkout / "scripts" / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPO / "scripts" / relative, target)
+        cli = checkout / "scripts" / "analyzers" / "cli.py"
+        preference = checkout / ".local" / "analyzers.enabled"
+        log = checkout / "host-0.log"
+        write_text(log, "2026-08-28 10:00:02 ERROR collective timeout rank 5\n")
+        out = self.out("locally-enabled")
+        analysis = ["run", "issue-analyzer", "--inputs", str(log), "--out-dir", str(out)]
+
+        status = run_cli(["status"], enabled=None, cli=cli)
+        self.assertEqual(status.returncode, 0, status.stderr)
+        self.assertIn("analyzers: disabled", status.stdout)
+        self.assertRegex(status.stdout, r"issue-analyzer\s+installed")
+        self.assertIn("scripts/analyzers/cli.py enable", status.stdout)
+        self.assertFalse(preference.exists())
+        refused = run_cli(analysis, enabled=None, cli=cli)
+        self.assertEqual(refused.returncode, 3, refused.stderr)
+        self.assertFalse(out.exists())
+
+        enabled = run_cli(["enable"], enabled=None, cli=cli)
+        self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        self.assertEqual(preference.read_text(encoding="utf-8").strip(), "on")
+        status = run_cli(["status", "--json"], enabled=None, cli=cli)
+        payload = json.loads(status.stdout)
+        self.assertTrue(payload["enabled"])
+        self.assertEqual(payload["source"], str(preference))
+        analyzed = run_cli(analysis, enabled=None, cli=cli)
+        self.assertEqual(analyzed.returncode, 0, analyzed.stdout + analyzed.stderr)
+        self.assertIn("collective timeout", read_result(out)["findings"][0]["claim"])
+        invocation = json.loads((out / "invocation.json").read_text(encoding="utf-8"))
+        self.assertEqual(invocation["enabled_by"], str(preference))
+
+        overridden = run_cli(["status", "--json"], enabled=False, cli=cli)
+        self.assertFalse(json.loads(overridden.stdout)["enabled"])
+        self.assertEqual(preference.read_text(encoding="utf-8").strip(), "on")
+        disabled = run_cli(["disable"], enabled=None, cli=cli)
+        self.assertEqual(disabled.returncode, 0, disabled.stderr)
+        self.assertEqual(preference.read_text(encoding="utf-8").strip(), "off")
+        status = run_cli(["status", "--json"], enabled=None, cli=cli)
+        self.assertFalse(json.loads(status.stdout)["enabled"])
 
     def test_disabled_run_does_not_create_output(self):
         out = self.out("must-not-exist")
@@ -324,6 +378,21 @@ class IssueTests(AnalyzerTestBase):
         hits = json.loads((out / "logs" / "hits.json").read_text(encoding="utf-8"))
         self.assertGreaterEqual(hits["total_hits"], 2)
 
+    def test_log_archive_requires_unpacking(self):
+        raw = self.tmp / "archived-logs" / "host-0.log"
+        write_text(raw, "2026-08-28 10:00:02 ERROR collective timeout rank 5\n")
+        archive = raw.with_name("plog_window.tar.gz")
+        with tarfile.open(archive, "w:gz") as bundle:
+            bundle.add(raw, arcname=raw.name)
+        out = self.out("issue-archive")
+        proc = run_cli(["run", "issue-analyzer", "--inputs", str(archive), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["status"], "blocked")
+        self.assertTrue(any("先解包" in item for item in result["data_needed"]))
+        self.assertIn(archive.name, result["detail"])
+        self.assertFalse((out / "logs" / "hits.json").exists())
+
 
 class DumpTests(AnalyzerTestBase):
     def _fixture(self):
@@ -346,15 +415,15 @@ class DumpTests(AnalyzerTestBase):
         self.assertEqual(diff["status"], "success")
         self.assertGreaterEqual(diff["summary"]["diff_count"], 2)
 
-    def test_single_snapshot_requests_a_second_snapshot(self):
+    def test_single_snapshot_uses_compatibility_not_diff(self):
         a, _ = self._fixture()
         out = self.out("dump-single")
         proc = run_cli(["run", "ascend-dump-analyzer", "--inputs", str(a), "--out-dir", str(out)])
-        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         result = read_result(out)
-        self.assertEqual(result["reason"], "bad-input")
-        self.assertIn("至少两份", result["data_needed"][0])
-        self.assertFalse((out / "diff.json").exists())
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(any(path.endswith("compatibility.json") for path in result["artifacts"]))
+        self.assertFalse((out / "diff.json").exists(), "单份快照不走比对路径")
 
     def test_compare_preserves_partial_results(self):
         a, b = self._fixture()
@@ -371,6 +440,228 @@ class DumpTests(AnalyzerTestBase):
         self.assertTrue(any(damaged.name in item for item in result["missing"]))
         self.assertEqual(result["data_needed"], [])
         self.assertIn(str(out / "diff.json"), result["artifacts"])
+
+
+class DumpSingleTests(AnalyzerTestBase):
+    """单份环境快照：看版本配套，不要求第二份。"""
+
+    def _snapshot(self, name: str, toolkit: str = "9.2.0") -> Path:
+        path = self.tmp / "dump-single" / name
+        write_json(
+            path,
+            {
+                "_meta": {"schema_version": "1.2", "status": "success"},
+                "system": {"os_release": "Kylin V10", "machine": "aarch64", "release": "5.10.0"},
+                "runtime": {
+                    "python_version": "3.10.1",
+                    "packages": {
+                        "pip_list_raw": ["torch==2.7.1", "torch_npu==2.7.1.post11"]
+                    },
+                },
+                "ascend": {
+                    "toolkit": {"version": toolkit, "collection_status": "success"},
+                    "driver": {"version": "24.1.0"},
+                },
+                "npu": {
+                    "devices": [
+                        {
+                            "device_id": 0,
+                            "name": "910B",
+                            "chip_type": "Ascend910B",
+                            "compatibility": "OK",
+                        }
+                    ]
+                },
+            },
+        )
+        return path
+
+    def test_compatibility_facts(self):
+        snapshot = self._snapshot("ok.json")
+        out = self.out("dump-single-ok")
+        proc = run_cli(
+            ["run", "ascend-dump-analyzer", "--inputs", str(snapshot), "--out-dir", str(out)]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["status"], "ok")
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("torch_npu = 2.7.1.post11", claims)
+        self.assertIn("软件配套匹配", claims)
+        self.assertTrue(any(path.endswith("compatibility.json") for path in result["artifacts"]))
+        self.assertFalse((out / "diff.json").exists(), "单份不应走比对路径")
+
+    def test_incomplete_snapshot_keeps_workload_and_collection_evidence(self):
+        path = self._snapshot("collection-gap.json")
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        del snapshot["npu"]
+        snapshot["_meta"].update(
+            status="partial",
+            timestamp="2026-08-28 10:00:02",
+            collection={
+                "npu": {"status": "failed", "errors": ["npu-smi unavailable"]},
+                "ping": {"status": "skipped", "reason": "probes disabled"},
+            },
+        )
+        loaded = "/opt/cann/8.3.RC1/lib/libascendcl.so"
+        snapshot["workload"] = {"targets": {"worker-0": {
+            "pid": 42,
+            "start_time_ticks": 1234,
+            "libraries": {"source": "proc_maps", "paths": [loaded]},
+        }}}
+        write_json(path, snapshot)
+        out = self.out("dump-collection-gap")
+        proc = run_cli(["run", "ascend-dump-analyzer", "--inputs", str(path), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["status"], "partial")
+        self.assertTrue(any("npu-smi unavailable" in item for item in result["missing"]))
+        self.assertTrue(any("业务进程配套未核对" in item for item in result["missing"]))
+        self.assertFalse(any("ping" in item for item in result["missing"]))
+        data = json.loads((out / "compatibility.json").read_text(encoding="utf-8"))
+        self.assertEqual(data["software"]["status"], "matched")
+        evidence = data["snapshot_evidence"]
+        self.assertEqual(evidence["software_scope"], "collector_environment")
+        self.assertEqual(evidence["collection"], snapshot["_meta"]["collection"])
+        self.assertEqual(evidence["targets"]["worker-0"]["libraries"]["paths"], [loaded])
+
+    def test_deviation_keeps_raw_version(self):
+        snapshot = self._snapshot("deviation.json", toolkit="8.3.RC1")
+        out = self.out("dump-single-deviation")
+        proc = run_cli(
+            ["run", "ascend-dump-analyzer", "--inputs", str(snapshot), "--out-dir", str(out)]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("软件配套偏离", claims)
+        self.assertIn("8.3.RC1", claims, "报原值，不报小写归一后的值")
+        self.assertIn("9.2.0", claims)
+        self.assertFalse(result["data_needed"], "单份成功时不该向用户要第二份")
+
+    def test_compare_also_checks_each_snapshot(self):
+        a = self._snapshot("compare-a.json", toolkit="9.2.0")
+        b = self._snapshot("compare-b.json", toolkit="8.3.RC1")
+        out = self.out("dump-compare-compat")
+        proc = run_cli(
+            [
+                "run",
+                "ascend-dump-analyzer",
+                "--inputs",
+                f"{a}\n{b}",
+                "--out-dir",
+                str(out),
+            ]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("配套偏离（compare-b.json", claims)
+        self.assertIn("8.3.RC1", claims, "配套事实也要保留原始版本串")
+        self.assertTrue(
+            any(path.endswith("compatibility-02-compare-b.json") for path in result["artifacts"]),
+            "每份快照的兼容性结果要作为产物留痕",
+        )
+
+    def test_invalid_json_is_blocked_not_crashed(self):
+        path = self.tmp / "dump-single" / "bad.json"
+        write_text(path, "{not-json")
+        out = self.out("dump-single-bad")
+        proc = run_cli(
+            ["run", "ascend-dump-analyzer", "--inputs", str(path), "--out-dir", str(out)]
+        )
+        self.assertEqual(proc.returncode, 1)
+        result = read_result(out)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["reason"], "bad-input")
+        self.assertIn("JSON", result["detail"])
+
+
+class ProfCompareTests(AnalyzerTestBase):
+    """两份单卡 NPU 文本导出：Host/Device 热点对比，不依赖第三方包。"""
+
+    HEADER = (
+        "Type,Accelerator Core,Name,Duration(us),Start Time(us),Stream ID,Device_id,"
+        "Input Shapes,Output Shapes,Input Data Types,Output Data Types"
+    )
+
+    def _export(self, name: str, duration: int) -> Path:
+        root = self.tmp / "prof" / name
+        output = root / "ASCEND_PROFILER_OUTPUT"
+        rows = [self.HEADER]
+        for offset in (0, 2000):
+            rows.append(
+                f'MatMul,AI_CORE,aclnnMatmul,{duration},{100000 + offset},1,0,'
+                f'"1024;1024","1024;1024","DT_BF16;DT_BF16","DT_BF16"'
+            )
+        rows.append(
+            f'Vector,AI_VECTOR,aclnnAdd,{duration // 2},{105000},2,0,'
+            f'"1024","1024","DT_BF16","DT_BF16"'
+        )
+        write_text(output / "kernel_details.csv", "\n".join(rows) + "\n")
+        return root
+
+    def test_two_single_card_exports(self):
+        a = self._export("A", 1000)
+        b = self._export("B", 1200)
+        out = self.out("prof-compare")
+        proc = run_cli(
+            [
+                "run",
+                "prof-compare",
+                "--inputs",
+                f"{a}\n{b}",
+                "--out-dir",
+                str(out),
+            ]
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertIn(result["status"], ("ok", "partial"))
+        claims = " ".join(item["claim"] for item in result["findings"])
+        self.assertIn("Device MatMul/AI_CORE", claims)
+        self.assertIn("慢", claims)
+        self.assertIn("0.400", claims)
+        self.assertTrue((out / "prof_compare.json").is_file())
+        self.assertTrue((out / "prof_compare.md").is_file())
+
+    def test_mixed_pair_requires_gpu_baseline(self):
+        npu = self._export("mixed", 1000)
+        gpu = npu.parent / "rank.pt.trace.json"
+        write_json(gpu, {"traceEvents": [
+            {"name": "aten::matmul", "cat": "cpu_op", "ph": "X", "pid": 12,
+             "tid": 12, "dur": 150, "ts": 100000},
+            {"name": "MatMul", "cat": "kernel", "ph": "X", "pid": 0,
+             "tid": 1, "dur": 600, "ts": 100200, "args": {"device": 0}},
+        ]})
+        out = self.out("mixed-gpu-first")
+        proc = run_cli(["run", "prof-compare", "--inputs", f"{gpu}\n{npu}", "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        detail = json.loads((out / "prof_compare.json").read_text(encoding="utf-8"))
+        matmul = next(row for row in detail["device"] if row["op"] == "MatMul")
+        self.assertAlmostEqual(matmul["diff"]["delta_ms"], 1.4)
+        self.assertEqual(detail["identity"]["base"]["device_type"], "GPU")
+        self.assertEqual(detail["identity"]["compare"]["device_type"], "NPU")
+
+        out = self.out("mixed-npu-first")
+        proc = run_cli(["run", "prof-compare", "--inputs", f"{npu}\n{gpu}", "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["reason"], "bad-input")
+        self.assertTrue(any("GPU trace 基准" in item for item in result["data_needed"]))
+        self.assertIn("按顺序", result["detail"])
+        self.assertFalse((out / "prof_compare.json").exists())
+
+    def test_requires_two_sides(self):
+        a = self._export("A", 1000)
+        out = self.out("prof-compare-single")
+        proc = run_cli(
+            ["run", "prof-compare", "--inputs", str(a), "--out-dir", str(out)]
+        )
+        self.assertEqual(proc.returncode, 1)
+        result = read_result(out)
+        self.assertEqual(result["reason"], "bad-input")
+        self.assertIn("两份", result["data_needed"][0])
 
 
 class ClusterCompareTests(AnalyzerTestBase):
@@ -406,8 +697,42 @@ class ClusterCompareTests(AnalyzerTestBase):
         self.assertTrue((out / "cluster_compare_report.md").is_file())
         self.assertTrue(result["findings"])
 
+    def test_nonoverlapping_steps_keep_shape_comparison(self):
+        a = self._cluster("shape-A", 155000)
+        b = self._cluster("shape-B", 215000)
+        csv = b / "cluster_analysis_output" / "cluster_step_trace_time.csv"
+        text = csv.read_text(encoding="utf-8").replace("\n1,rank,", "\n11,rank,")
+        write_text(csv, text)
+        out = self.out("shape-compare")
+        proc = run_cli(["run", "cluster-compare", "--inputs", f"{a}\n{b}", "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        result = read_result(out)
+        self.assertEqual(result["status"], "partial")
+        self.assertIn("按采集顺序配对", result["summary"])
+        self.assertTrue(any("仅用于形态比较" in gap for gap in result["missing"]))
+        self.assertEqual(result["findings"][0]["kind"], "candidate")
+        self.assertIn(str(out / "cluster_compare_report.html"), result["artifacts"])
+
 
 class ClusterAnalysisTests(AnalyzerTestBase):
+    def test_two_cards_keep_json_comparison_after_upstream_update(self):
+        root = self.tmp / "multi-card"
+        for rank in (0, 1):
+            card = root / f"rank{rank}_ascend_pt"
+            write_json(card / f"profiler_info_{rank}.json", {"rank_id": rank})
+            write_text(
+                card / "ASCEND_PROFILER_OUTPUT" / "step_trace_time.csv",
+                "Step,Computing,Communication(Not Overlapped),Overlapped,Communication,Free,Stage,Bubble\n"
+                f"1,100000,{20000 + rank * 10000},5000,{25000 + rank * 10000},30000,{155000 + rank * 10000},0\n",
+            )
+        out = self.out("multi-card")
+        proc = run_cli(["run", "cluster-analysis", "--inputs", str(root), "--out-dir", str(out)])
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        state = json.loads((out / "workflow_status.json").read_text(encoding="utf-8"))
+        self.assertNotEqual(state["stages"]["compare_fallback"]["status"], "failed")
+        self.assertTrue((out / "compare" / "compare_analysis_result.json").is_file())
+        self.assertTrue((out / "performance_report.html").is_file())
+
     def test_single_card(self):
         card = self.tmp / "ca" / "card0_ascend_pt" / "ASCEND_PROFILER_OUTPUT"
         write_text(
@@ -432,7 +757,7 @@ class ClusterAnalysisTests(AnalyzerTestBase):
 class CpuHostTests(AnalyzerTestBase):
     def test_synthetic_trace(self):
         generated = self.tmp / "cpu" / "case"
-        generator = REPO / "scripts" / "analyzers" / "vendor" / "cpu-host-performance" / "examples" / "generate_synthetic.py"
+        generator = REPO / "tests" / "fixtures" / "analyzers" / "generate_cpu_trace.py"
         proc = subprocess.run(
             [sys.executable, str(generator), "--output", str(generated)],
             capture_output=True,
@@ -451,7 +776,8 @@ class CpuHostTests(AnalyzerTestBase):
         result = read_result(out)
         self.assertEqual(result["status"], "ok")
         self.assertTrue((out / "hostbound_report.html").is_file())
-        self.assertTrue(any("bind_cpu.sh" in item for item in result["artifacts"]))
+        self.assertTrue(any("cpu_binder_simple.py" in item for item in result["artifacts"]))
+        self.assertTrue(any("bind_design.json" in item for item in result["artifacts"]))
 
 
 class UnsupportedInputTests(AnalyzerTestBase):

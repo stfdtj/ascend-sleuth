@@ -1,48 +1,35 @@
-# 来源、许可与改动说明
+# 来源、许可与本地改动
 
-## 上游
+本地分析脚本来自 hu669293657/skills，固定提交为 bf82e886ddda0a9955c2d5422f50b0b4caeb80b6。原作者为 hu669293657。逐项对应关系见 PROVENANCE.yaml，客户采集脚本见 ../collectors/PROVENANCE.yaml。
 
-| 项 | 值 |
-|---|---|
-| 仓库 | https://github.com/hu669293657/skills |
-| 提交 | `6519f6f73ba68c6eaf51d9374644e4b60c84be0c` |
-| 作者 | hu669293657 |
-| 上游许可 | **未声明**：仓库内没有 `LICENSE` / `COPYING` / `NOTICE` 文件，也没有源文件头部的 SPDX 标识 |
+上游未声明开源许可证。迁入方此前确认了作者对迁入和再分发的口头授权，当前尚无书面许可记录。
 
-## 再分发状态
+## 文件组织
 
-迁入方此前确认了作者对迁入和再分发的口头授权。上游仍未声明开源许可，当前无书面许可记录。
+每个分析器的实现放在 scripts/analyzers/<name>/ 中，run.py 是 Sleuth 调用入口。保留运行所需的脚本、模板、配套数据和参考资料。
 
-来源与原作者署名随保留文件一并记录。
+客户采集脚本位于 scripts/collectors/ascend-dump/ 和 scripts/collectors/cpu-host/。CPU ftrace 采集与分析器共用同一份脚本，通过采集器清单打包。
 
-## 保留范围
+vLLM 调优资料从原作者仓库查询。
 
-| 上游目录 | 本地位置 | 是否保留 |
-|---|---|---|
-| `ibmc_analyzer/` | `scripts/analyzers/vendor/ibmc_analyzer/` | 是 |
-| `issue-analyzer/` | `scripts/analyzers/vendor/issue-analyzer/` | 是 |
-| `ascend-dump-analyzer/` | `scripts/analyzers/vendor/ascend-dump-analyzer/references/compare_dumps.py` | 环境快照字段比对脚本 |
-| `prof-compare/` | `references/methodologies/performance-baseline-comparison-reading.yaml` | 性能基准对照的判读方法 |
-| `cluster-analysis/` | `scripts/analyzers/vendor/cluster-analysis/` | 是 |
-| `cluster-compare/` | `scripts/analyzers/vendor/cluster-compare/` | 是 |
-| `cpu-host-performance/` | `scripts/analyzers/vendor/cpu-host-performance/` | 是 |
-| `vllm-ascend-tuning/` | `scripts/analyzers/vendor/vllm-ascend-tuning/` | 提示词、调优说明与配置模板 |
+## 本轮同步
 
-完整保留的目录内，上游测试及说明供查阅。诊断使用本仓登记的分析入口。
+- 环境快照引入机器可读兼容性目录及查询实现。
+- 单卡 Prof 更新设备身份识别和逐次 kernel 归因，补齐所需模块。
+- 集群分析更新已有导出识别、Rank 时间图、通信分类排行和瓶颈报告。
+- 集群对比更新时间单位、Step 配对、通信算子聚合和缓存行为。
+- CPU 分析和采集更新产品识别、非默认安装路径、绑核方案产物和依赖。
 
-## 对上游文件的改动
+## 本地执行约定
 
-分析算法沿用上游实现。下表记录执行路径的改动。
+分析器通过 Sleuth 适配器调用，输出 result.json。单卡 Prof 使用标准库路径。集群分析使用内置 fallback，集群对比跳过需要外部工具的高级分析。集群内双卡差异保留 JSON，独立单卡入口负责 Prof 对比。
 
-| 文件 | 改动 | 原因 |
-|---|---|---|
-| `vendor/ascend-dump-analyzer/references/compare_dumps.py` | 读取 dump 时用 `utf-8-sig` | 接受带 BOM 的 JSON，避免 Windows 生成的 dump 被误判为解析失败 |
-| `vendor/cluster-analysis/scripts/` 下的工作流、桥接器和报告生成器 | 移除内嵌的单卡 Prof 对比子报告，保留集群内双卡对比 JSON 和主报告 | 单卡 Prof 对比保留为判读方法 |
-| `vendor/ibmc_analyzer/scripts/run_bmc_report.py` | zip 解包改为逐条校验，拒绝越界路径与符号链接；压缩包解压失败时不再把压缩包路径当目录继续解析 | 一键收集包可能含 `../` 条目，不能让解包写出输出目录；失败要明确返回，不能生成一份“空机器”报告 |
-| `vendor/cpu-host-performance/analyzer/analyze_cpu_trace.py` | 启动时把 stdout/stderr 设为 UTF-8 | Windows 控制台默认代码页会让中文报告标题抛 `UnicodeEncodeError` |
+绑核建议保存到 bind_design.json，配套脚本为 cpu_binder_simple.py。适配器生成建议文件，现场执行由工程师按变更要求处理。
 
-集群分析的说明和回归测试随调用路径更新。适配器与公共执行层由 Sleuth 维护。
+环境快照保留采集失败与目标进程证据。日志归档先解包。原有 BOM 读取、zip 路径校验和 Windows UTF-8 输出修复继续保留。
 
-## 归属
+## 按需查询的上游内容
 
-上游作者与仓库记在本文件和 `scripts/analyzers/PROVENANCE.yaml`。保留原作者署名。
+完整 Prof 工作簿和单卡 HTML 渲染、环境快照 HTML 模板、客户定制绑核生成入口，以及发行维护脚本可从上游查询。当前清单只登记现有分析和采集调用链。
+
+[原作者仓库](https://github.com/hu669293657/skills/tree/bf82e886ddda0a9955c2d5422f50b0b4caeb80b6)

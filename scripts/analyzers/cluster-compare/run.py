@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """两个集群 profiling 数据的比对适配器。
 
-上游实现：scripts/analyzers/vendor/cluster-compare/scripts/{cluster_data_extractor,generate_cluster_report,generate_cluster_md}.py
+上游实现：scripts/analyzers/cluster-compare/scripts/{cluster_data_extractor,generate_cluster_report,generate_cluster_md}.py
 输入按 A（基准）、B（对比）顺序给两份集群数据目录；只接受已有 cluster_analysis_output（DB/TEXT），
 不在诊断里安装 msprof-analyze、也不从原始采集数据自动生成。
 """
@@ -27,16 +27,16 @@ from _lib import (  # noqa: E402
 
 ANALYZER = "cluster-compare"
 VERSION = UPSTREAM_COMMIT
-VENDOR = ROOT / "vendor" / "cluster-compare"
-EXTRACT = VENDOR / "scripts" / "cluster_data_extractor.py"
-REPORT = VENDOR / "scripts" / "generate_cluster_report.py"
-REPORT_MD = VENDOR / "scripts" / "generate_cluster_md.py"
+TOOL_DIR = HERE
+EXTRACT = TOOL_DIR / "scripts" / "cluster_data_extractor.py"
+REPORT = TOOL_DIR / "scripts" / "generate_cluster_report.py"
+REPORT_MD = TOOL_DIR / "scripts" / "generate_cluster_md.py"
 
 
 def _extract(path: str, output: Path, args) -> dict:
     proc = run_process(
         [sys.executable, str(EXTRACT), "--data-dir", path, "--output", str(output), "--no-advanced"],
-        cwd=VENDOR,
+        cwd=TOOL_DIR,
         timeout=args.timeout,
         log_path=output.with_suffix(".log"),
     )
@@ -55,23 +55,37 @@ def _step_diff(data_a: dict, data_b: dict) -> dict:
     steps_a = data_a.get("step_summary") or {}
     steps_b = data_b.get("step_summary") or {}
     common = [step for step in steps_a if step in steps_b]
-    if not common:
+    pairs = [(step, step) for step in common]
+    shape_only = False
+    if not pairs:
+        sys.path.insert(0, str(TOOL_DIR / "scripts"))
+        from compare_metrics import ordinal_step_pairs
+
+        ordered, _ = ordinal_step_pairs(steps_a, steps_b)
+        pairs = [(a, b) for _, a, b in ordered if a is not None and b is not None]
+        shape_only = True
+    if not pairs:
         return {}
     def mean(key):
         values = []
-        for step in common:
-            a = (steps_a.get(step) or {}).get(key)
-            b = (steps_b.get(step) or {}).get(key)
+        for step_a, step_b in pairs:
+            a = (steps_a.get(step_a) or {}).get(key)
+            b = (steps_b.get(step_b) or {}).get(key)
             if a is not None and b is not None:
                 values.append((float(b) - float(a)) / 1000.0)
         return sum(values) / len(values) if values else None
     return {
-        "steps": len(common),
+        "steps": len(pairs),
+        "shape_only": shape_only,
         "stage_ms": mean("avg_stage"),
         "compute_ms": mean("avg_compute"),
         "comm_ms": mean("avg_comm"),
         "free_ms": mean("avg_free"),
     }
+
+
+def _delta(value) -> str:
+    return "未采到" if value is None else f"{value:+.3f}"
 
 
 def analyze(inputs, out_dir: Path, args) -> dict:
@@ -94,7 +108,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     proc = run_process(
         [sys.executable, str(REPORT), "--data-a", str(data_a_path), "--data-b", str(data_b_path),
          "--output", str(html)],
-        cwd=VENDOR,
+        cwd=TOOL_DIR,
         timeout=args.timeout,
         log_path=out_dir / "report.log",
     )
@@ -106,7 +120,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     proc_md = run_process(
         [sys.executable, str(REPORT_MD), "--data-a", str(data_a_path), "--data-b", str(data_b_path),
          "--output", str(md)],
-        cwd=VENDOR,
+        cwd=TOOL_DIR,
         timeout=args.timeout,
         log_path=out_dir / "report_md.log",
     )
@@ -115,20 +129,22 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     if not diff:
         raise AnalyzerError("bad-input", "两份数据没有共同的 Step，无法比对；先确认两次采集的 step 范围。")
 
+    pairing = "按采集顺序配对" if diff["shape_only"] else "共同"
     findings = [
         {
             "claim": (
-                "共同 {steps} 个 Step：Stage 平均差 {stage:+.3f} ms，计算 {compute:+.3f} ms，"
-                "通信 {comm:+.3f} ms，空闲 {free:+.3f} ms（B−A）"
+                "{pairing} {steps} 个 Step：Stage 平均差 {stage} ms，计算 {compute} ms，"
+                "通信 {comm} ms，空闲 {free} ms（B−A）"
             ).format(
                 steps=diff["steps"],
-                stage=diff.get("stage_ms") or 0.0,
-                compute=diff.get("compute_ms") or 0.0,
-                comm=diff.get("comm_ms") or 0.0,
-                free=diff.get("free_ms") or 0.0,
+                pairing=pairing,
+                stage=_delta(diff.get("stage_ms")),
+                compute=_delta(diff.get("compute_ms")),
+                comm=_delta(diff.get("comm_ms")),
+                free=_delta(diff.get("free_ms")),
             ),
             "evidence": "data_a.json / data_b.json step_summary",
-            "kind": "fact",
+            "kind": "candidate" if diff["shape_only"] else "fact",
         }
     ]
     tables_empty = sorted(set(data_a.get("tables_empty") or []) | set(data_b.get("tables_empty") or []))
@@ -142,23 +158,26 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         )
     findings.append(
         {
-            "claim": "完整差异、慢卡与通信算子排行见 HTML/Markdown 报告；本摘要只给共同 Step 的均值差。",
+            "claim": "差异、慢卡与通信算子排行见 HTML/Markdown 报告，摘要给出配对 Step 的均值差。",
             "evidence": str(html),
             "kind": "fact",
         }
     )
 
     summary = (
-        f"集群比对（A 基准 → B 对比）：共同 {diff['steps']} 个 Step，"
-        f"Stage 平均差 {diff.get('stage_ms') or 0.0:+.3f} ms（正值为 B 更慢）。"
+        f"集群比对（A 基准 → B 对比）：{pairing} {diff['steps']} 个 Step，"
+        f"Stage 平均差 {_delta(diff.get('stage_ms'))} ms（正值为 B 更慢）。"
         f"报告：{html}"
     )
     artifacts = [str(item) for item in (html, md, data_a_path, data_b_path) if item.is_file()]
+    missing = [f"缺可选表：{item}" for item in tables_empty]
+    if diff["shape_only"]:
+        missing.append("两侧 Step 编号不重叠，按采集顺序配对，仅用于形态比较。需要同一迭代的证据才能判断逐步性能。")
     return {
-        "status": "partial" if tables_empty else "ok",
+        "status": "partial" if missing else "ok",
         "summary": clip(summary, 500),
         "findings": findings[:5],
-        "missing": [f"缺可选表：{item}" for item in tables_empty][:8],
+        "missing": missing[:8],
         "artifacts": artifacts,
     }
 

@@ -5,16 +5,17 @@
 用法：
   python3 scripts/analyzers/cli.py status [--json]
   python3 scripts/analyzers/cli.py list
+  python3 scripts/analyzers/cli.py enable
+  python3 scripts/analyzers/cli.py disable
   python3 scripts/analyzers/cli.py run <name> --inputs <路径...> [--out-dir <目录>] [--session-id <ID>]
 
-开关：SLEUTH_ANALYZERS=on 启用；未设置或 off 时 run 直接拒绝，不启动分析器。
+分析器默认关闭。enable / disable 保存本机设置，环境变量 SLEUTH_ANALYZERS 可覆盖该设置。
 每个分析器也可以直接跑自己的适配器：python3 scripts/analyzers/<name>/run.py --help
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,19 +23,27 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from _lib import ENV_NAME, UPSTREAM_COMMIT, analyzer_enabled, enablement_source, force_utf8  # noqa: E402
+from _lib import (  # noqa: E402
+    ENABLE_COMMAND,
+    UPSTREAM_COMMIT,
+    analyzer_state,
+    force_utf8,
+    save_analyzer_preference,
+)
 from registry import ANALYZERS, find  # noqa: E402
 
 
 def _installed(item: dict) -> bool:
-    return (HERE / item["adapter"]).is_file() and (HERE / item["vendor"]).is_dir()
+    return (HERE / item["adapter"]).is_file() and (HERE / item["name"] / item["entry"]).is_file()
 
 
 def _status_payload() -> dict:
+    enabled, source = analyzer_state()
     return {
         "schema_version": 1,
-        "enabled": analyzer_enabled(),
-        "source": enablement_source(),
+        "enabled": enabled,
+        "source": source,
+        "enable_command": ENABLE_COMMAND,
         "upstream_commit": UPSTREAM_COMMIT,
         "python": sys.executable,
         "analyzers": [
@@ -42,7 +51,7 @@ def _status_payload() -> dict:
                 "name": item["name"],
                 "installed": _installed(item),
                 "adapter": str(HERE / item["adapter"]),
-                "vendor": str(HERE / item["vendor"]),
+                "entry": str(HERE / item["name"] / item["entry"]),
                 "inputs": item["inputs"],
                 "purpose": item["purpose"],
             }
@@ -65,7 +74,22 @@ def cmd_status(args: argparse.Namespace) -> int:
             mark = "installed" if item["installed"] else "MISSING"
             print(f"  {item['name']:<22} {mark}")
         if not payload["enabled"]:
-            print(f"\n启用：设置 {ENV_NAME}=on（A/B 组保持未设置）")
+            print(f"\n本机启用：{payload['enable_command']}")
+    return 0
+
+
+def cmd_set_enabled(args: argparse.Namespace) -> int:
+    try:
+        path = save_analyzer_preference(args.enabled)
+    except OSError as exc:
+        print(f"保存分析器设置失败（{exc}）", file=sys.stderr)
+        return 1
+    preference = "开启" if args.enabled else "关闭"
+    print(f"已保存本机设置（{preference}） {path}")
+    enabled, source = analyzer_state()
+    if enabled != args.enabled:
+        state = "开启" if enabled else "关闭"
+        print(f"当前仍为{state}（{source}）")
     return 0
 
 
@@ -91,10 +115,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     if item is None:
         print(f"未知分析器：{args.name}；可用：{', '.join(x['name'] for x in ANALYZERS)}", file=sys.stderr)
         return 2
-    if not analyzer_enabled():
+    enabled, source = analyzer_state()
+    if not enabled:
         print(
-            f"分析器未启用（{enablement_source()}）。这是实验开关，不是错误；"
-            f"设置 {ENV_NAME}=on 后重跑。本次没有启动任何分析器。",
+            f"分析器已关闭（{source}）。本机启用命令：{ENABLE_COMMAND}",
             file=sys.stderr,
         )
         return 3
@@ -114,6 +138,11 @@ def main(argv: list[str] | None = None) -> int:
     status = sub.add_parser("status", help="查看开关与分析器安装状态")
     status.add_argument("--json", action="store_true", help="输出 JSON")
     status.set_defaults(func=cmd_status)
+
+    enable = sub.add_parser("enable", help="在本机开启分析器")
+    enable.set_defaults(func=cmd_set_enabled, enabled=True)
+    disable = sub.add_parser("disable", help="在本机关闭分析器")
+    disable.set_defaults(func=cmd_set_enabled, enabled=False)
 
     listing = sub.add_parser("list", help="列出分析器与输入形态")
     listing.add_argument("--json", action="store_true", help="输出 JSON")

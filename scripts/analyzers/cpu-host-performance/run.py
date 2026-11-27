@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Host/CPU trace 离线分析适配器。
 
-上游实现：scripts/analyzers/vendor/cpu-host-performance/analyzer/analyze_cpu_trace.py
+上游实现：scripts/analyzers/cpu-host-performance/analyzer/analyze_cpu_trace.py
 只做离线解析；采集脚本、绑核执行入口不在本适配器调用范围内。
 """
 from __future__ import annotations
@@ -26,8 +26,8 @@ from _lib import (  # noqa: E402
 
 ANALYZER = "cpu-host-performance"
 VERSION = UPSTREAM_COMMIT
-VENDOR = ROOT / "vendor" / "cpu-host-performance"
-ENTRY = VENDOR / "analyzer" / "analyze_cpu_trace.py"
+TOOL_DIR = HERE
+ENTRY = TOOL_DIR / "analyzer" / "analyze_cpu_trace.py"
 
 
 def analyze(inputs, out_dir: Path, args) -> dict:
@@ -39,7 +39,7 @@ def analyze(inputs, out_dir: Path, args) -> dict:
 
     proc = run_process(
         [sys.executable, str(ENTRY), target, "-o", str(out_dir), "-q"],
-        cwd=VENDOR,
+        cwd=TOOL_DIR,
         timeout=args.timeout,
         log_path=out_dir / "vendor.log",
     )
@@ -91,8 +91,8 @@ def analyze(inputs, out_dir: Path, args) -> dict:
         )
     findings.append(
         {
-            "claim": "bind_cpu.sh 是上游给出的绑核建议脚本，本次没有执行；执行前需人工核对 PID/线程身份与回退。",
-            "evidence": str(out_dir / "bind_cpu.sh"),
+            "claim": "绑核建议位于 bind_design.json，配套执行脚本为 cpu_binder_simple.py。现场执行需要核对目标进程和变更授权。",
+            "evidence": str(out_dir / "bind_design.json"),
             "kind": "fact",
         }
     )
@@ -111,7 +111,8 @@ def analyze(inputs, out_dir: Path, args) -> dict:
     artifacts = [str(item) for item in (
         out_dir / "hostbound_report.html",
         data_path,
-        out_dir / "bind_cpu.sh",
+        out_dir / "cpu_binder_simple.py",
+        out_dir / "bind_design.json",
     ) if item.is_file()]
     return {
         "status": "ok",

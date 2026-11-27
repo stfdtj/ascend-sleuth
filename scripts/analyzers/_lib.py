@@ -3,7 +3,7 @@
 """内置分析器的公共执行层（本仓代码，不属于上游分析器）。
 
 职责只有四件：判断分析器是否启用、校验输入、跑适配器、统一写 result.json。
-分析算法全部在上游实现里（scripts/analyzers/vendor/<name>/），本文件不含任何判据。
+分析算法全部在上游实现里（scripts/analyzers/<name>/），本文件不含任何判据。
 """
 from __future__ import annotations
 
@@ -18,13 +18,19 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+SCRIPTS = Path(__file__).resolve().parents[1]
+sys.path.append(str(SCRIPTS))
+
+from _fs import atomic_write_text  # noqa: E402
+from exec_log_path import resolve_rel  # noqa: E402
+
 SCHEMA_VERSION = 1
 ENV_NAME = "SLEUTH_ANALYZERS"
-UPSTREAM_COMMIT = "6519f6f"
-UPSTREAM_COMMIT_FULL = "6519f6f73ba68c6eaf51d9374644e4b60c84be0c"
+ENABLE_COMMAND = f"{'python' if sys.platform == 'win32' else 'python3'} scripts/analyzers/cli.py enable"
+UPSTREAM_COMMIT = "bf82e88"
+UPSTREAM_COMMIT_FULL = "bf82e886ddda0a9955c2d5422f50b0b4caeb80b6"
 UPSTREAM_URL = "https://github.com/hu669293657/skills"
 TRUE_VALUES = {"1", "on", "true", "yes", "y"}
-FALSE_VALUES = {"0", "off", "false", "no", "n", ""}
 DEFAULT_TIMEOUT = 600
 
 
@@ -38,29 +44,32 @@ class AnalyzerError(Exception):
         self.status = status
 
 
-def analyzer_enabled() -> bool:
-    raw = os.environ.get(ENV_NAME, "").strip().lower()
-    if raw in TRUE_VALUES:
-        return True
-    if raw in FALSE_VALUES:
-        return False
-    return False
+def analyzer_preference_path() -> Path:
+    path, _ = resolve_rel(SCRIPTS.parent, Path(".local") / "analyzers.enabled")
+    return path
 
 
-def enablement_source() -> str:
+def analyzer_state() -> tuple[bool, str]:
     raw = os.environ.get(ENV_NAME)
-    if raw is None:
-        return f"{ENV_NAME} 未设置（默认 off）"
-    return f"{ENV_NAME}={raw}"
+    if raw is not None:
+        return raw.strip().lower() in TRUE_VALUES, f"{ENV_NAME}={raw}"
+
+    path = analyzer_preference_path()
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return False, "默认关闭"
+    except (OSError, UnicodeError) as exc:
+        return False, f"无法读取本机设置 {path}（{exc}）"
+    if value in {"on", "off"}:
+        return value == "on", str(path)
+    return False, f"本机设置 {path} 的值无效"
 
 
-def ensure_enabled() -> None:
-    if not analyzer_enabled():
-        raise AnalyzerError(
-            "analyzer-disabled",
-            f"分析器未启用（{enablement_source()}）。这是实验开关，不是错误；"
-            f"设置 {ENV_NAME}=on 后重跑。",
-        )
+def save_analyzer_preference(enabled: bool) -> Path:
+    path = analyzer_preference_path()
+    atomic_write_text(path, "on\n" if enabled else "off\n")
+    return path
 
 
 def now_iso() -> str:
@@ -295,9 +304,11 @@ def responder(result: dict) -> str:
     findings = result.get("findings") or []
     if findings:
         lines.append("关键发现：")
-        for index, item in enumerate(findings, 1):
+        for index, item in enumerate(findings[:5], 1):
             claim = item.get("claim") if isinstance(item, dict) else str(item)
             lines.append(f"{index}. {claim}")
+        if len(findings) > 5:
+            lines.append(f"（另有 {len(findings) - 5} 条发现，见 result.json）")
     missing = result.get("missing") or []
     if missing:
         lines.append("缺数据：" + "；".join(str(item) for item in missing))
@@ -352,19 +363,19 @@ def run_adapter(analyzer: str, version: str, analyze, description: str = "") -> 
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"超时秒数（默认 {DEFAULT_TIMEOUT}）")
     args = parser.parse_args()
 
+    enabled, source = analyzer_state()
+    if not enabled:
+        print(responder({
+            "status": "blocked",
+            "reason": "analyzer-disabled",
+            "detail": f"分析器已关闭（{source}）。本机启用命令：{ENABLE_COMMAND}",
+        }))
+        return 3
+
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else default_out_dir(args.session_id)
     started = time.time()
     result = _base_result(analyzer, version, out_dir)
     required = required_input(analyzer)
-
-    if not analyzer_enabled():
-        result.update(
-            status="blocked",
-            reason="analyzer-disabled",
-            detail=f"分析器未启用（{enablement_source()}）。设置 {ENV_NAME}=on 后重跑。",
-        )
-        print(responder(result))
-        return 3
 
     try:
         raw_inputs = parse_inputs(args.inputs)
@@ -431,7 +442,7 @@ def run_adapter(analyzer: str, version: str, analyze, description: str = "") -> 
         "purpose": args.purpose,
         "timeout_seconds": args.timeout,
         "python": sys.executable,
-        "enabled_by": enablement_source(),
+        "enabled_by": source,
         "started_at": now_iso(),
     }
     write_json(out_dir / "invocation.json", invocation)
