@@ -83,13 +83,84 @@ KNOWN_OUTCOMES = {"hit", "miss", "skipped"}
 # source_analysis 的验证结果（--verify 的三种收尾）：hit/miss 是跑了；skipped 是没跑。
 KNOWN_VERIFY = {"hit", "miss", "skipped"}
 
-# external_lookup 的 capability 固定词表（与 skills/diagnose/references/diagnosis-trace.md 一致）：
-#   versioned-code  按版本或镜像定位源码（vllm_kb_code）
-#   upstream-fix    修复链、要给「已修复 / 升级即可」的依据（vllm_kb_fix）
-#   manual-doc      手册原文（vllm_kb_doc）
-#   image-to-text   截图转文字（vllm_kb_ocr）
-# 词表外取值 → 分布统计会漏掉这一类，此处确定性检出。
-KNOWN_CAPABILITIES = {"versioned-code", "upstream-fix", "manual-doc", "image-to-text"}
+# external_lookup 的 capability 枚举：**登记在 references/_types.yaml 的
+# external_capabilities**（工具词条用 content.capability 声明自己属于哪一种），
+# 这里从那份数据读，不在代码里维护第二份。读不到 = 配置缺失：返回空集，于是任何
+# capability 都会被判成词表外取值，显式报出来而不是静默放过。
+def _load_external_capabilities():
+    path = Path(__file__).resolve().parents[1] / "references" / "_types.yaml"
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return set()
+    vals = doc.get("external_capabilities")
+    return {str(v) for v in vals} if isinstance(vals, list) else set()
+
+
+KNOWN_CAPABILITIES = _load_external_capabilities()
+
+def normalize_framework(value) -> str:
+    """框架名归一：大小写、下划线、前后空格不影响对账（词法错误不制造假阳性）。"""
+    return str(value or "").strip().lower().replace("_", "-")
+
+
+def _load_capability_frameworks(root=None) -> dict:
+    """能力 → 该能力词条声明的适用框架（同源数据：references/tools/**）。
+
+    读取端不判断"该不该用 vllm-kb"这类大类问题；它只对账。与校验端同一套入口规则：
+    跳过 `_` 前缀文件/目录（`_archive` 除外），只认 active 与 deprecated；同名能力
+    优先 active，没有 active 才回退 deprecated——否则一份 draft 或归档副本会改写映射。
+    """
+    base = Path(root) if root else Path(__file__).resolve().parents[1]
+    tools = base / "references" / "tools"
+    active, archived = {}, {}
+    if not tools.exists():
+        return {}
+    for path in sorted(tools.rglob("*.yaml")):
+        parts = path.relative_to(tools).parts
+        if path.name.startswith("_") or any(
+                part.startswith("_") and part != "_archive" for part in parts[:-1]):
+            continue
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(doc, dict) or doc.get("status") not in ("active", "deprecated"):
+            continue
+        content = doc.get("content") if isinstance(doc.get("content"), dict) else {}
+        cap = content.get("capability")
+        applies = doc.get("applies_to") if isinstance(doc.get("applies_to"), dict) else {}
+        frameworks = applies.get("frameworks")
+        if not (isinstance(cap, str) and isinstance(frameworks, list) and frameworks):
+            continue
+        target = active if doc.get("status") == "active" else archived
+        # 同名能力只取第一条（排序稳定）；重复由 verify_references 报。
+        target.setdefault(cap, {normalize_framework(x) for x in frameworks if str(x).strip()})
+    for cap, fws in archived.items():
+        active.setdefault(cap, fws)
+    return active
+
+
+def _load_known_frameworks(root=None, capability_map=None) -> set:
+    """已知框架值域：知识库的目录名（训练/推理两侧）+ 工具词条声明过的值。
+
+    只在这个值域内对账。检测到 `vllm-asend` 这类拼写错误时沉默——读取端是事后
+    探测器，不是闸门；把"错拼"报成"外部能力越界"会让读者改错地方。
+    """
+    base = Path(root) if root else Path(__file__).resolve().parents[1]
+    known = set()
+    for side in ("training", "inference"):
+        d = base / "knowledge" / side
+        if d.is_dir():
+            known |= {normalize_framework(x.name) for x in d.iterdir() if x.is_dir()}
+    caps = CAPABILITY_FRAMEWORKS if capability_map is None else capability_map
+    for fws in caps.values():
+        known |= set(fws)
+    return known
+
+
+CAPABILITY_FRAMEWORKS = _load_capability_frameworks()
+KNOWN_FRAMEWORKS = _load_known_frameworks(capability_map=CAPABILITY_FRAMEWORKS)
 
 # 顶层 external_evidence（会话级，一次写定）：工具在不在。
 # on = 有工具；off = 没装或工具行关着。开了但服务挂了仍写 on，那是事件级 skipped。
@@ -232,6 +303,8 @@ def _compute_metrics(states: list, by_case: dict):
     external_calls = []
     capability_bad = []
     external_outcome_bad = []
+    # 外部能力用在它声明不适用的框架上：读取端对账，不改写入端
+    external_framework_bad = []
     external_evidence = {}
 
     # 按类命中（metrics.md 定义）：每个 category 的 Tier2 命中 session / 该 category session
@@ -243,6 +316,8 @@ def _compute_metrics(states: list, by_case: dict):
     # 执行-误诊归因比（metrics.md 定义）：attribution 事件 verdict 分布——case 错 vs 执行错。
     # 归因由 diagnose 在反馈 not_resolved 后读 trace 判定（SKILL 硬要求），此处只统计落点。
     attr = {"case_error": 0, "execution_error": 0}
+    # 先验依据失败（fix_basis）单列：它不进 case/execution 比，但要能看出发生过
+    fix_basis_attribs = 0
     # triage miss 两类（EV-2026-110）——两类同形就没法判断"该不该补词"，这里把它们分开记
     miss_lex, miss_sem, miss_unrec, miss_notriage = [], [], [], []
 
@@ -375,6 +450,16 @@ def _compute_metrics(states: list, by_case: dict):
                 if cap and cap not in KNOWN_CAPABILITIES:
                     capability_bad.append(f"{st.get('session_id', '?')}: {cap!r}")
                 out = t.get("outcome")
+                # 能力适用面对账：hit/miss 才算"用了"；skipped 不查（可能是按规则跳过）。
+                # 框架缺失或 unknown 不报（旧单不回填），只在对得上/对不上时给结论。
+                if cap in CAPABILITY_FRAMEWORKS and out in ("hit", "miss"):
+                    declared = CAPABILITY_FRAMEWORKS[cap]
+                    fw = normalize_framework(st.get("detected_framework"))
+                    if fw in KNOWN_FRAMEWORKS and fw not in declared:
+                        external_framework_bad.append(
+                            f"{st.get('session_id', '?')}: capability {cap!r} 只声明适用 "
+                            f"{sorted(declared)}，本单 detected_framework={st.get('detected_framework')!r}"
+                        )
                 if out and out not in KNOWN_OUTCOMES:
                     external_outcome_bad.append(f"{st.get('session_id', '?')}: {out!r}")
                 if out == "skipped":
@@ -383,6 +468,11 @@ def _compute_metrics(states: list, by_case: dict):
                         external_outcome_bad.append(f"{st.get('session_id', '?')}: skipped reason={reason!r}")
                 external_calls.append(str(cap) if cap else "?")
             elif a == "attribution":
+                # 先验依据失败（attribution_scope: fix_basis）走 component_tally 的 prior_basis，
+                # 不进执行-误诊归因比：这里比的是 case 错 vs 执行错，先验词条错不是这两类。
+                if t.get("attribution_scope") == "fix_basis":
+                    fix_basis_attribs += 1
+                    continue
                 # 两种键都认：规范写 `verdict`，而生产端实际写的是 `attribution_kind`——
                 # 只读 `verdict` 时这条腿恒为 0（实测 7 条归因事件里 4 条写 attribution_kind、
                 # 3 条两个键都没有），而「0」在读数上与「没有归因问题」同形。
@@ -526,8 +616,9 @@ def _compute_metrics(states: list, by_case: dict):
         # 外部查证：工具在不在（顶层）与按 capability 的调用次数；取值越界单列。
         "external_evidence": external_evidence or None,
         "external_lookups": {c: external_calls.count(c) for c in sorted(set(external_calls))} or None,
-        "external_record_violations": (capability_bad + external_outcome_bad)[:5] or None,
-        "external_record_violations_total": len(capability_bad) + len(external_outcome_bad),
+        "external_record_violations": (capability_bad + external_outcome_bad + external_framework_bad)[:5] or None,
+        "external_record_violations_total": (len(capability_bad) + len(external_outcome_bad)
+                                             + len(external_framework_bad)),
     }
 
     detail = {
@@ -539,6 +630,7 @@ def _compute_metrics(states: list, by_case: dict):
         "cat_total": cat_total,
         "cat_hit": cat_hit,
         "attr": attr,
+        "fix_basis_attribs": fix_basis_attribs,
         "scores": scores,
         "n_low": n_low,
         "fb": fb,
@@ -560,6 +652,7 @@ def _compute_metrics(states: list, by_case: dict):
         "purpose_bad": purpose_bad,
         "ref_outcomes": ref_outcomes,
         "outcome_bad": outcome_bad,
+        "external_framework_bad": external_framework_bad,
         "source_events": source_events,
         "source_repos": source_repos,
         "source_refs": source_refs,

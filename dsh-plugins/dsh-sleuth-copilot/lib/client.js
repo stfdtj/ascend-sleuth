@@ -151,6 +151,7 @@ window.__ModuleLoader__.load({
       'waitingOn.upstream': '等上游',
       'waitingOn.ended': '已收尾',
       'steps': '第 {n}/{m} 步',
+      'stepsOver': '第 {n} 步',
       'stepsShort': '{n}/{m}',
       'chip.miss': '知识库未覆盖',
       'chip.excluded': '已排除 {n} 条',
@@ -751,6 +752,7 @@ window.__ModuleLoader__.load({
       'waitingOn.upstream': 'upstream',
       'waitingOn.ended': 'closed',
       'steps': 'Step {n}/{m}',
+      'stepsOver': 'Step {n}',
       'stepsShort': '{n}/{m}',
       'chip.miss': 'not in knowledge base',
       'chip.excluded': '{n} excluded',
@@ -2414,12 +2416,15 @@ body[data-ds-dark-theme] .scp-actions,body[data-ds-dark-theme] .scp-sed-actions,
     function stepsText(extra) {
       const current = Number(extra && extra.currentStep) || 0
       const max = Number(extra && extra.maxSteps) || 6
+      // 超过诊断流程的步数（续接、报告修订会把步号继续往上记）：分母不再表示进度，只报步号。
+      if (current > max) return tr('stepsOver', { n: current })
       return tr('steps', { n: current > 0 ? current : '—', m: max })
     }
 
     function stepsShort(extra) {
       const current = Number(extra && extra.currentStep) || 0
       const max = Number(extra && extra.maxSteps) || 6
+      if (current > max) return tr('stepsOver', { n: current })
       return tr('stepsShort', { n: current > 0 ? current : '—', m: max })
     }
 
@@ -2688,7 +2693,8 @@ body[data-ds-dark-theme] .scp-actions,body[data-ds-dark-theme] .scp-sed-actions,
         : ''
       return [
         '查 ' + row.activeCase + ' 的上游状态（只查上游，不续接诊断；来源 ' + traceSource(row) + '）。',
-        '1) 先跑 python3 scripts/doctor.py --json 确认 gh 已安装并登录' + gap
+        '1) 先跑 python3 scripts/doctor.py --json：GitHub 锚点需要 gh 已安装并登录；'
+          + 'GitCode 或其他主机的锚点不需要 gh（脚本会判「不可查证」，请人工打开 url 核对）' + gap
           + '；不可用就停并报缺口，不要猜。网络是否可用以第 2 步的「不可查证」结局为准。',
         '2) 跑 python3 scripts/verify_upstream_outcomes.py --case ' + row.activeCase
           + ' --dry-run --json 看结论' + known + verified + '。',

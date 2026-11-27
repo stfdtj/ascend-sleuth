@@ -22,19 +22,22 @@ status: active
 last_verified: 2026-10-19
 
 content:
+  capability: versioned-code   # 对应 trace 的 external_lookup.capability
   tool_name: vllm_kb_code（vllm-kb 接入插件的源码定位工具；打 vllm-kb 的 POST /code/search）
   invocation: >-
-    工具参数：query（必填，代码特征/符号名/报错字面量）、version（部署版本，如 0.23.0）、
+    工具参数：query（必填，代码特征/符号名/报错字面量）、version（部署版本，**带 v 前缀**，如 v0.23.0；不带会 404「版本未预存」，返回里附可用版本列表）、
     repo（命名空间前缀，img:<镜像 tag> 或 fork:<模型>@<sha>）、in_file（限定文件）、
     per_version（一次列各版本命中）、kind（填 msg 时按报错字面量索引查定义处）。
     典型用法：判断某个修复进没进版本用 per_version；镜像现场用 repo=img:<tag>；只记得报错原文用 kind=msg。
+    kind=msg 必须给报错原文的**完整字面量**（与源码 raise 语句逐字一致，含大小写与标点）；宽松子串不命中，
+    先裁掉前缀与上下文再查，否则会把「查不到」误读成「这个报错不在源码里」。
   output_meaning: >-
     返回命中文件与行号，per_version 时按版本分组列出；kind=msg 时给出报错字面量所在的文件与行。
     输出是接口返回的 JSON（命中按版本列出），带端点名称与耗时；超过 8000 字符会截断并标记。命中是代码事实，但前提是端点对应的那一套代码
     就是现场部署的代码——镜像与 fork 必须显式带 repo。
   pitfalls:
     - 端点绑定的是某个部署版本。报告里要写明这条证据来自哪个端点（工具返回里有名称），否则读者会把它当成自己那套部署的结论。
-    - 命中不等于修复生效：同文件同名主题的相邻命中不构成证据，必须落在修复特征行上（见 skills/diagnose/references/diagnosis-procedure.md 的「上游修复的落地实证」）。
+    - 命中不等于修复生效：同文件同名主题的相邻命中不构成证据，必须落在修复特征行上（见 skills/diagnose/references/steps/5-deep-dive.md 的「上游修复的落地实证」）。
     - 服务不可达时工具返回 ok:false、reason 写 unreachable 或 http-5xx；这时记 outcome: skipped 并回原路径（gh search 与 src_fetch.py），本单不再重试。
     - 输出截断到 8000 字符。看不到目标片段就缩小范围（加 in_file 或换成更短的特征串），不要重复整查。
     - repo 前缀写错会退化成查官方版本，结果看着很像但不适用于镜像现场；拿不准就先查它列出的镜像清单。
